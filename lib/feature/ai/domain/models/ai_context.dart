@@ -1,5 +1,4 @@
 import 'package:JsxposedX/generated/apk_analysis.g.dart';
-import 'package:JsxposedX/generated/so_analysis.g.dart';
 
 /// AI 上下文信息 — 封装当前分析的 APK 基础信息
 class AiApkContext {

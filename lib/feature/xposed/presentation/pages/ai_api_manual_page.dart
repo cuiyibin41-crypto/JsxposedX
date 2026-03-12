@@ -62,8 +62,9 @@ class AiApiManualPage extends HookConsumerWidget {
     // 自动滚动逻辑（同 AiReversePage）
     final lastMessageId = useRef<String?>(null);
     useEffect(() {
-      if (chatState.messages.isNotEmpty) {
-        final currentLastId = chatState.messages.last.id;
+      final visibleMessages = chatState.visibleMessages;
+      if (visibleMessages.isNotEmpty) {
+        final currentLastId = visibleMessages.last.id;
         final isNewMessage = lastMessageId.value != currentLastId;
         lastMessageId.value = currentLastId;
 
@@ -78,7 +79,7 @@ class AiApiManualPage extends HookConsumerWidget {
         }
       }
       return null;
-    }, [chatState.messages.length]);
+    }, [chatState.visibleMessages.length]);
 
     return Scaffold(
       appBar: _buildAppBar(context, ref, chatState, systemPrompt, apiType),
@@ -88,7 +89,7 @@ class AiApiManualPage extends HookConsumerWidget {
           children: [
             Expanded(
               child: AiChatList(
-                messages: chatState.messages,
+                messages: chatState.visibleMessages,
                 scrollController: scrollController,
                 packageName: packageName,
                 systemPrompt: systemPrompt,

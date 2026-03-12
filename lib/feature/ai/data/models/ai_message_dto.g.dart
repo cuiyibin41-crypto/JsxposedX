@@ -11,23 +11,15 @@ _AiMessageDto _$AiMessageDtoFromJson(Map<String, dynamic> json) =>
       role: json['role'] as String? ?? "user",
       content: json['content'] as String? ?? "",
       toolCalls: (json['tool_calls'] as List<dynamic>?)
-          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          ?.map((e) => e as Map<String, dynamic>)
           .toList(),
       toolCallId: json['tool_call_id'] as String?,
     );
 
-Map<String, dynamic> _$AiMessageDtoToJson(_AiMessageDto instance) {
-  final val = <String, dynamic>{
-    'role': instance.role,
-    'content': instance.content,
-  };
-
-  if (instance.toolCalls != null) {
-    val['tool_calls'] = instance.toolCalls;
-  }
-  if (instance.toolCallId != null) {
-    val['tool_call_id'] = instance.toolCallId;
-  }
-
-  return val;
-}
+Map<String, dynamic> _$AiMessageDtoToJson(_AiMessageDto instance) =>
+    <String, dynamic>{
+      'role': instance.role,
+      'content': instance.content,
+      'tool_calls': ?instance.toolCalls,
+      'tool_call_id': ?instance.toolCallId,
+    };

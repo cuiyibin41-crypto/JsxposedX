@@ -8,17 +8,13 @@ part of 'ai_chat_action_provider.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-/// AI 在线状态 Provider
 
 @ProviderFor(aiStatus)
 const aiStatusProvider = AiStatusProvider._();
 
-/// AI 在线状态 Provider
-
 final class AiStatusProvider
     extends $FunctionalProvider<AsyncValue<bool>, bool, FutureOr<bool>>
     with $FutureModifier<bool>, $FutureProvider<bool> {
-  /// AI 在线状态 Provider
   const AiStatusProvider._()
     : super(
         from: null,
@@ -44,7 +40,7 @@ final class AiStatusProvider
   }
 }
 
-String _$aiStatusHash() => r'0c4d10863ec4b253ff40b3d1dd596e305bd6049c';
+String _$aiStatusHash() => r'b98885c6a1b35649dcb576b5063e08ea12d34800';
 
 @ProviderFor(aiChatActionDatasource)
 const aiChatActionDatasourceProvider = AiChatActionDatasourceProvider._();
@@ -92,7 +88,7 @@ final class AiChatActionDatasourceProvider
 }
 
 String _$aiChatActionDatasourceHash() =>
-    r'279bf08b942f82f871d2a9656771bf1a03cdf6ef';
+    r'062973391994e8a309f34d36e40ebac8377c1f6e';
 
 @ProviderFor(aiChatActionRepository)
 const aiChatActionRepositoryProvider = AiChatActionRepositoryProvider._();
@@ -191,7 +187,7 @@ final class AiChatActionProvider
   }
 }
 
-String _$aiChatActionHash() => r'83c79d063f85bc434412ace5612799973e327bbc';
+String _$aiChatActionHash() => r'7f1195aa6ef4abdd763dde3baba16e8e9d3c927d';
 
 final class AiChatActionFamily extends $Family
     with

@@ -1,29 +1,90 @@
 import 'package:JsxposedX/core/models/ai_message.dart';
 import 'package:JsxposedX/core/models/ai_session.dart';
-import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:JsxposedX/feature/ai/domain/models/ai_response_issue.dart';
+import 'package:JsxposedX/feature/ai/domain/models/ai_session_init_state.dart';
 
-part 'ai_chat_action_state.freezed.dart';
+class AiChatActionState {
+  const AiChatActionState({
+    this.messages = const [],
+    this.protocolMessages = const [],
+    this.sessions = const [],
+    this.isStreaming = false,
+    this.error,
+    this.currentSessionId,
+    this.systemPrompt,
+    this.apkSessionId,
+    this.dexPaths = const [],
+    this.visibleMessageCount = 10,
+    this.lastResponseIssue,
+    this.sessionInitState = AiSessionInitState.ready,
+  });
 
-@freezed
-abstract class AiChatActionState with _$AiChatActionState {
-  const AiChatActionState._();
+  final List<AiMessage> messages;
+  final List<AiMessage> protocolMessages;
+  final List<AiSession> sessions;
+  final bool isStreaming;
+  final String? error;
+  final String? currentSessionId;
+  final String? systemPrompt;
+  final String? apkSessionId;
+  final List<String> dexPaths;
+  final int visibleMessageCount;
+  final AiResponseIssue? lastResponseIssue;
+  final AiSessionInitState sessionInitState;
 
-  const factory AiChatActionState({
-    @Default([]) List<AiMessage> messages, // 当前显示的（分页后）
-    @Default([]) List<AiMessage> allMessages, // 完整的历史记录
-    @Default([]) List<AiSession> sessions,
-    @Default(false) bool isStreaming,
-    @Default(null) String? error,
-    @Default(null) String? currentSessionId,
-    // APK分析上下文
-    @Default(null) String? systemPrompt,
-    @Default(null) String? apkSessionId,
-    @Default([]) List<String> dexPaths,
-  }) = _AiChatActionState;
+  List<AiMessage> get visibleMessages {
+    if (messages.length <= visibleMessageCount) {
+      return List<AiMessage>.unmodifiable(messages);
+    }
+    return List<AiMessage>.unmodifiable(
+      messages.sublist(messages.length - visibleMessageCount),
+    );
+  }
 
-  List<AiMessage> get visibleMessages => allMessages
-      .where((message) => message.shouldDisplayInChatList)
-      .toList(growable: false);
+  int get totalVisibleMessagesCount => messages.length;
 
-  int get visibleMessagesCount => visibleMessages.length;
+  bool get canSend =>
+      !isStreaming &&
+      sessionInitState != AiSessionInitState.initializing &&
+      sessionInitState != AiSessionInitState.failed;
+
+  AiChatActionState copyWith({
+    List<AiMessage>? messages,
+    List<AiMessage>? protocolMessages,
+    List<AiSession>? sessions,
+    bool? isStreaming,
+    Object? error = _sentinel,
+    Object? currentSessionId = _sentinel,
+    Object? systemPrompt = _sentinel,
+    Object? apkSessionId = _sentinel,
+    List<String>? dexPaths,
+    int? visibleMessageCount,
+    Object? lastResponseIssue = _sentinel,
+    AiSessionInitState? sessionInitState,
+  }) {
+    return AiChatActionState(
+      messages: messages ?? this.messages,
+      protocolMessages: protocolMessages ?? this.protocolMessages,
+      sessions: sessions ?? this.sessions,
+      isStreaming: isStreaming ?? this.isStreaming,
+      error: identical(error, _sentinel) ? this.error : error as String?,
+      currentSessionId: identical(currentSessionId, _sentinel)
+          ? this.currentSessionId
+          : currentSessionId as String?,
+      systemPrompt: identical(systemPrompt, _sentinel)
+          ? this.systemPrompt
+          : systemPrompt as String?,
+      apkSessionId: identical(apkSessionId, _sentinel)
+          ? this.apkSessionId
+          : apkSessionId as String?,
+      dexPaths: dexPaths ?? this.dexPaths,
+      visibleMessageCount: visibleMessageCount ?? this.visibleMessageCount,
+      lastResponseIssue: identical(lastResponseIssue, _sentinel)
+          ? this.lastResponseIssue
+          : lastResponseIssue as AiResponseIssue?,
+      sessionInitState: sessionInitState ?? this.sessionInitState,
+    );
+  }
 }
+
+const Object _sentinel = Object();

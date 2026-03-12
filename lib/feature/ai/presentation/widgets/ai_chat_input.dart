@@ -1,4 +1,5 @@
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
+import 'package:JsxposedX/feature/ai/domain/models/ai_session_init_state.dart';
 import 'package:JsxposedX/feature/ai/presentation/providers/chat/ai_chat_action_provider.dart';
 import 'package:JsxposedX/feature/ai/presentation/widgets/ai_quick_actions.dart';
 import 'package:flutter/material.dart';
@@ -26,7 +27,12 @@ class AiChatInput extends HookConsumerWidget {
     final textValue = useValueListenable(textController);
     final hasContent = textValue.text.trim().isNotEmpty;
     final isStreaming = chatState.isStreaming;
-    final canSend = hasContent && !isStreaming;
+    final canSend = hasContent && chatState.canSend;
+    final hintText = switch (chatState.sessionInitState) {
+      AiSessionInitState.initializing => '逆向会话初始化中…',
+      AiSessionInitState.failed => '逆向会话初始化失败，当前不可发送',
+      AiSessionInitState.ready => context.l10n.aiChatInputHint,
+    };
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -60,13 +66,14 @@ class AiChatInput extends HookConsumerWidget {
                       padding: EdgeInsets.symmetric(vertical: 10.h),
                       child: TextField(
                         controller: textController,
+                        enabled: chatState.sessionInitState == AiSessionInitState.ready,
                         style: TextStyle(
                           fontSize: 15.sp,
                           height: 1.4,
                           color: context.textTheme.bodyLarge?.color,
                         ),
                         decoration: InputDecoration(
-                          hintText: context.l10n.aiChatInputHint,
+                          hintText: hintText,
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,

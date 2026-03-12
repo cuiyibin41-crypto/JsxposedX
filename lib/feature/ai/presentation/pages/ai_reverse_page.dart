@@ -1,8 +1,10 @@
 import 'package:JsxposedX/common/pages/toast.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/feature/ai/domain/models/ai_context.dart';
+import 'package:JsxposedX/feature/ai/domain/models/ai_session_init_state.dart';
 import 'package:JsxposedX/feature/ai/domain/services/prompt_builder.dart';
 import 'package:JsxposedX/feature/ai/presentation/providers/chat/ai_chat_action_provider.dart';
+import 'package:JsxposedX/feature/ai/presentation/states/ai_chat_action_state.dart';
 import 'package:JsxposedX/feature/ai/presentation/widgets/ai_chat_input.dart';
 import 'package:JsxposedX/feature/ai/presentation/widgets/ai_chat_list.dart';
 import 'package:JsxposedX/feature/ai/presentation/widgets/ai_reverse_header.dart';
@@ -15,9 +17,9 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class AiReversePage extends HookConsumerWidget {
-  final String packageName;
-
   const AiReversePage({super.key, required this.packageName});
+
+  final String packageName;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,14 +30,16 @@ class AiReversePage extends HookConsumerWidget {
     final chatState = ref.watch(
       aiChatActionProvider(packageName: packageName),
     );
+    final isZh = context.isZh;
     final scrollController = useScrollController();
     final pageController = usePageController();
     final sessionId = useState<String>('');
 
     final lastMessageId = useRef<String?>(null);
     useEffect(() {
-      if (chatState.messages.isNotEmpty) {
-        final currentLastId = chatState.messages.last.id;
+      final visibleMessages = chatState.visibleMessages;
+      if (visibleMessages.isNotEmpty) {
+        final currentLastId = visibleMessages.last.id;
         final isNewMessage = lastMessageId.value != currentLastId;
         lastMessageId.value = currentLastId;
         if (scrollController.hasClients && isNewMessage) {
@@ -51,53 +55,52 @@ class AiReversePage extends HookConsumerWidget {
         }
       }
       return null;
-    }, [chatState.messages.length]);
+    }, [chatState.visibleMessages.length]);
 
     useEffect(() {
       const followThreshold = 80.0;
-
       final subscription = chatNotifier.streamingContentStream.listen((content) {
-        if (content.isEmpty || !scrollController.hasClients) return;
-        if (scrollController.offset > followThreshold) return;
+        if (content.isEmpty || !scrollController.hasClients) {
+          return;
+        }
+        if (scrollController.offset > followThreshold) {
+          return;
+        }
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!scrollController.hasClients) return;
-          if (scrollController.offset > followThreshold) return;
+          if (!scrollController.hasClients) {
+            return;
+          }
+          if (scrollController.offset > followThreshold) {
+            return;
+          }
           scrollController.jumpTo(0.0);
         });
       });
-
       return subscription.cancel;
     }, [chatNotifier, scrollController]);
 
     useEffect(() {
       Future.microtask(() async {
+        chatNotifier.beginSessionInitialization();
         SmartDialog.showLoading();
         try {
-          // 1. 打开 APK 会话
           final id = await apkActionRepository.openApkSession(packageName);
           sessionId.value = id;
 
-          // 2. 解析 Manifest 构建上下文
           final queryRepo = ref.read(apkAnalysisQueryRepositoryProvider);
           final manifest = await queryRepo.parseManifest(id);
-          
-          // 3. 获取 APK 资源，提取 SO 文件列表
           final assets = await queryRepo.getApkAssets(id);
           final soFiles = assets
-              .where((a) => a.name.endsWith('.so'))
-              .map((a) => a.path)
-              .toList();
-          final apkContext = AiApkContext.fromManifest(manifest, soFiles: soFiles);
-
-          // 4. 获取 dex 文件路径
+              .where((asset) => asset.name.endsWith('.so'))
+              .map((asset) => asset.path)
+              .toList(growable: false);
           final dexPaths = assets
-              .where((a) => a.name.endsWith('.dex'))
-              .map((a) => a.path)
-              .toList();
+              .where((asset) => asset.name.endsWith('.dex'))
+              .map((asset) => asset.path)
+              .toList(growable: false);
 
-          // 5. 构建 system prompt
-          final isZh = context.isZh;
+          final apkContext = AiApkContext.fromManifest(manifest, soFiles: soFiles);
           final apiSummary = await PromptBuilder.loadApiSummary();
           final prompt = PromptBuilder(isZh: isZh)
               .withApkContext(apkContext)
@@ -105,16 +108,17 @@ class AiReversePage extends HookConsumerWidget {
               .withTools()
               .withSoTools()
               .buildSystemPrompt();
-          // 6. 设置 APK 分析会话和 system prompt 到 Provider
-          final notifier = ref
-              .read(aiChatActionProvider(packageName: packageName).notifier);
-          notifier.setSystemPrompt(prompt);
-          notifier.setApkSession(id, dexPaths);
-        } catch (_) {
+
+          chatNotifier.setSystemPrompt(prompt);
+          chatNotifier.setApkSession(id, dexPaths);
+          chatNotifier.markSessionReady();
+        } catch (error) {
+          chatNotifier.markSessionInitFailed('逆向会话初始化失败：$error');
         } finally {
           SmartDialog.dismiss();
         }
       });
+
       return () {
         final id = sessionId.value;
         if (id.isNotEmpty) {
@@ -128,7 +132,10 @@ class AiReversePage extends HookConsumerWidget {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
+        if (didPop) {
+          return;
+        }
+
         final now = DateTime.now();
         final last = lastBackPressTime.value;
         if (last != null && now.difference(last) < const Duration(seconds: 2)) {
@@ -144,12 +151,13 @@ class AiReversePage extends HookConsumerWidget {
           child: Column(
             children: [
               AiReverseHeader(packageName: packageName),
+              _ReverseInitBanner(chatState: chatState),
               Expanded(
                 child: PageView(
                   controller: pageController,
                   children: [
                     AiChatList(
-                      messages: chatState.messages,
+                      messages: chatState.visibleMessages,
                       scrollController: scrollController,
                       packageName: packageName,
                     ),
@@ -160,12 +168,60 @@ class AiReversePage extends HookConsumerWidget {
                   ],
                 ),
               ),
-              AiChatInput(
-                packageName: packageName,
-              ),
+              AiChatInput(packageName: packageName),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ReverseInitBanner extends StatelessWidget {
+  const _ReverseInitBanner({required this.chatState});
+
+  final AiChatActionState chatState;
+
+  @override
+  Widget build(BuildContext context) {
+    if (chatState.sessionInitState == AiSessionInitState.ready) {
+      return const SizedBox.shrink();
+    }
+
+    final isInitializing =
+        chatState.sessionInitState == AiSessionInitState.initializing;
+    final backgroundColor = isInitializing
+        ? context.colorScheme.primaryContainer
+        : context.colorScheme.errorContainer;
+    final foregroundColor = isInitializing
+        ? context.colorScheme.onPrimaryContainer
+        : context.colorScheme.onErrorContainer;
+    final message = isInitializing
+        ? '逆向会话初始化中，完成前将阻止发送。'
+        : (chatState.error ?? '逆向会话初始化失败，当前不可发送。');
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isInitializing ? Icons.hourglass_top_rounded : Icons.error_outline_rounded,
+            color: foregroundColor,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(color: foregroundColor),
+            ),
+          ),
+        ],
       ),
     );
   }

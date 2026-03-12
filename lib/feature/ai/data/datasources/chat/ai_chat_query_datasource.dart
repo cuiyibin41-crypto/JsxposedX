@@ -4,64 +4,72 @@ import 'package:JsxposedX/core/providers/pinia_provider.dart';
 import 'package:JsxposedX/feature/ai/data/models/ai_message_dto.dart';
 import 'package:JsxposedX/feature/ai/data/models/ai_session_dto.dart';
 
-/// AI 对话查询数据源（仅允许返回 DTO）
 class AiChatQueryDatasource {
-  final PiniaStorage _storage;
-
   AiChatQueryDatasource({required PiniaStorage storage}) : _storage = storage;
 
-  String _getSessionIndexKey(String packageName) => 'ai_sessions_$packageName';
+  final PiniaStorage _storage;
 
-  /// 构建独立会话的存储空间 (XML 文件名)
-  String _getChatSpace(String sessionId, String packageName) =>
-      'chat_${sessionId}_$packageName';
-
-  String _getChatConfigSpace(String packageName) =>
-      'chat_config_$packageName';
-
-  /// 会话内容在独立空间中的固定 Key
+  static const String _sessionIndexKeyPrefix = 'ai_v2_sessions_';
+  static const String _chatSpacePrefix = 'ai_v2_chat_';
+  static const String _chatConfigSpacePrefix = 'ai_v2_chat_config_';
   static const String _chatContentKey = 'messages';
   static const String _chatConfigKey = 'config';
 
-  /// 获取会话列表 (返回 DTO)
   Future<List<AiSessionDto>> getSessions(String packageName) async {
     final json = await _storage.getString(_getSessionIndexKey(packageName));
-    if (json.isEmpty) return [];
+    if (json.isEmpty) {
+      return [];
+    }
+
     try {
-      final List<dynamic> list = jsonDecode(json);
+      final list = jsonDecode(json) as List<dynamic>;
       return list
-          .map((e) => AiSessionDto.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
+          .map((item) => AiSessionDto.fromJson(item as Map<String, dynamic>))
+          .toList(growable: false);
+    } catch (_) {
       return [];
     }
   }
 
-  /// 获取最后活跃会话
   Future<String?> getLastActiveSessionId(String packageName) async {
     final sessionId = await _storage.getString(
       _chatConfigKey,
       space: _getChatConfigSpace(packageName),
     );
-    if (sessionId.isEmpty) return null;
+    if (sessionId.isEmpty) {
+      return null;
+    }
     return sessionId;
   }
 
-  /// 获取消息历史 (返回 DTO)
   Future<List<AiMessageDto>> getChatHistory(
     String packageName,
     String sessionId,
   ) async {
-    final space = _getChatSpace(sessionId, packageName);
-    final json = await _storage.getString(_chatContentKey, space: space);
-    if (json.isEmpty) return [];
+    final json = await _storage.getString(
+      _chatContentKey,
+      space: _getChatSpace(sessionId, packageName),
+    );
+    if (json.isEmpty) {
+      return [];
+    }
+
     try {
-      final List<dynamic> list = jsonDecode(json);
+      final list = jsonDecode(json) as List<dynamic>;
       return list
-          .map((e) => AiMessageDto.fromStorageJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
+          .map((item) => AiMessageDto.fromStorageJson(item as Map<String, dynamic>))
+          .toList(growable: false);
+    } catch (_) {
       return [];
     }
   }
+
+  String _getSessionIndexKey(String packageName) =>
+      '$_sessionIndexKeyPrefix$packageName';
+
+  String _getChatSpace(String sessionId, String packageName) =>
+      '$_chatSpacePrefix${sessionId}_$packageName';
+
+  String _getChatConfigSpace(String packageName) =>
+      '$_chatConfigSpacePrefix$packageName';
 }

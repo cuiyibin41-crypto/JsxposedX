@@ -5,7 +5,7 @@ local.properties
 .cxx/
 .externalNativeBuild/
 .kotlin/
-
+.codex_tmp_appdata/
 # Local signing files
 .key/
 key.properties

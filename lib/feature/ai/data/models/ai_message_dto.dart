@@ -1,3 +1,5 @@
+// ignore_for_file: invalid_annotation_target
+
 import 'package:JsxposedX/core/models/ai_message.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:uuid/uuid.dart';
