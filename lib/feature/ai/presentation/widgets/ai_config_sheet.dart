@@ -506,7 +506,9 @@ class AIConfigSheet extends HookConsumerWidget {
                                             .testConnection(config);
 
                                         // 添加或更新配置到列表
-                                        if (isNewMode.value) {
+                                        final existsInList =
+                                            configList.any((item) => item.id == config.id);
+                                        if (isNewMode.value || !existsInList) {
                                           await ref
                                               .read(aiConfigActionProvider.notifier)
                                               .addConfig(config);
