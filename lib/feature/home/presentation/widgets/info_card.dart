@@ -1,5 +1,6 @@
 import 'package:JsxposedX/common/pages/toast.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
+import 'package:JsxposedX/core/themes/app_colors.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -65,38 +66,78 @@ class InfoCard extends HookWidget {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 10.w),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey, width: 1.w),
-        borderRadius: BorderRadius.circular(10.r),
+        color: context.isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        border: Border.all(
+          color: context.isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.08),
+          width: 1.w,
+        ),
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: context.isDark ? 0.14 : 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          ...infos.value.map(
-            (info) => ListTile(
-              title: Text(
-                info["title"],
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text(info["content"]),
-            ),
-          ),
+          ...infos.value.asMap().entries.map((entry) {
+            final info = entry.value;
+            return Column(
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16.w,
+                    vertical: 2.h,
+                  ),
+                  minVerticalPadding: 10.h,
+                  title: Text(
+                    info["title"],
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.sp,
+                    ),
+                  ),
+                  subtitle: Padding(
+                    padding: EdgeInsets.only(top: 4.h),
+                    child: Text(
+                      info["content"],
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        height: 1.45,
+                        color: context.isDark
+                            ? Colors.white70
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+
+              ],
+            );
+          }),
 
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton(
-                onPressed: () {
-                  final text = infos.value
-                      .map((e) => "${e["title"]}: ${e["content"]}")
-                      .join("\n");
-                  Clipboard.setData(ClipboardData(text: text));
-                  ToastMessage.show(context.l10n.success);
-                },
-                child: Text(context.l10n.copy),
+              Padding(
+                padding: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 10.h),
+                child: TextButton(
+                  onPressed: () {
+                    final text = infos.value
+                        .map((e) => "${e["title"]}: ${e["content"]}")
+                        .join("\n");
+                    Clipboard.setData(ClipboardData(text: text));
+                    ToastMessage.show(context.l10n.success);
+                  },
+                  child: Text(context.l10n.copy),
+                ),
               ),
             ],
           ),
-
-          SizedBox(height: 10.h),
         ],
       ),
     );

@@ -25,15 +25,112 @@ class ActivationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isActivated ? context.colorScheme.primary : Colors.grey;
-
     final aiGradient = const LinearGradient(
       colors: [Color(0xFF70D7F9), Color(0xFFAD98FF), Color(0xFFFFB385)],
     );
 
+    if (!isAI) {
+      final accentColor = _accentColor(context);
+      final statusText = isActivated
+          ? context.l10n.activated
+          : context.l10n.notActivated;
+      final subtitleText = subTitle == null ? statusText : '$statusText ($subTitle)';
+
+      return Container(
+        margin: EdgeInsets.symmetric(horizontal: 10.w),
+        constraints: BoxConstraints(minHeight: 96.h),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 11.h),
+        decoration: BoxDecoration(
+          color: context.isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: accentColor.withValues(alpha: 0.18)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: context.isDark ? 0.18 : 0.06),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46.w,
+              height: 46.w,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: isActivated ? 0.16 : 0.10),
+                borderRadius: BorderRadius.circular(14.r),
+              ),
+              child: Icon(
+                _statusIcon(),
+                size: 23.sp,
+                color: isActivated ? accentColor : accentColor.withValues(alpha: 0.72),
+              ),
+            ),
+            SizedBox(width: 14.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w800,
+                            color: context.isDark
+                                ? Colors.white
+                                : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10.w,
+                          vertical: 5.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(
+                            alpha: isActivated ? 0.16 : 0.10,
+                          ),
+                          borderRadius: BorderRadius.circular(999.r),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w700,
+                            color: accentColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 6.h),
+                  Text(
+                    subtitleText,
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      height: 1.4,
+                      color: context.isDark
+                          ? Colors.white70
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 10.w),
-      height: 100.h,
+      constraints: BoxConstraints(minHeight: 96.h),
       decoration: isAI
           ? BoxDecoration(
               borderRadius: BorderRadius.circular(16.r),
@@ -56,16 +153,14 @@ class ActivationCard extends StatelessWidget {
             )
           : null,
       padding: (isAI && isActivated)
-          ? const EdgeInsets.all(2)
+          ? EdgeInsets.all(2.w)
           : EdgeInsets.zero,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 20.w),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 11.h),
         decoration: BoxDecoration(
-          color: isAI
-              ? (isActivated
-                    ? (context.isDark ? const Color(0xFF1E1E1E) : Colors.white)
-                    : Colors.transparent)
-              : bgColor,
+          color: isActivated
+              ? (context.isDark ? const Color(0xFF1E1E1E) : Colors.white)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(isAI ? 14.r : 12.r),
           boxShadow: !isAI
               ? [
@@ -84,17 +179,17 @@ class ActivationCard extends StatelessWidget {
             if (isAI && isActivated)
               ShaderMask(
                 shaderCallback: (bounds) => aiGradient.createShader(bounds),
-                child: Icon(Icons.check, size: 50.sp, color: Colors.white),
+                child: Icon(Icons.check, size: 42.sp, color: Colors.white),
               )
             else
               Icon(
                 isActivated ? Icons.check : Icons.error_outline,
-                size: 50.sp,
+                size: 42.sp,
                 color: isAI
                     ? (isActivated ? const Color(0xFFAD98FF) : Colors.grey)
                     : Colors.white,
               ),
-            SizedBox(width: 20.w),
+            SizedBox(width: 14.w),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -107,8 +202,8 @@ class ActivationCard extends StatelessWidget {
                       child: Text(
                         title,
                         style: TextStyle(
-                          fontSize: 20.sp,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w800,
                           color: Colors.white,
                         ),
                       ),
@@ -117,8 +212,8 @@ class ActivationCard extends StatelessWidget {
                     Text(
                       title,
                       style: TextStyle(
-                        fontSize: 20.sp,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w800,
                         color: isAI
                             ? (context.isDark
                                   ? Colors.white
@@ -132,14 +227,15 @@ class ActivationCard extends StatelessWidget {
                           aiGradient.createShader(bounds),
                       child: Text(
                         context.l10n.activated,
-                        style: TextStyle(fontSize: 14.sp, color: Colors.white),
+                        style: TextStyle(fontSize: 12.sp, color: Colors.white),
                       ),
                     )
                   else
                     Text(
                       "${isActivated ? context.l10n.activated : context.l10n.notActivated}${subTitle != null ? "($subTitle)" : ""}",
                       style: TextStyle(
-                        fontSize: 14.sp,
+                        fontSize: 12.sp,
+                        height: 1.4,
                         color: isAI
                             ? (context.isDark
                                   ? Colors.white70
@@ -154,5 +250,31 @@ class ActivationCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Color _accentColor(BuildContext context) {
+    switch (title) {
+      case 'Root':
+        return const Color(0xFF38B26D);
+      case 'Xposed':
+        return const Color(0xFFFFA94D);
+      case 'Frida':
+        return const Color(0xFF5B8CFF);
+      default:
+        return context.colorScheme.primary;
+    }
+  }
+
+  IconData _statusIcon() {
+    switch (title) {
+      case 'Root':
+        return Icons.admin_panel_settings_rounded;
+      case 'Xposed':
+        return Icons.extension_rounded;
+      case 'Frida':
+        return Icons.memory_rounded;
+      default:
+        return isActivated ? Icons.check_circle : Icons.error_outline;
+    }
   }
 }
