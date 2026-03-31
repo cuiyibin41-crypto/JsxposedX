@@ -49,6 +49,9 @@ abstract class AiMessage with _$AiMessage {
   /// 是否是工具结果消息
   bool get isToolResult => role == 'tool' && toolCallId != null;
 
+  bool get isSessionSummary =>
+      role == 'system' && content.startsWith('[session_summary]');
+
   /// 是否应显示在聊天记录列表中
   bool get shouldDisplayInChatList {
     if (role == 'user') return true;

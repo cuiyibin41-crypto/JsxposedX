@@ -59,7 +59,7 @@ class AIConfigSheet extends HookConsumerWidget {
       apiUrl: values["api"] ?? "",
       apiKey: values["api_key"] ?? "",
       moduleName: values["module_name"] ?? "",
-      maxToken: int.tryParse(values["max_token"]?.toString() ?? "") ?? 300,
+      maxToken: int.tryParse(values["max_token"]?.toString() ?? "") ?? 2048,
       temperature: (values["temperature"] as num?)?.toDouble() ?? 0.7,
       memoryRounds: (values["memory_rounds"] as num?)?.toDouble() ?? 5.0,
       apiType: AiApiType.fromString(values["api_type"]?.toString() ?? "openai"),

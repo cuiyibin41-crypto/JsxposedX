@@ -8,6 +8,7 @@ class BubbleState {
   final VoidCallback? onRetry;
   final bool isToolCalling;
   final String? packageName;
+  final String? retryLabel;
 
   const BubbleState({
     required this.content,
@@ -16,6 +17,7 @@ class BubbleState {
     required this.onRetry,
     required this.isToolCalling,
     required this.packageName,
+    this.retryLabel,
   });
 
   bool get isUser => role == 'user';

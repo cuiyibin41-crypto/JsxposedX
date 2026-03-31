@@ -555,10 +555,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiStopGeneration => 'Stop generation';
 
   @override
+  String get aiCompressContext => 'Compress context';
+
+  @override
+  String get aiViewSummary => 'View summary';
+
+  @override
+  String get aiSummaryTitle => 'Session summary';
+
+  @override
+  String get aiSummaryEmpty => 'No summary content is available yet.';
+
+  @override
+  String get aiContextCompressed => 'Context compressed';
+
+  @override
+  String get aiContextAlreadyCompact => 'Context is already compact';
+
+  @override
   String get aiRetryLastTurn => 'Retry last turn';
 
   @override
   String get aiRetryInitialization => 'Retry initialization';
+
+  @override
+  String get aiContinue => 'Continue';
 
   @override
   String get aiUnavailableToSend => 'Unavailable';

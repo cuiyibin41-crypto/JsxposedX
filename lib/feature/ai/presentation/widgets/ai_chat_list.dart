@@ -1,5 +1,6 @@
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/core/models/ai_message.dart';
+import 'package:JsxposedX/feature/ai/domain/models/ai_response_issue.dart';
 import 'package:JsxposedX/feature/ai/presentation/providers/chat/ai_chat_action_provider.dart';
 import 'package:JsxposedX/feature/ai/presentation/widgets/ai_chat_bubble/ai_chat_bubble.dart';
 import 'package:flutter/material.dart';
@@ -71,6 +72,9 @@ class AiChatList extends HookConsumerWidget {
     final hasMore = messages.length < totalVisibleCount;
     final remainingCount = (totalVisibleCount - messages.length).clamp(0, totalVisibleCount);
     final reversedMessages = messages.reversed.toList(growable: false);
+    final retryLabel = chatState.lastResponseIssue == AiResponseIssue.partialResponse
+        ? context.l10n.aiContinue
+        : context.l10n.retry;
 
     return ListView.builder(
       controller: scrollController,
@@ -107,6 +111,7 @@ class AiChatList extends HookConsumerWidget {
             role: message.role,
             isError: message.isError,
             isToolCalling: message.isToolResultBubble,
+            retryLabel: retryLabel,
             streamingContentStream: chatNotifier.streamingContentStream,
             onRetry: () => chatNotifier.retryByMessageId(message.id),
             packageName: packageName,
@@ -123,6 +128,7 @@ class AiChatList extends HookConsumerWidget {
                 message.isToolResultBubble &&
                 !message.content.startsWith('✅') &&
                 !message.content.startsWith('❌'),
+            retryLabel: retryLabel,
             onRetry: () => chatNotifier.retryByMessageId(message.id),
             packageName: packageName,
           ),
@@ -138,6 +144,7 @@ class _StreamingAiChatBubble extends HookWidget {
     required this.role,
     required this.isError,
     required this.isToolCalling,
+    required this.retryLabel,
     required this.streamingContentStream,
     this.onRetry,
     this.packageName,
@@ -146,6 +153,7 @@ class _StreamingAiChatBubble extends HookWidget {
   final String role;
   final bool isError;
   final bool isToolCalling;
+  final String retryLabel;
   final Stream<String> streamingContentStream;
   final VoidCallback? onRetry;
   final String? packageName;
@@ -182,6 +190,7 @@ class _StreamingAiChatBubble extends HookWidget {
         role: role,
         isError: isError,
         isToolCalling: isToolCalling,
+        retryLabel: retryLabel,
         onRetry: onRetry,
         packageName: packageName,
       ),

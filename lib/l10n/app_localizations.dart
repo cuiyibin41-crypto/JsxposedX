@@ -1148,6 +1148,42 @@ abstract class AppLocalizations {
   /// **'停止生成'**
   String get aiStopGeneration;
 
+  /// No description provided for @aiCompressContext.
+  ///
+  /// In zh, this message translates to:
+  /// **'压缩上下文'**
+  String get aiCompressContext;
+
+  /// No description provided for @aiViewSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看摘要'**
+  String get aiViewSummary;
+
+  /// No description provided for @aiSummaryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'会话摘要'**
+  String get aiSummaryTitle;
+
+  /// No description provided for @aiSummaryEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前还没有可展示的摘要内容'**
+  String get aiSummaryEmpty;
+
+  /// No description provided for @aiContextCompressed.
+  ///
+  /// In zh, this message translates to:
+  /// **'已压缩上下文'**
+  String get aiContextCompressed;
+
+  /// No description provided for @aiContextAlreadyCompact.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前上下文已经较精简'**
+  String get aiContextAlreadyCompact;
+
   /// No description provided for @aiRetryLastTurn.
   ///
   /// In zh, this message translates to:
@@ -1159,6 +1195,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'重试初始化'**
   String get aiRetryInitialization;
+
+  /// No description provided for @aiContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续'**
+  String get aiContinue;
 
   /// No description provided for @aiUnavailableToSend.
   ///

@@ -144,10 +144,31 @@ abstract class BaseBubbleContainerPart {
           left: isLeading ? 0 : 8.w,
           bottom: 20.h,
         ),
-        child: Icon(
-          Icons.error_outline_rounded,
-          color: Colors.redAccent,
-          size: 20.sp,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+          decoration: BoxDecoration(
+            color: Colors.redAccent.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(999.r),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.refresh_rounded,
+                color: Colors.redAccent,
+                size: 14.sp,
+              ),
+              SizedBox(width: 4.w),
+              Text(
+                state.retryLabel ?? context.l10n.retry,
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

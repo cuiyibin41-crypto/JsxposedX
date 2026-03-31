@@ -12,6 +12,7 @@ abstract class BaseAiChatBubble extends StatelessWidget {
   final VoidCallback? onRetry;
   final bool isToolCalling;
   final String? packageName;
+  final String? retryLabel;
 
   const BaseAiChatBubble({
     super.key,
@@ -21,6 +22,7 @@ abstract class BaseAiChatBubble extends StatelessWidget {
     this.onRetry,
     this.isToolCalling = false,
     this.packageName,
+    this.retryLabel,
   });
 
   @protected
@@ -32,6 +34,7 @@ abstract class BaseAiChatBubble extends StatelessWidget {
       onRetry: onRetry,
       isToolCalling: isToolCalling,
       packageName: packageName,
+      retryLabel: retryLabel,
     );
   }
 
@@ -74,5 +77,6 @@ class AiChatBubble extends BaseAiChatBubble {
     super.onRetry,
     super.isToolCalling,
     super.packageName,
+    super.retryLabel,
   });
 }

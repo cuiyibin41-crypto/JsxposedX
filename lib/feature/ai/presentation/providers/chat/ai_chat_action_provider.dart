@@ -54,6 +54,12 @@ AiChatActionRepository aiChatActionRepository(Ref ref) {
 
 @riverpod
 class AiChatAction extends _$AiChatAction {
+  static const String _sessionSummaryPrefix = '[session_summary]';
+  static const int _contextHardBudgetChars = 16000;
+  static const int _contextTargetBudgetChars = 9000;
+  static const int _recentUserRoundsToKeep = 3;
+  static const int _toolResultProtocolMaxChars = 900;
+
   bool _isDisposed = false;
   bool _stopRequested = false;
   final StreamController<String> _streamingContentController =
@@ -319,7 +325,14 @@ class AiChatAction extends _$AiChatAction {
     required int retriesRemaining,
     List<Map<String, dynamic>>? toolsJson,
   }) async {
-    final requestMessages = _buildRequestMessages(protocolMessages, config);
+    final preparedProtocolMessages = await _prepareProtocolMessages(
+      protocolMessages,
+      config,
+    );
+    final requestMessages = _buildRequestMessages(
+      preparedProtocolMessages,
+      config,
+    );
     final response = await _collectAssistantResponse(
       config: config,
       requestMessages: requestMessages,
@@ -333,7 +346,7 @@ class AiChatAction extends _$AiChatAction {
         retriesRemaining > 0) {
       await _runAssistantTurn(
         config: config,
-        protocolMessages: protocolMessages,
+        protocolMessages: preparedProtocolMessages,
         placeholderId: placeholderId,
         retriesRemaining: retriesRemaining - 1,
         toolsJson: toolsJson,
@@ -389,7 +402,7 @@ class AiChatAction extends _$AiChatAction {
     if (response.toolCalls != null && response.toolCalls!.isNotEmpty) {
       await _handleToolCalls(
         config: config,
-        protocolMessages: protocolMessages,
+        protocolMessages: preparedProtocolMessages,
         placeholderId: placeholderId,
         initialContent: response.content,
         toolCalls: response.toolCalls!,
@@ -402,7 +415,7 @@ class AiChatAction extends _$AiChatAction {
       placeholderId,
       response.content,
       protocolMessages: [
-        ...protocolMessages,
+        ...preparedProtocolMessages,
         AiMessage(
           id: const Uuid().v4(),
           role: 'assistant',
@@ -493,7 +506,11 @@ class AiChatAction extends _$AiChatAction {
         ...state.protocolMessages,
         AiMessage.toolResult(
           toolCallId: result.toolCallId,
-          content: result.content,
+          content: _buildToolResultProtocolSummary(
+            call: call,
+            content: result.content,
+            success: result.success,
+          ),
         ),
       ];
       state = state.copyWith(
@@ -596,7 +613,7 @@ class AiChatAction extends _$AiChatAction {
                 _CollectedAssistantResponse(
                   content: bufferedContent,
                   issue: AiResponseIssue.partialResponse,
-                  errorMessage: error.message ?? 'AI 响应中断。',
+                  errorMessage: _describePlatformException(error),
                 ),
               );
               return;
@@ -605,7 +622,7 @@ class AiChatAction extends _$AiChatAction {
               _CollectedAssistantResponse(
                 content: bufferedContent,
                 issue: _classifyPlatformIssue(error),
-                errorMessage: error.message,
+                errorMessage: _describePlatformException(error),
               ),
             );
             return;
@@ -699,17 +716,24 @@ class AiChatAction extends _$AiChatAction {
     List<AiMessage> protocolMessages,
     AiConfig config,
   ) {
+    final summaryMessage = _findLatestSessionSummary(protocolMessages);
+    final workingMessages = protocolMessages
+        .where((message) => !_isSessionSummary(message))
+        .toList(growable: false);
     final maxRounds = config.memoryRounds <= 0
         ? 0
         : config.memoryRounds.toInt();
-    if (maxRounds <= 0 || protocolMessages.isEmpty) {
-      return List<AiMessage>.unmodifiable(protocolMessages);
+    if (maxRounds <= 0 || workingMessages.isEmpty) {
+      return List<AiMessage>.unmodifiable([
+        if (summaryMessage != null) summaryMessage,
+        ...workingMessages,
+      ]);
     }
 
     var userRounds = 0;
     var startIndex = 0;
-    for (var index = protocolMessages.length - 1; index >= 0; index--) {
-      if (protocolMessages[index].role == 'user') {
+    for (var index = workingMessages.length - 1; index >= 0; index--) {
+      if (workingMessages[index].role == 'user') {
         userRounds++;
         if (userRounds >= maxRounds) {
           startIndex = index;
@@ -717,7 +741,10 @@ class AiChatAction extends _$AiChatAction {
         }
       }
     }
-    return List<AiMessage>.unmodifiable(protocolMessages.sublist(startIndex));
+    return List<AiMessage>.unmodifiable([
+      if (summaryMessage != null) summaryMessage,
+      ...workingMessages.sublist(startIndex),
+    ]);
   }
 
   List<Map<String, dynamic>>? _buildToolsJson() {
@@ -745,6 +772,20 @@ class AiChatAction extends _$AiChatAction {
     }
 
     final displayMessage = state.messages[displayIndex];
+    final isContinueEligible =
+        displayMessage.role == 'assistant' &&
+        displayMessage.isError &&
+        state.lastResponseIssue == AiResponseIssue.partialResponse &&
+        displayIndex == state.messages.length - 1 &&
+        displayMessage.content.trim().isNotEmpty;
+    if (isContinueEligible) {
+      await _continueFromPartialMessage(
+        displayMessage: displayMessage,
+        displayIndex: displayIndex,
+      );
+      return;
+    }
+
     String? retryText;
     if (displayMessage.role == 'user') {
       retryText = displayMessage.content;
@@ -799,6 +840,156 @@ class AiChatAction extends _$AiChatAction {
     await send(retryText);
   }
 
+  Future<void> _continueFromPartialMessage({
+    required AiMessage displayMessage,
+    required int displayIndex,
+  }) async {
+    final config = ref.read(aiConfigProvider).value;
+    if (config == null) {
+      state = state.copyWith(error: 'AI 配置未加载', isStreaming: false);
+      return;
+    }
+
+    final partialContent = displayMessage.content.trim();
+    final updatedMessages = List<AiMessage>.from(state.messages);
+    updatedMessages[displayIndex] = updatedMessages[displayIndex].copyWith(
+      isError: false,
+    );
+    state = state.copyWith(
+      messages: List<AiMessage>.unmodifiable(updatedMessages),
+      isStreaming: true,
+      error: null,
+      lastResponseIssue: null,
+    );
+
+    try {
+      final preparedProtocolMessages = await _prepareProtocolMessages(
+        state.protocolMessages,
+        config,
+      );
+      final continuationProtocolMessages = _buildContinuationProtocolMessages(
+        preparedProtocolMessages,
+        partialContent,
+      );
+      final requestMessages = _buildRequestMessages(
+        continuationProtocolMessages,
+        config,
+      );
+
+      final response = await _collectAssistantResponse(
+        config: config,
+        requestMessages: requestMessages,
+        toolsJson: _buildToolsJson(),
+      );
+      if (_isDisposed) {
+        return;
+      }
+
+      if (response.issue == AiResponseIssue.emptyResponse) {
+        _updateDisplayMessage(
+          displayMessage.id,
+          content: partialContent,
+          isError: true,
+        );
+        state = state.copyWith(
+          isStreaming: false,
+          error: response.errorMessage ?? 'AI 未返回有效内容，请稍后重试。',
+          lastResponseIssue: AiResponseIssue.emptyResponse,
+        );
+        await _saveChatHistory();
+        return;
+      }
+
+      if (response.issue == AiResponseIssue.parseError) {
+        _updateDisplayMessage(
+          displayMessage.id,
+          content: partialContent,
+          isError: true,
+        );
+        state = state.copyWith(
+          isStreaming: false,
+          error: response.errorMessage ?? 'AI 响应格式异常。',
+          lastResponseIssue: AiResponseIssue.parseError,
+        );
+        await _saveChatHistory();
+        return;
+      }
+
+      if (response.issue == AiResponseIssue.networkError) {
+        _updateDisplayMessage(
+          displayMessage.id,
+          content: partialContent,
+          isError: true,
+        );
+        state = state.copyWith(
+          isStreaming: false,
+          error: response.errorMessage ?? 'AI 请求失败。',
+          lastResponseIssue: AiResponseIssue.networkError,
+        );
+        await _saveChatHistory();
+        return;
+      }
+
+      final mergedContent = _mergeContinuationContent(
+        partialContent,
+        response.content,
+      );
+
+      if (response.issue == AiResponseIssue.partialResponse) {
+        _updateDisplayMessage(
+          displayMessage.id,
+          content: mergedContent,
+          isError: true,
+        );
+        state = state.copyWith(
+          isStreaming: false,
+          error: response.errorMessage ?? 'AI 响应中断，内容可能不完整。',
+          lastResponseIssue: AiResponseIssue.partialResponse,
+        );
+        await _saveChatHistory();
+        return;
+      }
+
+      if (response.toolCalls != null && response.toolCalls!.isNotEmpty) {
+        await _handleToolCalls(
+          config: config,
+          protocolMessages: preparedProtocolMessages,
+          placeholderId: displayMessage.id,
+          initialContent: response.content,
+          toolCalls: response.toolCalls!,
+          toolsJson: _buildToolsJson(),
+        );
+        return;
+      }
+
+      _updateDisplayMessage(
+        displayMessage.id,
+        content: mergedContent,
+        isError: false,
+      );
+      state = state.copyWith(
+        protocolMessages: List<AiMessage>.unmodifiable([
+          ...preparedProtocolMessages,
+          AiMessage(
+            id: const Uuid().v4(),
+            role: 'assistant',
+            content: mergedContent,
+          ),
+        ]),
+        isStreaming: false,
+        error: null,
+        lastResponseIssue: null,
+      );
+      await _saveChatHistory();
+    } catch (_) {
+      _markDisplayMessageError(
+        displayMessage.id,
+        partialContent,
+        AiResponseIssue.networkError,
+      );
+    }
+  }
+
   Future<void> retryLastTurn() async {
     if (state.isStreaming || !state.hasUserMessages) {
       return;
@@ -808,6 +999,21 @@ class AiChatAction extends _$AiChatAction {
       (message) => message.role == 'user',
     );
     await retryByMessageId(lastUserMessage.id);
+  }
+
+  Future<bool> compactContext() async {
+    final config = ref.read(aiConfigProvider).value;
+    if (config == null || state.protocolMessages.isEmpty) {
+      return false;
+    }
+
+    final previousMessages = List<AiMessage>.from(state.protocolMessages);
+    await _prepareProtocolMessages(
+      state.protocolMessages,
+      config,
+      forceCompact: true,
+    );
+    return !_sameMessages(previousMessages, state.protocolMessages);
   }
 
   @Deprecated('Use retryByMessageId instead.')
@@ -953,6 +1159,485 @@ class AiChatAction extends _$AiChatAction {
         .toList(growable: false);
   }
 
+  Future<List<AiMessage>> _prepareProtocolMessages(
+    List<AiMessage> protocolMessages,
+    AiConfig config, {
+    bool forceCompact = false,
+  }) async {
+    final sanitizedMessages = _sanitizeProtocolMessages(protocolMessages);
+    final shouldCompact =
+        forceCompact ||
+        _estimateProtocolSize(sanitizedMessages) > _contextHardBudgetChars;
+    if (!shouldCompact) {
+      if (!_sameMessages(protocolMessages, sanitizedMessages)) {
+        state = state.copyWith(
+          protocolMessages: List<AiMessage>.unmodifiable(sanitizedMessages),
+        );
+        await _saveChatHistory();
+      }
+      return sanitizedMessages;
+    }
+
+    final compactedMessages = _compactProtocolMessages(sanitizedMessages);
+    if (_sameMessages(protocolMessages, compactedMessages)) {
+      return compactedMessages;
+    }
+
+    state = state.copyWith(
+      protocolMessages: List<AiMessage>.unmodifiable(compactedMessages),
+    );
+    await _saveChatHistory();
+    return compactedMessages;
+  }
+
+  List<AiMessage> _sanitizeProtocolMessages(List<AiMessage> protocolMessages) {
+    final latestSummary = _findLatestSessionSummary(protocolMessages);
+    final sanitized = <AiMessage>[
+      if (latestSummary != null) latestSummary,
+    ];
+    final pendingToolCallIds = <String>{};
+    var awaitingToolResults = false;
+
+    for (final message in protocolMessages) {
+      if (_isSessionSummary(message)) {
+        continue;
+      }
+      if (message.role == 'assistant') {
+        pendingToolCallIds
+          ..clear()
+          ..addAll(_extractToolCallIds(message.toolCalls));
+        awaitingToolResults = message.hasToolCalls;
+        sanitized.add(message);
+        continue;
+      }
+      if (message.role == 'tool') {
+        if (!awaitingToolResults) {
+          continue;
+        }
+        final toolCallId = message.toolCallId;
+        if (pendingToolCallIds.isNotEmpty) {
+          if (toolCallId == null || !pendingToolCallIds.remove(toolCallId)) {
+            continue;
+          }
+          if (pendingToolCallIds.isEmpty) {
+            awaitingToolResults = false;
+          }
+        }
+        sanitized.add(
+          message.copyWith(
+            content: _summarizeToolProtocolContent(message.content),
+          ),
+        );
+      } else {
+        pendingToolCallIds.clear();
+        awaitingToolResults = false;
+        sanitized.add(message);
+      }
+    }
+    return List<AiMessage>.unmodifiable(sanitized);
+  }
+
+  List<AiMessage> _compactProtocolMessages(List<AiMessage> protocolMessages) {
+    final latestSummary = _findLatestSessionSummary(protocolMessages);
+    final workingMessages = protocolMessages
+        .where((message) => !_isSessionSummary(message))
+        .toList(growable: false);
+    if (workingMessages.isEmpty) {
+      return latestSummary == null ? workingMessages : [latestSummary];
+    }
+
+    final recentMessages = _selectRecentMessagesForCompaction(workingMessages);
+    final cutoffIndex = workingMessages.length - recentMessages.length;
+    final olderMessages = workingMessages.sublist(0, cutoffIndex);
+    if (olderMessages.isEmpty) {
+      return List<AiMessage>.unmodifiable([
+        if (latestSummary != null) latestSummary,
+        ...workingMessages,
+      ]);
+    }
+
+    final mergedSummary = _mergeSessionSummary(
+      existingSummary: latestSummary?.content,
+      olderMessages: olderMessages,
+    );
+    final compacted = <AiMessage>[
+      AiMessage(
+        id: latestSummary?.id ?? const Uuid().v4(),
+        role: 'system',
+        content: mergedSummary,
+      ),
+      ...recentMessages,
+    ];
+
+    while (_estimateProtocolSize(compacted) > _contextTargetBudgetChars &&
+        compacted.length > 2) {
+      compacted.removeAt(1);
+    }
+
+    return List<AiMessage>.unmodifiable(compacted);
+  }
+
+  List<AiMessage> _selectRecentMessagesForCompaction(
+    List<AiMessage> protocolMessages,
+  ) {
+    var userRounds = 0;
+    var startIndex = 0;
+    for (var index = protocolMessages.length - 1; index >= 0; index--) {
+      if (protocolMessages[index].role == 'user') {
+        userRounds++;
+        if (userRounds >= _recentUserRoundsToKeep) {
+          startIndex = index;
+          break;
+        }
+      }
+    }
+    return List<AiMessage>.from(protocolMessages.sublist(startIndex));
+  }
+
+  String _mergeSessionSummary({
+    String? existingSummary,
+    required List<AiMessage> olderMessages,
+  }) {
+    final sections = _parseSessionSummarySections(existingSummary);
+    final pendingNotes = <String>[];
+
+    for (final message in olderMessages) {
+      if (message.content.trim().isEmpty) {
+        continue;
+      }
+      final normalized = _truncateForSummary(
+        message.content.replaceAll('\r', ' ').replaceAll('\n', ' ').trim(),
+      );
+      if (normalized.isEmpty) {
+        continue;
+      }
+      if (message.role == 'user') {
+        _addUniqueNote(sections.userNeeds, normalized);
+        if (_looksLikeQuestion(normalized)) {
+          _addUniqueNote(pendingNotes, normalized);
+        }
+      } else if (message.role == 'tool') {
+        _addUniqueNote(sections.toolFindings, normalized);
+      } else if (message.role == 'assistant' && !message.hasToolCalls) {
+        _addUniqueNote(sections.knownConclusions, normalized);
+      }
+    }
+
+    final buffer = StringBuffer(_sessionSummaryPrefix);
+    _writeSummarySection(
+      buffer,
+      title: '历史诉求',
+      notes: sections.userNeeds.take(6),
+    );
+    _writeSummarySection(
+      buffer,
+      title: '已知结论',
+      notes: sections.knownConclusions.take(6),
+    );
+    _writeSummarySection(
+      buffer,
+      title: '工具发现',
+      notes: sections.toolFindings.take(8),
+    );
+
+    final unresolved = pendingNotes.where(
+      (note) =>
+          !sections.knownConclusions.any((item) => item.contains(note)) &&
+          !sections.toolFindings.any((item) => item.contains(note)),
+    );
+    for (final note in unresolved.take(4)) {
+      _addUniqueNote(sections.nextSteps, note);
+    }
+    _writeSummarySection(
+      buffer,
+      title: '待继续',
+      notes: sections.nextSteps.take(4),
+    );
+    return buffer.toString().trim();
+  }
+
+  String _buildToolResultProtocolSummary({
+    required AiToolCall call,
+    required String content,
+    required bool success,
+  }) {
+    final argumentSummary = call.arguments.entries
+        .map((entry) => '${entry.key}: ${entry.value}')
+        .join(', ');
+    final resultSummary = _summarizeToolProtocolContent(content);
+    return '${success ? 'success' : 'failure'} ${call.name}'
+        '${argumentSummary.isEmpty ? '' : ' ($argumentSummary)'}\n$resultSummary';
+  }
+
+  String _summarizeToolProtocolContent(String content) {
+    final cleaned = content.trim();
+    if (cleaned.isEmpty) {
+      return '';
+    }
+    final lines = cleaned
+        .replaceAll('\r', '')
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList(growable: false);
+    if (lines.isEmpty) {
+      return '';
+    }
+
+    final summary = lines.take(8).join('\n');
+    if (summary.length <= _toolResultProtocolMaxChars) {
+      return summary;
+    }
+    return '${summary.substring(0, _toolResultProtocolMaxChars)}...';
+  }
+
+  int _estimateProtocolSize(List<AiMessage> messages) {
+    var total = state.systemPrompt?.length ?? 0;
+    for (final message in messages) {
+      total += message.role.length;
+      total += message.content.length;
+      if (message.toolCalls != null) {
+        total += message.toolCalls.toString().length;
+      }
+    }
+    return total;
+  }
+
+  AiMessage? _findLatestSessionSummary(List<AiMessage> messages) {
+    for (var index = messages.length - 1; index >= 0; index--) {
+      if (_isSessionSummary(messages[index])) {
+        return messages[index];
+      }
+    }
+    return null;
+  }
+
+  bool _isSessionSummary(AiMessage message) {
+    return message.role == 'system' &&
+        message.content.startsWith(_sessionSummaryPrefix);
+  }
+
+  String _stripSessionSummaryPrefix(String content) {
+    return content.replaceFirst(_sessionSummaryPrefix, '').trim();
+  }
+
+  String _truncateForSummary(String text) {
+    if (text.length <= 180) {
+      return text;
+    }
+    return '${text.substring(0, 180)}...';
+  }
+
+  String _buildContinuationPrompt(String partialContent) {
+    return '你上一条回答因为网络中断未完成。请从中断处继续，不要重复已经输出的内容。'
+        '如果必须衔接，请只补充后续部分。\n\n'
+        '已输出内容如下：\n$partialContent';
+  }
+
+  List<String> _extractToolCallIds(List<Map<String, dynamic>>? toolCalls) {
+    if (toolCalls == null || toolCalls.isEmpty) {
+      return const [];
+    }
+    return toolCalls
+        .map((toolCall) => toolCall['id']?.toString() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  bool _endsWithToolContext(List<AiMessage> protocolMessages) {
+    for (var index = protocolMessages.length - 1; index >= 0; index--) {
+      final message = protocolMessages[index];
+      if (message.role == 'tool') {
+        return true;
+      }
+      if (message.role == 'assistant' && message.hasToolCalls) {
+        return true;
+      }
+      if (message.role == 'assistant' || message.role == 'user') {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  List<AiMessage> _buildContinuationProtocolMessages(
+    List<AiMessage> protocolMessages,
+    String partialContent,
+  ) {
+    if (_endsWithToolContext(protocolMessages)) {
+      return protocolMessages;
+    }
+
+    final updatedMessages = List<AiMessage>.from(protocolMessages);
+    for (var index = updatedMessages.length - 1; index >= 0; index--) {
+      final candidate = updatedMessages[index];
+      if (candidate.role != 'user') {
+        continue;
+      }
+      updatedMessages[index] = candidate.copyWith(
+        content: '${candidate.content}\n\n${_buildContinuationPrompt(partialContent)}',
+      );
+      return List<AiMessage>.unmodifiable(updatedMessages);
+    }
+    return List<AiMessage>.unmodifiable(updatedMessages);
+  }
+
+  String _describePlatformException(PlatformException error) {
+    final message = error.message?.trim();
+    final details = error.details;
+    if (details == null) {
+      return message == null || message.isEmpty ? error.code : message;
+    }
+
+    String detailText;
+    if (details is String) {
+      detailText = details.trim();
+    } else {
+      detailText = details.toString().trim();
+    }
+
+    if (detailText.isEmpty) {
+      return message == null || message.isEmpty ? error.code : message;
+    }
+    if (message == null || message.isEmpty) {
+      return detailText;
+    }
+    return '$message\n$detailText';
+  }
+
+  String _mergeContinuationContent(String existing, String continuation) {
+    final previous = existing.trimRight();
+    final next = continuation.trimLeft();
+    if (next.isEmpty) {
+      return previous;
+    }
+    if (previous.isEmpty) {
+      return next;
+    }
+    if (next.startsWith(previous)) {
+      return next;
+    }
+
+    final maxOverlap = previous.length < next.length
+        ? previous.length
+        : next.length;
+    for (var overlap = maxOverlap; overlap >= 8; overlap--) {
+      final previousSuffix = previous.substring(previous.length - overlap);
+      final nextPrefix = next.substring(0, overlap);
+      if (previousSuffix == nextPrefix) {
+        return '$previous${next.substring(overlap)}';
+      }
+    }
+
+    return '$previous$next';
+  }
+
+  _SessionSummarySections _parseSessionSummarySections(String? summary) {
+    final sections = _SessionSummarySections();
+    if (summary == null || summary.isEmpty) {
+      return sections;
+    }
+
+    String? currentTitle;
+    final lines = _stripSessionSummaryPrefix(summary)
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty);
+
+    for (final line in lines) {
+      if (line.endsWith('：')) {
+        currentTitle = line.substring(0, line.length - 1);
+        continue;
+      }
+      if (!line.startsWith('- ')) {
+        continue;
+      }
+      final note = line.substring(2).trim();
+      if (note.isEmpty) {
+        continue;
+      }
+
+      switch (currentTitle) {
+        case '历史诉求':
+          _addUniqueNote(sections.userNeeds, note);
+          break;
+        case '已知结论':
+          _addUniqueNote(sections.knownConclusions, note);
+          break;
+        case '工具发现':
+          _addUniqueNote(sections.toolFindings, note);
+          break;
+        case '待继续':
+          _addUniqueNote(sections.nextSteps, note);
+          break;
+        default:
+          _addUniqueNote(sections.knownConclusions, note);
+          break;
+      }
+    }
+
+    return sections;
+  }
+
+  void _writeSummarySection(
+    StringBuffer buffer, {
+    required String title,
+    required Iterable<String> notes,
+  }) {
+    final items = notes
+        .map((note) => note.trim())
+        .where((note) => note.isNotEmpty)
+        .toList(growable: false);
+    if (items.isEmpty) {
+      return;
+    }
+
+    buffer
+      ..writeln()
+      ..writeln('$title：');
+    for (final note in items) {
+      buffer.writeln('- $note');
+    }
+  }
+
+  void _addUniqueNote(List<String> notes, String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    if (notes.any((item) => item == normalized)) {
+      return;
+    }
+    notes.add(normalized);
+  }
+
+  bool _looksLikeQuestion(String text) {
+    return text.contains('?') ||
+        text.contains('？') ||
+        text.startsWith('请') ||
+        text.startsWith('分析') ||
+        text.startsWith('找') ||
+        text.startsWith('定位');
+  }
+
+  bool _sameMessages(List<AiMessage> left, List<AiMessage> right) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (var index = 0; index < left.length; index++) {
+      final a = left[index];
+      final b = right[index];
+      if (a.role != b.role ||
+          a.content != b.content ||
+          a.isError != b.isError ||
+          a.toolCallId != b.toolCallId ||
+          a.isToolResultBubble != b.isToolResultBubble) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   ToolExecutor? _getToolExecutor() {
     final sessionId = state.apkSessionId;
     if (sessionId == null || sessionId.isEmpty) {
@@ -1057,6 +1742,13 @@ class AiChatAction extends _$AiChatAction {
     }
     return AiResponseIssue.networkError;
   }
+}
+
+class _SessionSummarySections {
+  final List<String> userNeeds = [];
+  final List<String> knownConclusions = [];
+  final List<String> toolFindings = [];
+  final List<String> nextSteps = [];
 }
 
 class _CollectedAssistantResponse {

@@ -53,6 +53,18 @@ class AiChatActionState {
   bool get canRetryLastTurn =>
       !isStreaming && hasUserMessages && lastResponseIssue != null;
 
+  AiMessage? get latestSessionSummary {
+    for (var index = protocolMessages.length - 1; index >= 0; index--) {
+      final message = protocolMessages[index];
+      if (message.isSessionSummary) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  bool get hasSessionSummary => latestSessionSummary != null;
+
   AiChatActionState copyWith({
     List<AiMessage>? messages,
     List<AiMessage>? protocolMessages,

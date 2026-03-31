@@ -544,10 +544,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiStopGeneration => '停止生成';
 
   @override
+  String get aiCompressContext => '压缩上下文';
+
+  @override
+  String get aiViewSummary => '查看摘要';
+
+  @override
+  String get aiSummaryTitle => '会话摘要';
+
+  @override
+  String get aiSummaryEmpty => '当前还没有可展示的摘要内容';
+
+  @override
+  String get aiContextCompressed => '已压缩上下文';
+
+  @override
+  String get aiContextAlreadyCompact => '当前上下文已经较精简';
+
+  @override
   String get aiRetryLastTurn => '重试上一轮';
 
   @override
   String get aiRetryInitialization => '重试初始化';
+
+  @override
+  String get aiContinue => '继续';
 
   @override
   String get aiUnavailableToSend => '不可发送';

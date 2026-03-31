@@ -1,4 +1,6 @@
+import 'package:JsxposedX/common/pages/toast.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
+import 'package:JsxposedX/core/models/ai_message.dart';
 import 'package:JsxposedX/feature/ai/domain/models/ai_session_init_state.dart';
 import 'package:JsxposedX/feature/ai/presentation/providers/chat/ai_chat_action_provider.dart';
 import 'package:JsxposedX/feature/ai/presentation/widgets/ai_quick_actions.dart';
@@ -32,6 +34,17 @@ class AiChatInput extends HookConsumerWidget {
     final hasContent = textValue.text.trim().isNotEmpty;
     final isStreaming = chatState.isStreaming;
     final canSend = hasContent && chatState.canSend;
+    AiMessage? latestSessionSummary;
+    for (final message in chatState.protocolMessages.reversed) {
+      if (message.role == 'system' &&
+          message.content.startsWith('[session_summary]')) {
+        latestSessionSummary = message;
+        break;
+      }
+    }
+    final hasSessionSummary = latestSessionSummary != null;
+    final canCompactContext =
+        !hasContent && chatState.hasUserMessages && !isStreaming;
     final canRetryLastTurn = !hasContent && chatState.canRetryLastTurn;
     final canRetryInitialization =
         !hasContent &&
@@ -140,6 +153,76 @@ class AiChatInput extends HookConsumerWidget {
                       ),
                     ),
                   ),
+                  if (hasSessionSummary)
+                    GestureDetector(
+                      onTap: () {
+                        final summary = latestSessionSummary?.content;
+                        if (summary == null || summary.isEmpty) {
+                          return;
+                        }
+                        showModalBottomSheet<void>(
+                          context: context,
+                          showDragHandle: true,
+                          isScrollControlled: true,
+                          builder: (sheetContext) {
+                            return _SessionSummarySheet(summary: summary);
+                          },
+                        );
+                      },
+                      child: Container(
+                        width: 36.w,
+                        height: 36.w,
+                        margin: EdgeInsets.only(left: 6.w),
+                        decoration: BoxDecoration(
+                          color: context.colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        child: Tooltip(
+                          message: context.l10n.aiViewSummary,
+                          child: Icon(
+                            Icons.summarize_outlined,
+                            size: 18.sp,
+                            color: context.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (canCompactContext)
+                    GestureDetector(
+                      onTap: () async {
+                        final changed = await ref
+                            .read(
+                              aiChatActionProvider(packageName: packageName)
+                                  .notifier,
+                            )
+                            .compactContext();
+                        if (!context.mounted) {
+                          return;
+                        }
+                        ToastMessage.show(
+                          changed
+                              ? context.l10n.aiContextCompressed
+                              : context.l10n.aiContextAlreadyCompact,
+                        );
+                      },
+                      child: Container(
+                        width: 36.w,
+                        height: 36.w,
+                        margin: EdgeInsets.only(left: 6.w),
+                        decoration: BoxDecoration(
+                          color: context.colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        child: Tooltip(
+                          message: context.l10n.aiCompressContext,
+                          child: Icon(
+                            Icons.compress_rounded,
+                            size: 18.sp,
+                            color: context.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ),
                   GestureDetector(
                     onTap: () async {
                       final notifier = ref.read(
@@ -187,6 +270,158 @@ class AiChatInput extends HookConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SessionSummarySheet extends StatelessWidget {
+  const _SessionSummarySheet({required this.summary});
+
+  final String summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final sections = _parseSummarySections(summary);
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.l10n.aiSummaryTitle,
+                style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(height: 12.h),
+              for (final entry in sections.entries)
+                if (entry.value.isNotEmpty) ...[
+                  _SummarySectionCard(
+                    title: entry.key,
+                    items: entry.value,
+                  ),
+                  SizedBox(height: 10.h),
+                ],
+              if (sections.values.every((items) => items.isEmpty))
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                  child: Text(
+                    context.l10n.aiSummaryEmpty,
+                    style: TextStyle(
+                      color: context.theme.hintColor,
+                      fontSize: 13.sp,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Map<String, List<String>> _parseSummarySections(String rawSummary) {
+    final sections = <String, List<String>>{
+      '历史诉求': [],
+      '已知结论': [],
+      '工具发现': [],
+      '待继续': [],
+    };
+
+    String? currentTitle;
+    final normalized = rawSummary
+        .replaceFirst('[session_summary]', '')
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty);
+
+    for (final line in normalized) {
+      if (line.endsWith('：')) {
+        currentTitle = line.substring(0, line.length - 1);
+        sections.putIfAbsent(currentTitle, () => <String>[]);
+        continue;
+      }
+      if (!line.startsWith('- ')) {
+        continue;
+      }
+      final content = line.substring(2).trim();
+      if (content.isEmpty) {
+        continue;
+      }
+      sections.putIfAbsent(currentTitle ?? '其他', () => <String>[]).add(content);
+    }
+
+    return sections;
+  }
+}
+
+class _SummarySectionCard extends StatelessWidget {
+  const _SummarySectionCard({
+    required this.title,
+    required this.items,
+  });
+
+  final String title;
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: context.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14.r),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w700,
+              color: context.colorScheme.primary,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          for (final item in items)
+            Padding(
+              padding: EdgeInsets.only(bottom: 6.h),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(top: 6.h),
+                    child: Container(
+                      width: 4.w,
+                      height: 4.w,
+                      decoration: BoxDecoration(
+                        color: context.colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      item,
+                      style: TextStyle(
+                        fontSize: 13.sp,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
