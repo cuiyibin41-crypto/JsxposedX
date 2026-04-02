@@ -1,6 +1,69 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:JsxposedX/core/utils/file_picker_util.dart';
+
+enum AiMultimodalAttachmentKind {
+  image,
+  text,
+}
+
+class AiMultimodalAttachmentData {
+  const AiMultimodalAttachmentData({
+    required this.kind,
+    required this.fileName,
+    required this.mimeType,
+    required this.size,
+    this.dataBase64,
+    this.textContent,
+  });
+
+  final AiMultimodalAttachmentKind kind;
+  final String fileName;
+  final String mimeType;
+  final int size;
+  final String? dataBase64;
+  final String? textContent;
+
+  Uint8List? get imageBytes {
+    if (kind != AiMultimodalAttachmentKind.image || dataBase64 == null) {
+      return null;
+    }
+    try {
+      return base64Decode(dataBase64!);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool get isImage => kind == AiMultimodalAttachmentKind.image;
+
+  bool get isTextFile => kind == AiMultimodalAttachmentKind.text;
+
+  String get formattedSize {
+    if (size < 1024) {
+      return '$size B';
+    }
+    if (size < 1024 * 1024) {
+      return '${(size / 1024).toStringAsFixed(2)} KB';
+    }
+    return '${(size / (1024 * 1024)).toStringAsFixed(2)} MB';
+  }
+}
+
+class AiMultimodalParsedMessage {
+  const AiMultimodalParsedMessage({
+    required this.text,
+    required this.attachments,
+  });
+
+  final String text;
+  final List<AiMultimodalAttachmentData> attachments;
+
+  bool get hasText => text.trim().isNotEmpty;
+
+  bool get hasAttachments => attachments.isNotEmpty;
+}
 
 class AiMultimodalMessageCodec {
   AiMultimodalMessageCodec._();
@@ -70,6 +133,19 @@ class AiMultimodalMessageCodec {
 
   static bool isEncoded(String content) {
     return content.startsWith(_prefix);
+  }
+
+  static AiMultimodalParsedMessage? parse(String content) {
+    final payload = tryParse(content);
+    if (payload == null) {
+      return null;
+    }
+    return AiMultimodalParsedMessage(
+      text: payload.text,
+      attachments: payload.attachments
+          .map((attachment) => attachment.toPublicData())
+          .toList(growable: false),
+    );
   }
 
   static bool hasImageAttachments(String content) {
@@ -489,6 +565,19 @@ class _AiMultimodalAttachment {
     final contentLabel = isZh ? '文件内容' : 'File content';
     final normalizedContent = (textContent ?? '').trim();
     return '[$label: $fileName]\n$contentLabel:\n$normalizedContent';
+  }
+
+  AiMultimodalAttachmentData toPublicData() {
+    return AiMultimodalAttachmentData(
+      kind: kind == _AiAttachmentKind.image
+          ? AiMultimodalAttachmentKind.image
+          : AiMultimodalAttachmentKind.text,
+      fileName: fileName,
+      mimeType: mimeType,
+      size: size,
+      dataBase64: dataBase64,
+      textContent: textContent,
+    );
   }
 
   static String _formatSize(int size) {

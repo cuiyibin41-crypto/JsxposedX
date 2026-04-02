@@ -337,7 +337,6 @@ class AiChatAction extends _$AiChatAction {
       role: 'user',
       content: text,
     );
-    final displayUserMessage = _buildDisplayMessage(userMessage);
     final placeholder = AiMessage(
       id: const Uuid().v4(),
       role: 'assistant',
@@ -345,7 +344,7 @@ class AiChatAction extends _$AiChatAction {
     );
 
     final protocolMessages = [...state.protocolMessages, userMessage];
-    final displayMessages = [...state.messages, displayUserMessage, placeholder];
+    final displayMessages = [...state.messages, userMessage, placeholder];
     final contextAssembly = _assembleContext(
       protocolMessages: protocolMessages,
       previousContext: state.sessionContext,
@@ -1239,21 +1238,7 @@ class AiChatAction extends _$AiChatAction {
   ) {
     return protocolMessages
         .where((message) => message.shouldDisplayInChatList)
-        .map(_buildDisplayMessage)
         .toList(growable: false);
-  }
-
-  AiMessage _buildDisplayMessage(AiMessage message) {
-    if (message.role != 'user') {
-      return message;
-    }
-
-    return message.copyWith(
-      content: AiMultimodalMessageCodec.toDisplayText(
-        message.content,
-        isZh: true,
-      ),
-    );
   }
 
   Future<List<AiMessage>> _prepareProtocolMessages(

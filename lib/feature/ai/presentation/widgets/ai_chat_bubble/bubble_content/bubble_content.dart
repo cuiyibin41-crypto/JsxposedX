@@ -1,5 +1,6 @@
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/feature/ai/domain/models/ai_thinking_markup.dart';
+import 'package:JsxposedX/feature/ai/domain/services/ai_multimodal_message_codec.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -20,6 +21,13 @@ abstract class BaseBubbleContentPart {
     BubbleState state, {
     required BaseBubbleToolbarPart toolbarPart,
   }) {
+    if (state.isUser && AiMultimodalMessageCodec.isEncoded(state.content)) {
+      return buildUserAttachments(
+        context,
+        state,
+        toolbarPart: toolbarPart,
+      );
+    }
     if (state.isLoading) {
       return buildLoading(context, state);
     }
@@ -45,6 +53,40 @@ abstract class BaseBubbleContentPart {
   @protected
   Widget buildToolCalling(BuildContext context, BubbleState state) {
     return ToolCallingIndicator(content: state.content);
+  }
+
+  @protected
+  Widget buildUserAttachments(
+    BuildContext context,
+    BubbleState state, {
+    required BaseBubbleToolbarPart toolbarPart,
+  }) {
+    final parsed = AiMultimodalMessageCodec.parse(state.content);
+    if (parsed == null) {
+      return buildMarkdown(context, state, toolbarPart: toolbarPart);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (parsed.hasText)
+          _buildMarkdownBody(
+            context,
+            state,
+            toolbarPart: toolbarPart,
+            markdown: parsed.text,
+          ),
+        for (final attachment in parsed.attachments) ...[
+          if (parsed.hasText || attachment != parsed.attachments.first)
+            SizedBox(height: 10.h),
+          if (attachment.isImage)
+            _UserImageAttachmentCard(attachment: attachment)
+          else
+            _UserFileAttachmentCard(attachment: attachment),
+        ],
+      ],
+    );
   }
 
   @protected
@@ -264,6 +306,183 @@ class _ThinkingMarkdownContent extends HookWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _UserImageAttachmentCard extends StatelessWidget {
+  const _UserImageAttachmentCard({
+    required this.attachment,
+  });
+
+  final AiMultimodalAttachmentData attachment;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = attachment.imageBytes;
+    if (bytes == null) {
+      return _UserFileAttachmentCard(attachment: attachment);
+    }
+
+    return Container(
+      constraints: BoxConstraints(maxWidth: 0.66.sw),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Stack(
+        alignment: Alignment.bottomLeft,
+        children: [
+          Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) {
+              return AspectRatio(
+                aspectRatio: 1.2,
+                child: ColoredBox(
+                  color: Colors.white.withValues(alpha: 0.10),
+                  child: Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.white.withValues(alpha: 0.90),
+                      size: 28.sp,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.64),
+                ],
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  attachment.fileName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  attachment.formattedSize,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.86),
+                    fontSize: 11.sp,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UserFileAttachmentCard extends StatelessWidget {
+  const _UserFileAttachmentCard({
+    required this.attachment,
+  });
+
+  final AiMultimodalAttachmentData attachment;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = (attachment.textContent ?? '').trim();
+    final excerpt = preview.length <= 180
+        ? preview
+        : '${preview.substring(0, 180)}...';
+
+    return Container(
+      constraints: BoxConstraints(maxWidth: 0.68.sw),
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36.w,
+            height: 36.w,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: Icon(
+              Icons.description_outlined,
+              color: Colors.white,
+              size: 18.sp,
+            ),
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  attachment.fileName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  '${attachment.mimeType} · ${attachment.formattedSize}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.82),
+                    fontSize: 11.sp,
+                  ),
+                ),
+                if (excerpt.isNotEmpty) ...[
+                  SizedBox(height: 8.h),
+                  Text(
+                    excerpt,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      fontSize: 11.5.sp,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
