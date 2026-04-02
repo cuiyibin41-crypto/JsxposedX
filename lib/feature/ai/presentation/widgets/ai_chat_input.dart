@@ -1,5 +1,9 @@
+import 'dart:convert';
+
+import 'package:JsxposedX/common/pages/toast.dart';
 import 'package:JsxposedX/common/widgets/app_bottom_sheet.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
+import 'package:JsxposedX/core/utils/file_picker_util.dart';
 import 'package:JsxposedX/feature/ai/domain/models/ai_chat_session_context.dart';
 import 'package:JsxposedX/feature/ai/domain/models/ai_session_init_state.dart';
 import 'package:JsxposedX/feature/ai/presentation/providers/chat/ai_chat_action_provider.dart';
@@ -29,18 +33,21 @@ class AiChatInput extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textController = useTextEditingController();
+    final pendingAttachments = useState<List<PickedFileData>>(const []);
     final chatState = ref.watch(aiChatActionProvider(packageName: packageName));
 
     final textValue = useValueListenable(textController);
     final hasContent = textValue.text.trim().isNotEmpty;
+    final hasAttachments = pendingAttachments.value.isNotEmpty;
     final isStreaming = chatState.isStreaming;
-    final canSend = hasContent && chatState.canSend;
+    final canSend = (hasContent || hasAttachments) && chatState.canSend;
     final hasContextDetails =
         chatState.hasUserMessages ||
         chatState.sessionContext.hasStructuredMemory;
-    final canRetryLastTurn = !hasContent && chatState.canRetryLastTurn;
+    final canRetryLastTurn = !hasContent && !hasAttachments && chatState.canRetryLastTurn;
     final canRetryInitialization =
         !hasContent &&
+        !hasAttachments &&
         chatState.sessionInitState == AiSessionInitState.failed &&
         onRetryInitialization != null;
     final actionIcon = isStreaming
@@ -76,6 +83,83 @@ class AiChatInput extends HookConsumerWidget {
         ? context.l10n.aiRetryInitialization
         : context.l10n.aiUnavailableToSend;
 
+    Future<void> handleSend() async {
+      final notifier = ref.read(
+        aiChatActionProvider(packageName: packageName).notifier,
+      );
+      if (isStreaming) {
+        await notifier.stopStreaming();
+        return;
+      }
+      if (canSend) {
+        final text = _buildOutgoingMessage(
+          context: context,
+          text: textController.text.trim(),
+          attachments: pendingAttachments.value,
+        );
+        await notifier.send(text);
+        textController.clear();
+        pendingAttachments.value = const [];
+        return;
+      }
+      if (canRetryLastTurn) {
+        await notifier.retryLastTurn();
+        return;
+      }
+      if (canRetryInitialization) {
+        await onRetryInitialization?.call();
+      }
+    }
+
+    Future<void> handleMenuAction(_AiInputMenuAction action) async {
+      switch (action) {
+        case _AiInputMenuAction.previewContext:
+          if (!hasContextDetails) {
+            return;
+          }
+          AppBottomSheet.show<void>(
+            context: context,
+            title: context.l10n.aiContextTitle,
+            child: _ContextSheet(chatState: chatState),
+          );
+          break;
+        case _AiInputMenuAction.uploadImage:
+          try {
+            final picked = await FilePickerUtil.pickImage();
+            if (picked == null) {
+              return;
+            }
+            pendingAttachments.value = [
+              ...pendingAttachments.value,
+              picked,
+            ];
+          } catch (error) {
+            if (!context.mounted) {
+              return;
+            }
+            ToastMessage.show(error.toString());
+          }
+          break;
+        case _AiInputMenuAction.uploadFile:
+          try {
+            final picked = await FilePickerUtil.pickFile();
+            if (picked == null) {
+              return;
+            }
+            pendingAttachments.value = [
+              ...pendingAttachments.value,
+              picked,
+            ];
+          } catch (error) {
+            if (!context.mounted) {
+              return;
+            }
+            ToastMessage.show(error.toString());
+          }
+          break;
+      }
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -108,131 +192,161 @@ class AiChatInput extends HookConsumerWidget {
             ),
             child: Padding(
               padding: EdgeInsets.all(4.w),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (hasContextDetails)
-                    GestureDetector(
-                      onTap: () {
-                        AppBottomSheet.show<void>(
-                          context: context,
-                          title: context.l10n.aiContextTitle,
-                          child: _ContextSheet(chatState: chatState),
-                        );
-                      },
-                      child: Container(
-                        width: 36.w,
-                        height: 36.w,
-                        margin: EdgeInsets.only(left: 6.w),
-                        decoration: BoxDecoration(
-                          color: context.isDark
-                              ? context.colorScheme.surfaceContainerLow
-                              : context.colorScheme.surface,
-                          borderRadius: BorderRadius.circular(10.r),
-                          border: Border.all(
-                            color: context.colorScheme.outlineVariant
-                                .withValues(alpha: context.isDark ? 0.55 : 0.8),
-                          ),
+                  if (pendingAttachments.value.isNotEmpty)
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(8.w, 8.h, 8.w, 2.h),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Wrap(
+                          spacing: 6.w,
+                          runSpacing: 6.h,
+                          children: [
+                            for (var index = 0; index < pendingAttachments.value.length; index++)
+                              _PendingAttachmentChip(
+                                file: pendingAttachments.value[index],
+                                onRemove: () {
+                                  final updated = List<PickedFileData>.from(
+                                    pendingAttachments.value,
+                                  )..removeAt(index);
+                                  pendingAttachments.value = List<PickedFileData>.unmodifiable(
+                                    updated,
+                                  );
+                                },
+                              ),
+                          ],
                         ),
-                        child: Tooltip(
-                          message: context.l10n.aiContext,
+                      ),
+                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      PopupMenuButton<_AiInputMenuAction>(
+                        tooltip: context.isZh ? '更多操作' : 'More actions',
+                        offset: const Offset(0, -180),
+                        color: context.theme.cardColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14.r),
+                        ),
+                        onSelected: handleMenuAction,
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: _AiInputMenuAction.previewContext,
+                            enabled: hasContextDetails,
+                            child: _AiInputMenuItem(
+                              icon: Icons.data_object_rounded,
+                              title: context.isZh ? '查看上下文' : 'Preview context',
+                              subtitle: context.isZh
+                                  ? '预览自动压缩后的对话上下文'
+                                  : 'Preview the current compressed context',
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: _AiInputMenuAction.uploadImage,
+                            child: _AiInputMenuItem(
+                              icon: Icons.image_outlined,
+                              title: context.isZh ? '上传图片' : 'Upload image',
+                              subtitle: context.isZh
+                                  ? '添加图片到待发送附件'
+                                  : 'Add an image as a pending attachment',
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: _AiInputMenuAction.uploadFile,
+                            child: _AiInputMenuItem(
+                              icon: Icons.attach_file_rounded,
+                              title: context.isZh ? '上传文件' : 'Upload file',
+                              subtitle: context.isZh
+                                  ? '添加文件到待发送附件'
+                                  : 'Add a file as a pending attachment',
+                            ),
+                          ),
+                        ],
+                        child: Container(
+                          width: 36.w,
+                          height: 36.w,
+                          margin: EdgeInsets.only(left: 6.w),
+                          decoration: BoxDecoration(
+                            color: context.isDark
+                                ? context.colorScheme.surfaceContainerLow
+                                : context.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(10.r),
+                            border: Border.all(
+                              color: context.colorScheme.outlineVariant.withValues(
+                                alpha: context.isDark ? 0.55 : 0.8,
+                              ),
+                            ),
+                          ),
                           child: Icon(
-                            Icons.data_object_rounded,
-                            size: 18.sp,
+                            Icons.add_rounded,
+                            size: 20.sp,
                             color: context.colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
-                    ),
-                  SizedBox(width: 14.w),
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10.h),
-                      child: TextField(
-                        controller: textController,
-                        enabled:
-                            chatState.sessionInitState ==
-                            AiSessionInitState.ready,
-                        onSubmitted: (_) {
-                          if (!canSend) {
-                            return;
-                          }
-                          final text = textController.text.trim();
-                          ref
-                              .read(
-                                aiChatActionProvider(
-                                  packageName: packageName,
-                                ).notifier,
-                              )
-                              .send(text);
-                          textController.clear();
-                        },
-                        style: TextStyle(
-                          fontSize: 15.sp,
-                          height: 1.4,
-                          color: context.textTheme.bodyLarge?.color,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: hintText,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          isDense: true,
-                          filled: true,
-                          fillColor: Colors.transparent,
-                          contentPadding: EdgeInsets.zero,
-                          hintStyle: TextStyle(
-                            color: context.theme.hintColor,
-                            fontSize: 15.sp,
+                      SizedBox(width: 14.w),
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 10.h),
+                          child: TextField(
+                            controller: textController,
+                            enabled:
+                                chatState.sessionInitState ==
+                                AiSessionInitState.ready,
+                            onSubmitted: (_) async {
+                              if (!canSend) {
+                                return;
+                              }
+                              await handleSend();
+                            },
+                            style: TextStyle(
+                              fontSize: 15.sp,
+                              height: 1.4,
+                              color: context.textTheme.bodyLarge?.color,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: hintText,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              isDense: true,
+                              filled: true,
+                              fillColor: Colors.transparent,
+                              contentPadding: EdgeInsets.zero,
+                              hintStyle: TextStyle(
+                                color: context.theme.hintColor,
+                                fontSize: 15.sp,
+                              ),
+                            ),
+                            maxLines: 5,
+                            minLines: 1,
                           ),
                         ),
-                        maxLines: 5,
-                        minLines: 1,
                       ),
-                    ),
-                  ),
-
-                  GestureDetector(
-                    onTap: () async {
-                      final notifier = ref.read(
-                        aiChatActionProvider(packageName: packageName).notifier,
-                      );
-                      if (isStreaming) {
-                        await notifier.stopStreaming();
-                        return;
-                      }
-                      if (canSend) {
-                        final text = textController.text.trim();
-                        await notifier.send(text);
-                        textController.clear();
-                        return;
-                      }
-                      if (canRetryLastTurn) {
-                        await notifier.retryLastTurn();
-                        return;
-                      }
-                      if (canRetryInitialization) {
-                        await onRetryInitialization?.call();
-                      }
-                    },
-                    child: Container(
-                      width: 44.w,
-                      height: 44.w,
-                      margin: EdgeInsets.only(left: 8.w),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: actionColor,
-                      ),
-                      child: Tooltip(
-                        message: actionLabel,
-                        child: Icon(
-                          actionIcon,
-                          color: Colors.white,
-                          size: 22.sp,
+                      GestureDetector(
+                        onTap: handleSend,
+                        child: Container(
+                          width: 44.w,
+                          height: 44.w,
+                          margin: EdgeInsets.only(left: 8.w),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: actionColor,
+                          ),
+                          child: Tooltip(
+                            message: actionLabel,
+                            child: Icon(
+                              actionIcon,
+                              color: Colors.white,
+                              size: 22.sp,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -240,6 +354,230 @@ class AiChatInput extends HookConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  String _buildOutgoingMessage({
+    required BuildContext context,
+    required String text,
+    required List<PickedFileData> attachments,
+  }) {
+    if (attachments.isEmpty) {
+      return text;
+    }
+
+    final attachmentBlocks = attachments
+        .map((file) => _buildAttachmentBlock(context: context, file: file))
+        .where((block) => block.trim().isNotEmpty)
+        .join('\n\n');
+    final header = context.isZh
+        ? '以下是用户附带的本地附件信息，请结合这些附件继续回答：'
+        : 'The user attached the following local files. Use them as context when answering:';
+    final body = text.trim();
+    if (body.isEmpty) {
+      return '$header\n\n$attachmentBlocks';
+    }
+    return '$header\n\n$attachmentBlocks\n\n$body';
+  }
+
+  String _buildAttachmentBlock({
+    required BuildContext context,
+    required PickedFileData file,
+  }) {
+    final extension = (file.extension ?? '').toLowerCase();
+    final isImage = const {
+      'png',
+      'jpg',
+      'jpeg',
+      'gif',
+      'webp',
+      'bmp',
+      'heic',
+    }.contains(extension);
+    final isTextLike = const {
+      'txt',
+      'md',
+      'json',
+      'xml',
+      'html',
+      'htm',
+      'js',
+      'ts',
+      'java',
+      'kt',
+      'kts',
+      'dart',
+      'py',
+      'log',
+      'yaml',
+      'yml',
+      'properties',
+      'csv',
+      'ini',
+      'sh',
+      'smali',
+    }.contains(extension);
+    final label = isImage
+        ? (context.isZh ? '图片附件' : 'Image attachment')
+        : (context.isZh ? '文件附件' : 'File attachment');
+    final buffer = StringBuffer()
+      ..writeln('[$label]')
+      ..writeln('${context.isZh ? '名称' : 'Name'}: ${file.fileName}')
+      ..writeln('${context.isZh ? '大小' : 'Size'}: ${file.formattedSize}');
+    if (file.path != null && file.path!.isNotEmpty) {
+      buffer.writeln('${context.isZh ? '路径' : 'Path'}: ${file.path}');
+    }
+
+    if (isTextLike && file.size <= 64 * 1024) {
+      final preview = utf8.decode(file.bytes, allowMalformed: true).trim();
+      if (preview.isNotEmpty) {
+        final excerpt = preview.length > 4000
+            ? '${preview.substring(0, 4000)}\n...'
+            : preview;
+        buffer
+          ..writeln()
+          ..writeln(context.isZh ? '文件内容预览:' : 'File content preview:')
+          ..write(excerpt);
+      }
+    }
+
+    return buffer.toString().trim();
+  }
+}
+
+enum _AiInputMenuAction {
+  previewContext,
+  uploadImage,
+  uploadFile,
+}
+
+class _AiInputMenuItem extends StatelessWidget {
+  const _AiInputMenuItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 210.w,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 30.w,
+            height: 30.w,
+            decoration: BoxDecoration(
+              color: context.colorScheme.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(9.r),
+            ),
+            child: Icon(
+              icon,
+              size: 16.sp,
+              color: context.colorScheme.primary,
+            ),
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11.5.sp,
+                    height: 1.35,
+                    color: context.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingAttachmentChip extends StatelessWidget {
+  const _PendingAttachmentChip({
+    required this.file,
+    required this.onRemove,
+  });
+
+  final PickedFileData file;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final extension = (file.extension ?? '').toLowerCase();
+    final isImage = const {
+      'png',
+      'jpg',
+      'jpeg',
+      'gif',
+      'webp',
+      'bmp',
+      'heic',
+    }.contains(extension);
+
+    return Container(
+      constraints: BoxConstraints(maxWidth: 0.62.sw),
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
+      decoration: BoxDecoration(
+        color: context.colorScheme.surfaceContainerHighest.withValues(
+          alpha: context.isDark ? 0.55 : 0.75,
+        ),
+        borderRadius: BorderRadius.circular(999.r),
+        border: Border.all(
+          color: context.colorScheme.outlineVariant.withValues(alpha: 0.7),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isImage ? Icons.image_outlined : Icons.attach_file_rounded,
+            size: 14.sp,
+            color: context.colorScheme.onSurfaceVariant,
+          ),
+          SizedBox(width: 6.w),
+          Flexible(
+            child: Text(
+              '${file.fileName} · ${file.formattedSize}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5.sp,
+                color: context.colorScheme.onSurface,
+              ),
+            ),
+          ),
+          SizedBox(width: 6.w),
+          GestureDetector(
+            onTap: onRemove,
+            child: Icon(
+              Icons.close_rounded,
+              size: 14.sp,
+              color: context.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -351,7 +689,10 @@ class _ContextSheet extends StatelessWidget {
 }
 
 class _ContextInfoCard extends StatelessWidget {
-  const _ContextInfoCard({required this.title, required this.rows});
+  const _ContextInfoCard({
+    required this.title,
+    required this.rows,
+  });
 
   final String title;
   final List<String> rows;
@@ -398,7 +739,10 @@ class _ContextInfoCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       item,
-                      style: TextStyle(fontSize: 13.sp, height: 1.45),
+                      style: TextStyle(
+                        fontSize: 13.sp,
+                        height: 1.45,
+                      ),
                     ),
                   ),
                 ],
