@@ -10,4 +10,5 @@
   static const String youtube = '$images/youtube.png';
   static const String tiktok = '$images/tiktok.png';
   static const String muxue = '$images/muxue.png';
+  static const String wx = '$images/wx.png';
 }

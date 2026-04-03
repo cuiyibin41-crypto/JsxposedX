@@ -144,6 +144,10 @@
   "@joinQQGroup": {
     "description": "Join QQ group button"
   },
+  "targetRange": "Target Range",
+  "@targetRange": {
+    "description": "Target range button"
+  },
   "followAuthor": "Follow the Author",
   "@followAuthor": {
     "description": "Follow author section title"

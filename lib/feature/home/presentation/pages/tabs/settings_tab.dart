@@ -31,6 +31,8 @@ const String _youtubeUrl =
     'https://youtube.com/channel/UCXH3m2W67bwMDBsTRibagmw?si=i1kwAbgOMrY3gtKE';
 const String _qqGroupUrl =
     'https://qun.qq.com/universal-share/share?ac=1&authKey=CoeFZQRhWhCHjLTPhZC%2BVcCSkHb431ulekylEVq8Cy9g%2FF9nNwzaak3lrpzPmez4&busi_data=eyJncm91cENvZGUiOiIzMzUwNDc4MzQiLCJ0b2tlbiI6IjhkekxXRklPcU9nNCtLbnhQM3FjeWFOT3VnTW5SY2E2ZVNYL25Fdjc5dlI1a1ZVMTlsYUtwbzNRblo2R01xOXMiLCJ1aW4iOiIzMTEzMTQzNjY2In0%3D&data=_T2_0SMUSubLMt0YcN1MGZJF9zB2cR1tByzZ7-nin-3yDQ_QIxc9UfAHGCD4I5pkd1bunaTW6aZqZ3NmHeepJg&svctype=4&tempid=h5_group_info';
+const String _targetRangeUrl =
+    'https://pan.xunlei.com/s/VOodpELVGUCsmDw41eT_cxBaA1?pwd=2x75';
 const String _projectUrl = 'https://jsxposed.org';
 const String _repositoryUrl = 'https://github.com/dugongzi/JsxposedX';
 
@@ -82,6 +84,8 @@ class SettingsTab extends HookConsumerWidget {
             onVisitForum: () => UrlHelper.openUrlInBrowser(url: _forumUrl),
             onJoinDiscord: () => UrlHelper.openUrlInBrowser(url: _discordUrl),
             onJoinQQGroup: () => UrlHelper.openUrlInBrowser(url: _qqGroupUrl),
+            onOpenTargetRange: () =>
+                UrlHelper.openUrlInBrowser(url: _targetRangeUrl),
           ),
         ),
         SliverToBoxAdapter(child: SizedBox(height: 20.h)),

@@ -11,12 +11,14 @@ class SettingsCommunityCard extends StatelessWidget {
     required this.onVisitForum,
     required this.onJoinDiscord,
     required this.onJoinQQGroup,
+    required this.onOpenTargetRange,
   });
 
   final String forumHost;
   final VoidCallback onVisitForum;
   final VoidCallback onJoinDiscord;
   final VoidCallback onJoinQQGroup;
+  final VoidCallback onOpenTargetRange;
 
   @override
   Widget build(BuildContext context) {
@@ -180,30 +182,7 @@ class SettingsCommunityCard extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: 18.h),
-                    Wrap(
-                      spacing: 10.w,
-                      runSpacing: 10.h,
-                      children: [
-                        _buildPrimaryAction(
-                          context,
-                          icon: Icons.open_in_new_rounded,
-                          label: context.l10n.visitForum,
-                          onPressed: onVisitForum,
-                        ),
-                        _buildSecondaryAction(
-                          context,
-                          icon: Icons.chat_bubble_outline_rounded,
-                          label: context.l10n.joinDiscord,
-                          onPressed: onJoinDiscord,
-                        ),
-                        _buildSecondaryAction(
-                          context,
-                          icon: Icons.groups_rounded,
-                          label: context.l10n.joinQQGroup,
-                          onPressed: onJoinQQGroup,
-                        ),
-                      ],
-                    ),
+                    _buildActionButtons(context),
                   ],
                 ),
               ),
@@ -211,6 +190,72 @@ class SettingsCommunityCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildActionButtons(BuildContext context) {
+    final spacing = 10.w;
+    final forumButton = _buildPrimaryAction(
+      context,
+      icon: Icons.open_in_new_rounded,
+      label: context.l10n.visitForum,
+      onPressed: onVisitForum,
+    );
+    final discordButton = _buildSecondaryAction(
+      context,
+      icon: Icons.chat_bubble_outline_rounded,
+      label: context.l10n.joinDiscord,
+      onPressed: onJoinDiscord,
+    );
+    final qqGroupButton = _buildSecondaryAction(
+      context,
+      icon: Icons.groups_rounded,
+      label: context.l10n.joinQQGroup,
+      onPressed: onJoinQQGroup,
+    );
+    final targetRangeButton = _buildSecondaryAction(
+      context,
+      icon: Icons.bug_report_rounded,
+      label: context.l10n.targetRange,
+      onPressed: onOpenTargetRange,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 320.w) {
+          return Column(
+            children: [
+              SizedBox(width: double.infinity, child: forumButton),
+              SizedBox(height: 10.h),
+              SizedBox(width: double.infinity, child: discordButton),
+              SizedBox(height: 10.h),
+              SizedBox(width: double.infinity, child: qqGroupButton),
+              SizedBox(height: 10.h),
+              SizedBox(width: double.infinity, child: targetRangeButton),
+            ],
+          );
+        }
+
+        return Column(
+          children: [
+            Row(
+              children: [
+                Expanded(child: forumButton),
+                SizedBox(width: spacing),
+                Expanded(child: discordButton),
+              ],
+            ),
+            SizedBox(height: 10.h),
+            Row(
+              children: [
+                Expanded(child: qqGroupButton),
+                SizedBox(width: spacing),
+                Expanded(child: targetRangeButton),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 

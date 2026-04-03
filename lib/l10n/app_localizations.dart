@@ -314,6 +314,12 @@ abstract class AppLocalizations {
   /// **'加入 QQ 群'**
   String get joinQQGroup;
 
+  /// 靶场按钮
+  ///
+  /// In zh, this message translates to:
+  /// **'靶场'**
+  String get targetRange;
+
   /// 关注作者分组标题
   ///
   /// In zh, this message translates to:

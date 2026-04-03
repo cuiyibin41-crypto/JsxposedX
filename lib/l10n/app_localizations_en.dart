@@ -118,6 +118,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get joinQQGroup => 'Join QQ Group';
 
   @override
+  String get targetRange => 'Target Range';
+
+  @override
   String get followAuthor => 'Follow the Author';
 
   @override

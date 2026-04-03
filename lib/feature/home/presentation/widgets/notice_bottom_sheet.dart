@@ -1,6 +1,7 @@
-﻿import 'package:JsxposedX/common/widgets/custom_dIalog.dart';
+import 'package:JsxposedX/common/widgets/custom_dIalog.dart';
 import 'package:JsxposedX/common/widgets/loading.dart';
 import 'package:JsxposedX/common/widgets/ref_error.dart';
+import 'package:JsxposedX/core/constants/assets_constants.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/core/utils/url_helper.dart';
 import 'package:JsxposedX/feature/home/presentation/providers/check_query_provider.dart';
@@ -204,6 +205,28 @@ class NoticeBottomSheet extends HookConsumerWidget {
             ),
           ),
           SizedBox(height: 14.h),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16.r),
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: colorScheme.surface.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(
+                  color: colorScheme.primary.withValues(alpha: 0.14),
+                ),
+              ),
+              child: AspectRatio(
+                aspectRatio: 1885 / 624,
+                child: Image.asset(
+                  AssetsConstants.wx,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.center,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 14.h),
           Wrap(
             spacing: 10.w,
             runSpacing: 10.h,
@@ -346,3 +369,4 @@ class NoticeBottomSheet extends HookConsumerWidget {
     );
   }
 }
+

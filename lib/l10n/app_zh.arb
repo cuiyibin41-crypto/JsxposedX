@@ -144,6 +144,10 @@
   "@joinQQGroup": {
     "description": "加入 QQ 群按钮"
   },
+  "targetRange": "靶场",
+  "@targetRange": {
+    "description": "靶场按钮"
+  },
   "followAuthor": "关注作者",
   "@followAuthor": {
     "description": "关注作者分组标题"

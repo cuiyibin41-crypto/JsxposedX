@@ -117,6 +117,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get joinQQGroup => '加入 QQ 群';
 
   @override
+  String get targetRange => '靶场';
+
+  @override
   String get followAuthor => '关注作者';
 
   @override
