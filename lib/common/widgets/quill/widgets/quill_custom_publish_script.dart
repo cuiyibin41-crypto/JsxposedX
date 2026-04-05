@@ -1,8 +1,22 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 
+import 'package:JsxposedX/common/pages/toast.dart';
+import 'package:JsxposedX/common/widgets/custom_dIalog.dart';
+import 'package:JsxposedX/common/widgets/custom_text_field.dart';
+import 'package:JsxposedX/core/extensions/context_extensions.dart';
+import 'package:JsxposedX/core/routes/routes/home_route.dart';
+import 'package:JsxposedX/features/frida/presentation/providers/frida_action_provider.dart';
+import 'package:JsxposedX/features/frida/presentation/providers/frida_query_provider.dart';
+import 'package:JsxposedX/features/project/presentation/providers/project_query_provider.dart';
+import 'package:JsxposedX/features/xposed/presentation/providers/xposed_action_provider.dart';
+import 'package:JsxposedX/features/xposed/presentation/providers/xposed_query_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class QuillCustomPublishScript extends quill.EmbedBuilder {
   @override
@@ -22,16 +36,16 @@ class QuillCustomPublishScript extends quill.EmbedBuilder {
   }
 }
 
-class _PublishScriptCard extends StatefulWidget {
+class _PublishScriptCard extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;
 
   const _PublishScriptCard({required this.data});
 
   @override
-  State<_PublishScriptCard> createState() => _PublishScriptCardState();
+  ConsumerState<_PublishScriptCard> createState() => _PublishScriptCardState();
 }
 
-class _PublishScriptCardState extends State<_PublishScriptCard> {
+class _PublishScriptCardState extends ConsumerState<_PublishScriptCard> {
   bool _copied = false;
 
   String get _title => widget.data['title']?.toString() ?? '发布脚本';
@@ -47,6 +61,12 @@ class _PublishScriptCardState extends State<_PublishScriptCard> {
 
   String get _script => widget.data['script']?.toString() ?? '';
 
+  bool get _isXposedScript => _scriptType == 'xposed_js';
+
+  bool get _isFridaScript => _scriptType == 'frida_js';
+
+  bool get _isSupportedScriptType => _isXposedScript || _isFridaScript;
+
   Future<void> _copyScript() async {
     await Clipboard.setData(ClipboardData(text: _script));
     if (!mounted) {
@@ -58,6 +78,189 @@ class _PublishScriptCardState extends State<_PublishScriptCard> {
         setState(() => _copied = false);
       }
     });
+  }
+
+  String? _validateImportData() {
+    if (_script.trim().isEmpty) {
+      return '脚本内容为空，无法导入';
+    }
+    if (_packageName.trim().isEmpty) {
+      return '目标包名为空，无法导入';
+    }
+    if (!_isSupportedScriptType) {
+      return '暂不支持该脚本类型导入';
+    }
+    return null;
+  }
+
+  String _sanitizeFileName(String value) {
+    return value
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'[\r\n\t]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  String _defaultFileName() {
+    final sanitized = _sanitizeFileName(_title);
+    if (sanitized.isNotEmpty) {
+      return sanitized;
+    }
+    return 'script_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  String _normalizeScriptFileName(String rawName) {
+    final name = rawName.trim();
+    if (name.isEmpty) {
+      return '';
+    }
+    return name.endsWith('.js') ? name : '$name.js';
+  }
+
+  String _normalizeXposedFileName(String rawName) {
+    final fileName = _normalizeScriptFileName(rawName);
+    if (fileName.startsWith('[traditional]')) {
+      return fileName;
+    }
+    return '[traditional]$fileName';
+  }
+
+  bool _isReservedXposedName(String rawName) {
+    final normalized = _normalizeScriptFileName(rawName).toLowerCase();
+    final stripped = normalized.startsWith('[traditional]')
+        ? normalized.substring('[traditional]'.length)
+        : normalized;
+    return stripped == 'hook' || stripped == 'hook.js';
+  }
+
+  Future<void> _showImportDialog() async {
+    final nameController = TextEditingController(text: _defaultFileName());
+    await CustomDialog.show(
+      title: Text(context.l10n.importScript),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '文件名',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: context.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          CustomTextField(
+            controller: nameController,
+            hintText: 'script_name.js',
+          ),
+        ],
+      ),
+      actionButtons: [
+        TextButton(
+          onPressed: SmartDialog.dismiss,
+          child: Text(context.l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: () async {
+            final rawName = nameController.text.trim();
+            if (rawName.isEmpty) {
+              ToastMessage.show(context.l10n.projectNameEmpty);
+              return;
+            }
+            if (_isXposedScript && _isReservedXposedName(rawName)) {
+              ToastMessage.show(context.l10n.reservedScriptFileName);
+              return;
+            }
+
+            final fileName = _isXposedScript
+                ? _normalizeXposedFileName(rawName)
+                : _normalizeScriptFileName(rawName);
+
+            try {
+              if (_isFridaScript) {
+                await ref.read(
+                  createFridaScriptProvider(
+                    packageName: _packageName,
+                    localPath: fileName,
+                    content: _script,
+                  ).future,
+                );
+                ref.invalidate(fridaScriptsProvider(packageName: _packageName));
+              } else {
+                await ref.read(
+                  createJsScriptProvider(
+                    packageName: _packageName,
+                    localPath: fileName,
+                    content: _script,
+                  ).future,
+                );
+                ref.invalidate(jsScriptsProvider(packageName: _packageName));
+              }
+
+              if (!mounted) {
+                return;
+              }
+              SmartDialog.dismiss();
+              ToastMessage.show(
+                context.l10n.aiScriptSavedTo(
+                  _isFridaScript
+                      ? context.l10n.fridaProject
+                      : context.l10n.xposedProject,
+                  fileName,
+                ),
+              );
+              context.push(
+                _isFridaScript
+                    ? HomeRoute.toFridaProject(packageName: _packageName)
+                    : HomeRoute.toXposedProject(packageName: _packageName),
+              );
+            } catch (error) {
+              if (!mounted) {
+                return;
+              }
+              ToastMessage.show(
+                context.l10n.aiScriptSaveFailed(error.toString()),
+              );
+            }
+          },
+          child: Text(context.l10n.importScript),
+        ),
+      ],
+    );
+    nameController.dispose();
+  }
+
+  Future<void> _handleImportScript() async {
+    final validationMessage = _validateImportData();
+    if (validationMessage != null) {
+      developer.log(validationMessage);
+      ToastMessage.show(validationMessage);
+      return;
+    }
+
+    try {
+      final exists = await ref.read(
+        projectExistsProvider(packageName: _packageName).future,
+      );
+      if (!exists) {
+        if (!mounted) {
+          return;
+        }
+        ToastMessage.show('本地没有该项目，请先创建对应项目');
+        return;
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ToastMessage.show(error.toString());
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    await _showImportDialog();
   }
 
   Color _scriptTypeColor(ColorScheme colorScheme) {
@@ -87,18 +290,18 @@ class _PublishScriptCardState extends State<_PublishScriptCard> {
     final accentColor = _scriptTypeColor(colorScheme);
     final isDark = theme.brightness == Brightness.dark;
     final cardBackground = Color.alphaBlend(
-      accentColor.withOpacity(isDark ? 0.10 : 0.06),
+      accentColor.withValues(alpha: isDark ? 0.10 : 0.06),
       colorScheme.surface,
     );
 
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accentColor.withOpacity(0.22)),
+        border: Border.all(color: accentColor.withValues(alpha: 0.22)),
         color: cardBackground,
         boxShadow: [
           BoxShadow(
-            color: accentColor.withOpacity(isDark ? 0.10 : 0.08),
+            color: accentColor.withValues(alpha: isDark ? 0.10 : 0.08),
             blurRadius: 22,
             offset: const Offset(0, 10),
           ),
@@ -118,8 +321,8 @@ class _PublishScriptCardState extends State<_PublishScriptCard> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        accentColor.withOpacity(0.95),
-                        accentColor.withOpacity(0.72),
+                        accentColor.withValues(alpha: 0.95),
+                        accentColor.withValues(alpha: 0.72),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -180,17 +383,28 @@ class _PublishScriptCardState extends State<_PublishScriptCard> {
                 _description,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   height: 1.5,
-                  color: colorScheme.onSurface.withOpacity(0.78),
+                  color: colorScheme.onSurface.withValues(alpha: 0.78),
                 ),
               ),
             ],
             const SizedBox(height: 14),
             _CodePanel(
               title: 'JS 脚本',
-              actionLabel: _copied ? '已复制' : '复制脚本',
-              actionIcon: _copied ? Icons.check : Icons.copy_all_rounded,
-              actionColor: _copied ? Colors.green : accentColor,
-              onActionTap: _copyScript,
+              accentColor: accentColor,
+              actions: [
+                _PanelAction(
+                  label: context.l10n.importScript,
+                  icon: Icons.download_rounded,
+                  color: accentColor,
+                  onTap: _handleImportScript,
+                ),
+                _PanelAction(
+                  label: _copied ? '已复制' : '复制脚本',
+                  icon: _copied ? Icons.check : Icons.copy_all_rounded,
+                  color: _copied ? Colors.green : accentColor,
+                  onTap: _copyScript,
+                ),
+              ],
               child: SelectableText(
                 _script,
                 style: const TextStyle(
@@ -204,7 +418,7 @@ class _PublishScriptCardState extends State<_PublishScriptCard> {
             const SizedBox(height: 14),
             _InfoChip(
               color: Colors.red,
-              label: "在JsxposedX中你可以直接获取到此脚本,你无需手动复制粘贴,你可以通过收藏该帖子让它被更方便的找到",
+              label: "在JsxposedX中你可以直接导入此脚本,也可以通过收藏该帖子让它更方便被找到",
             ),
           ],
         ),
@@ -225,9 +439,9 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -263,11 +477,11 @@ class _TopDots extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _dot(accentColor.withOpacity(0.95)),
+        _dot(accentColor.withValues(alpha: 0.95)),
         const SizedBox(width: 6),
-        _dot(accentColor.withOpacity(0.55)),
+        _dot(accentColor.withValues(alpha: 0.55)),
         const SizedBox(width: 6),
-        _dot(accentColor.withOpacity(0.3)),
+        _dot(accentColor.withValues(alpha: 0.3)),
       ],
     );
   }
@@ -281,52 +495,17 @@ class _TopDots extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final Color color;
-
-  const _SectionTitle({required this.title, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(99),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.82),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _CodePanel extends StatelessWidget {
   final String title;
   final Widget child;
-  final String? actionLabel;
-  final IconData? actionIcon;
-  final Color? actionColor;
-  final VoidCallback? onActionTap;
+  final Color accentColor;
+  final List<Widget>? actions;
 
   const _CodePanel({
     required this.title,
     required this.child,
-    this.actionLabel,
-    this.actionIcon,
-    this.actionColor,
-    this.onActionTap,
+    required this.accentColor,
+    this.actions,
   });
 
   @override
@@ -340,7 +519,7 @@ class _CodePanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: panelColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -349,7 +528,7 @@ class _CodePanel extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 12, 10, 8),
             child: Row(
               children: [
-                _TopDots(accentColor: actionColor ?? colorScheme.primary),
+                _TopDots(accentColor: accentColor),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -360,48 +539,7 @@ class _CodePanel extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (onActionTap != null &&
-                    actionLabel != null &&
-                    actionIcon != null)
-                  InkWell(
-                    onTap: onActionTap,
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: (actionColor ?? colorScheme.primary).withOpacity(
-                          0.12,
-                        ),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: (actionColor ?? colorScheme.primary)
-                              .withOpacity(0.25),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            actionIcon,
-                            size: 14,
-                            color: actionColor ?? colorScheme.primary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            actionLabel!,
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  color: actionColor ?? colorScheme.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                if (actions != null) ...actions!,
               ],
             ),
           ),
@@ -414,6 +552,53 @@ class _CodePanel extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PanelAction extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _PanelAction({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
