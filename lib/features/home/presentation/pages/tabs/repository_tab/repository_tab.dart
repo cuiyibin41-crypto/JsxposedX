@@ -15,7 +15,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-const String _repositoryTutorialUrl = 'https://www.yuque.com/ababa-haoqq/hake3e/mfz6382mb4gt4gyu?singleDoc';
+const String _repositoryTutorialUrl =
+    'https://www.yuque.com/ababa-haoqq/hake3e/mfz6382mb4gt4gyu?singleDoc';
 
 /// 仓库 Tab
 class RepositoryTab extends HookConsumerWidget {
@@ -42,16 +43,10 @@ class RepositoryTab extends HookConsumerWidget {
               data: (user) => _RepositoryAvatarAction(
                 user: user,
                 isLoading: false,
-                onTap: () => _handleAvatarTap(
-                  context,
-                  ref,
-                  user: user,
-                ),
+                onTap: () => _handleAvatarTap(context, ref, user: user),
               ),
-              loading: () => const _RepositoryAvatarAction(
-                user: null,
-                isLoading: true,
-              ),
+              loading: () =>
+                  const _RepositoryAvatarAction(user: null, isLoading: true),
               error: (_, _) => _RepositoryAvatarAction(
                 user: null,
                 isLoading: false,
@@ -99,9 +94,7 @@ class RepositoryTab extends HookConsumerWidget {
     required UserDetail user,
   }) {
     return CustomDialog.show<void>(
-      title: Text(
-        context.l10n.repositoryAccountInfo,
-      ),
+      title: Text(context.l10n.repositoryAccountInfo),
       hasClose: true,
       width: 0.86.sw,
       child: _RepositoryUserInfoContent(user: user),
@@ -145,10 +138,7 @@ class _RepositoryAvatarAction extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            _RepositoryAvatar(
-              imageUrl: user?.avatarUrl,
-              size: 35.sp,
-            ),
+            _RepositoryAvatar(imageUrl: user?.avatarUrl, size: 35.sp),
             if (isLoading)
               SizedBox(
                 width: 35.sp,
@@ -216,17 +206,13 @@ class _RepositoryTokenLoginDialog extends HookConsumerWidget {
                       return;
                     }
 
-                    ToastMessage.show(
-                      context.l10n.repositoryTokenLoginSuccess,
-                    );
+                    ToastMessage.show(context.l10n.repositoryTokenLoginSuccess);
                     await SmartDialog.dismiss();
                   } catch (_) {
                     if (!context.mounted) {
                       return;
                     }
-                    ToastMessage.show(
-                      context.l10n.repositoryTokenInvalid,
-                    );
+                    ToastMessage.show(context.l10n.repositoryTokenInvalid);
                   } finally {
                     if (context.mounted) {
                       isSubmitting.value = false;
@@ -239,9 +225,7 @@ class _RepositoryTokenLoginDialog extends HookConsumerWidget {
                   height: 18.w,
                   child: CircularProgressIndicator(strokeWidth: 2.w),
                 )
-              : Text(
-                  context.l10n.repositoryVerifyAndLogin,
-                ),
+              : Text(context.l10n.repositoryVerifyAndLogin),
         ),
       ],
       child: Column(
@@ -297,10 +281,7 @@ class _RepositoryUserInfoContent extends StatelessWidget {
 }
 
 class _RepositoryInfoRow extends StatelessWidget {
-  const _RepositoryInfoRow({
-    required this.label,
-    required this.value,
-  });
+  const _RepositoryInfoRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -332,10 +313,7 @@ class _RepositoryInfoRow extends StatelessWidget {
 }
 
 class _RepositoryAvatar extends StatelessWidget {
-  const _RepositoryAvatar({
-    required this.imageUrl,
-    required this.size,
-  });
+  const _RepositoryAvatar({required this.imageUrl, required this.size});
 
   final String? imageUrl;
   final double size;

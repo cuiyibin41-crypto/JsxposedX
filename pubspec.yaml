@@ -59,6 +59,8 @@ dependencies:
   flutter_quill_delta_from_html: ^1.5.3
   flutter_html: ^3.0.0
   markdown: ^7.3.1
+  marquee: ^2.3.0
+  external_app_launcher: ^4.0.3
 
 
 

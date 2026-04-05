@@ -1,9 +1,10 @@
+import 'package:external_app_launcher/external_app_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 /// 应用信息工具类
 class ProcedureUtils {
-
   const ProcedureUtils._();
+
   static PackageInfo? _packageInfo;
 
   /// 获取应用信息（缓存）
@@ -22,5 +23,17 @@ class ProcedureUtils {
   static Future<String> getVersionName() async {
     final info = await getPackageInfo();
     return info.version;
+  }
+
+  static Future<void> openApp(String package) async {
+    final packageName = package.trim();
+    if (packageName.isEmpty) {
+      return;
+    }
+
+    await LaunchApp.openApp(
+      androidPackageName: packageName,
+      openStore: true,
+    );
   }
 }
