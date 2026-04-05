@@ -33,3 +33,14 @@ Future<PageResult<Post>> getScriptPosts(
       .read(repositoryQueryRepositoryProvider)
       .getScriptPosts(limit: limit, offset: offset);
 }
+
+@riverpod
+Future<PageResult<Post>> getScriptFavoritePosts(
+  Ref ref, {
+  required int limit,
+  required int offset,
+}) async {
+  return ref
+      .read(repositoryQueryRepositoryProvider)
+      .getScriptFavoritePosts(limit: limit, offset: offset);
+}

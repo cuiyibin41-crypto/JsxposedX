@@ -9,4 +9,9 @@ abstract class RepositoryQueryRepository {
   });
 
   Future<PostDetail> getScriptDetail({required int id});
+
+  Future<PageResult<Post>> getScriptFavoritePosts({
+    required int limit,
+    required int offset,
+  });
 }

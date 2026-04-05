@@ -13,6 +13,9 @@ class RepositoryQueryDatasource {
   final String _postApi =
       "https://apiv2.muxue.pro/api/public/post/category/tag/470/posts";
 
+  final String _favoriteApi =
+      "https://apiv2.muxue.pro/api/public/post/favorites";
+
   String _postDetailApi({required int postId}) =>
       "https://apiv2.muxue.pro/api/public/post/$postId/detail";
 
@@ -22,6 +25,21 @@ class RepositoryQueryDatasource {
   }) async {
     try {
       final result = await _httpService.get(_postApi);
+      return PageResultDto.fromJson(
+        result.data,
+        (data) => PostDto.fromJson(data as Map<String, dynamic>),
+      );
+    } catch (e) {
+      throw Exception(e);
+    }
+  }
+
+  Future<PageResultDto<PostDto>> getScriptFavoritePosts({
+    required int limit,
+    required int offset,
+  }) async {
+    try {
+      final result = await _httpService.get(_favoriteApi);
       return PageResultDto.fromJson(
         result.data,
         (data) => PostDto.fromJson(data as Map<String, dynamic>),

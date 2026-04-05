@@ -212,3 +212,93 @@ final class GetScriptPostsFamily extends $Family
   @override
   String toString() => r'getScriptPostsProvider';
 }
+
+@ProviderFor(getScriptFavoritePosts)
+const getScriptFavoritePostsProvider = GetScriptFavoritePostsFamily._();
+
+final class GetScriptFavoritePostsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<PageResult<Post>>,
+          PageResult<Post>,
+          FutureOr<PageResult<Post>>
+        >
+    with $FutureModifier<PageResult<Post>>, $FutureProvider<PageResult<Post>> {
+  const GetScriptFavoritePostsProvider._({
+    required GetScriptFavoritePostsFamily super.from,
+    required ({int limit, int offset}) super.argument,
+  }) : super(
+         retry: null,
+         name: r'getScriptFavoritePostsProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$getScriptFavoritePostsHash();
+
+  @override
+  String toString() {
+    return r'getScriptFavoritePostsProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<PageResult<Post>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<PageResult<Post>> create(Ref ref) {
+    final argument = this.argument as ({int limit, int offset});
+    return getScriptFavoritePosts(
+      ref,
+      limit: argument.limit,
+      offset: argument.offset,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is GetScriptFavoritePostsProvider &&
+        other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$getScriptFavoritePostsHash() =>
+    r'c1e3bd06e8f4dcae06c14366fa988fc0aed3c933';
+
+final class GetScriptFavoritePostsFamily extends $Family
+    with
+        $FunctionalFamilyOverride<
+          FutureOr<PageResult<Post>>,
+          ({int limit, int offset})
+        > {
+  const GetScriptFavoritePostsFamily._()
+    : super(
+        retry: null,
+        name: r'getScriptFavoritePostsProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  GetScriptFavoritePostsProvider call({
+    required int limit,
+    required int offset,
+  }) => GetScriptFavoritePostsProvider._(
+    argument: (limit: limit, offset: offset),
+    from: this,
+  );
+
+  @override
+  String toString() => r'getScriptFavoritePostsProvider';
+}

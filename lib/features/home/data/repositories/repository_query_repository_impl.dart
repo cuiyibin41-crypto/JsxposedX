@@ -23,4 +23,16 @@ class RepositoryQueryRepositoryImpl implements RepositoryQueryRepository {
     final dto = await dataSource.getScriptPosts(limit: limit, offset: offset);
     return dto.toEntity((d) => d.toEntity());
   }
+
+  @override
+  Future<PageResult<Post>> getScriptFavoritePosts({
+    required int limit,
+    required int offset,
+  }) async {
+    final dto = await dataSource.getScriptFavoritePosts(
+      limit: limit,
+      offset: offset,
+    );
+    return dto.toEntity((d) => d.toEntity());
+  }
 }
