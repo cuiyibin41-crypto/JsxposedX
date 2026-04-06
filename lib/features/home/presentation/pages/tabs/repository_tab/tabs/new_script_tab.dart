@@ -93,7 +93,7 @@ class NewScriptTab extends HookConsumerWidget {
                 child: SizedBox(
                   height: 18.h,
                   child: Marquee(
-                    text: context.isChinese ? "脚本搜索相关功能请你前往社区更为方便的进行操作" : "",
+                    text: context.isChinese ? "脚本搜索相关功能请你前往社区更为方便的进行操作" : "Script search related functions, please go to the community to operate more conveniently",
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
