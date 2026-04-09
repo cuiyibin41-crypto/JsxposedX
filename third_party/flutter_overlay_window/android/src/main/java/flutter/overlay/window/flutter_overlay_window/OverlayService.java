@@ -126,8 +126,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
         engine.getLifecycleChannel().appIsResumed();
         flutterView = new FlutterView(getApplicationContext(), TransparencyMode.transparent);
         flutterView.attachToFlutterEngine(FlutterEngineCache.getInstance().get(OverlayConstants.CACHED_TAG));
-        flutterView.setFocusable(true);
-        flutterView.setFocusableInTouchMode(true);
+        applyFlutterViewFocusability();
         flutterView.setBackgroundColor(Color.TRANSPARENT);
         flutterChannel.setMethodCallHandler((call, result) -> {
             if (call.method.equals("updateFlag")) {
@@ -234,6 +233,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
             WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
             params.flags = resolveWindowFlags();
             params.alpha = resolveWindowAlpha();
+            applyFlutterViewFocusability();
             windowManager.updateViewLayout(flutterView, params);
             result.success(true);
         } else {
@@ -328,6 +328,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
         params.height = instance.resolveOverlayHeight(height);
         params.flags = instance.resolveWindowFlags();
         params.alpha = instance.resolveWindowAlpha();
+        instance.applyFlutterViewFocusability();
         if (x != null) {
             params.x = instance.resolveOverlayPosition(x);
         }
@@ -428,6 +429,22 @@ public class OverlayService extends Service implements View.OnTouchListener {
             return MAXIMUM_OPACITY_ALLOWED_FOR_S_AND_HIGHER;
         }
         return 1f;
+    }
+
+    private void applyFlutterViewFocusability() {
+        if (flutterView == null) {
+            return;
+        }
+
+        final boolean focusable =
+                (WindowSetup.flag & WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) == 0;
+        flutterView.setFocusable(focusable);
+        flutterView.setFocusableInTouchMode(focusable);
+        if (focusable) {
+            flutterView.requestFocus();
+        } else {
+            flutterView.clearFocus();
+        }
     }
 
     private int resolveOverlayWidth(int width) {

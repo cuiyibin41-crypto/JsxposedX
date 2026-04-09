@@ -61,7 +61,7 @@ class OverlayWindowActionDatasource {
 
   OverlayFlag _flagFromDisplayMode(OverlayWindowDisplayMode displayMode) {
     return displayMode == OverlayWindowDisplayMode.panel
-        ? OverlayFlag.defaultFlag
-        : OverlayFlag.focusPointer;
+        ? OverlayFlag.focusPointer
+        : OverlayFlag.defaultFlag;
   }
 }
