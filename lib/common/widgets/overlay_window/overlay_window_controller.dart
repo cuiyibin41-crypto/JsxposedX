@@ -10,7 +10,7 @@ class OverlayWindowController extends ChangeNotifier {
   OverlayWindowController._();
 
   static final OverlayWindowController instance = OverlayWindowController._();
-  static const double defaultBubbleSize = 144;
+  static const double defaultBubbleSize = 58;
 
   OverlayWindowStatus _status = const OverlayWindowStatus(
     isSupported: true,

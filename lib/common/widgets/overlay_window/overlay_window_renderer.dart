@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:JsxposedX/common/widgets/cache_image.dart';
 import 'package:JsxposedX/common/widgets/overlay_window/overlay_scene.dart';
 import 'package:JsxposedX/common/widgets/overlay_window/overlay_window.dart';
 import 'package:JsxposedX/common/widgets/overlay_window/overlay_window_controller.dart';
 import 'package:JsxposedX/common/widgets/overlay_window/overlay_window_scope.dart';
+import 'package:JsxposedX/core/constants/assets_constants.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/memory_tool_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
@@ -375,39 +377,66 @@ class _OverlayBubble extends StatelessWidget {
 
   final double size;
 
+  static const LinearGradient _bubbleGradient = LinearGradient(
+    colors: <Color>[Color(0xFF70D7F9), Color(0xFFAD98FF), Color(0xFFFFB385)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return RepaintBoundary(
-      child: Container(
-        width: size,
-        height: size,
+      child: DecoratedBox(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: <Color>[
-              Color(0xFF6AA9FF),
-              Color(0xFF8B7BFF),
-              Color(0xFFFFA87A),
-            ],
-          ),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.72),
-            width: 2.2,
-          ),
+          gradient: _bubbleGradient,
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: const Color(0xFF111A2E).withValues(alpha: 0.28),
-              blurRadius: 28,
-              offset: const Offset(0, 14),
+              color: const Color(
+                0xFF70D7F9,
+              ).withValues(alpha: isDark ? 0.34 : 0.30),
+              blurRadius: 15,
+              spreadRadius: 2,
+            ),
+            BoxShadow(
+              color: const Color(
+                0xFFAD98FF,
+              ).withValues(alpha: isDark ? 0.32 : 0.30),
+              blurRadius: 20,
+              offset: const Offset(5, 5),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.14 : 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
-        child: Icon(
-          Icons.memory_rounded,
-          color: Colors.white.withValues(alpha: 0.96),
-          size: 58,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Padding(
+            padding: const EdgeInsets.all(2),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(1),
+                child: ClipOval(
+                  child: CacheImage(
+                    imageUrl: AssetsConstants.logo,
+                    width: size,
+                    height: size,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
