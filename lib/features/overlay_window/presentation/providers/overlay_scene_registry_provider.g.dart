@@ -57,4 +57,4 @@ final class OverlaySceneRegistryProvider
 }
 
 String _$overlaySceneRegistryHash() =>
-    r'f3e2b26f38b4b0a0be8c586fa7d6da806e297aa4';
+    r'2fd95b1a3d6f9250e4c380563cb7af56c80a0418';

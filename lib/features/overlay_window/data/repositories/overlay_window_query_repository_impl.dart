@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:JsxposedX/features/overlay_window/data/datasources/overlay_window_query_datasource.dart';
+import 'package:JsxposedX/features/overlay_window/data/models/overlay_toast_dto.dart';
 import 'package:JsxposedX/features/overlay_window/data/models/overlay_window_event_dto.dart';
 import 'package:JsxposedX/features/overlay_window/data/models/overlay_window_payload_dto.dart';
 import 'package:JsxposedX/features/overlay_window/domain/models/overlay_viewport_metrics.dart';
@@ -93,11 +94,48 @@ class OverlayWindowQueryRepositoryImpl implements OverlayWindowQueryRepository {
       return OverlayWindowRuntimeMessage.event(eventDto.toEntity());
     }
 
+    final toastDto = _parseOverlayToastDto(rawMessage);
+    if (toastDto != null) {
+      return OverlayWindowRuntimeMessage.toast(toastDto.toEntity());
+    }
+
     final payloadDto = OverlayWindowPayloadDto.maybeFromRaw(rawMessage);
     if (payloadDto != null) {
       return OverlayWindowRuntimeMessage.payload(payloadDto.toEntity());
     }
 
     return null;
+  }
+
+  OverlayToastDto? _parseOverlayToastDto(dynamic rawMessage) {
+    if (rawMessage is! Map) {
+      return null;
+    }
+
+    final normalized = rawMessage.map(
+      (Object? key, Object? value) => MapEntry(key.toString(), value),
+    );
+    final message = normalized['message']?.toString().trim() ?? '';
+    if (message.isEmpty) {
+      return null;
+    }
+
+    return OverlayToastDto.fromJson(<String, dynamic>{
+      'message': message,
+      'durationMs': (_parseInt(normalized['durationMs']) ?? 2200).clamp(
+        500,
+        10000,
+      ),
+      'id':
+          _parseInt(normalized['id']) ?? DateTime.now().microsecondsSinceEpoch,
+    });
+  }
+
+  int? _parseInt(Object? raw) {
+    return switch (raw) {
+      int value => value,
+      String value => int.tryParse(value),
+      _ => null,
+    };
   }
 }

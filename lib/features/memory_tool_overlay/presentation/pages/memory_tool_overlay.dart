@@ -58,7 +58,7 @@ class MemoryToolOverlay extends HookConsumerWidget {
           SizedBox(height: 20.h),
           FilledButton.icon(
             onPressed: () {
-              ToastMessage.show(context.l10n.overlayConnected);
+              ToastOverlayMessage.show(context.l10n.overlayConnected);
             },
             icon: const Icon(Icons.play_arrow_rounded),
             label: Text(context.l10n.test),

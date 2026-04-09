@@ -1,4 +1,5 @@
 import 'package:JsxposedX/features/overlay_window/domain/models/overlay_window_event.dart';
+import 'package:JsxposedX/features/overlay_window/domain/models/overlay_toast.dart';
 import 'package:JsxposedX/features/overlay_window/domain/models/overlay_window_payload.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
@@ -14,4 +15,7 @@ abstract class OverlayWindowRuntimeMessage with _$OverlayWindowRuntimeMessage {
 
   const factory OverlayWindowRuntimeMessage.event(OverlayWindowEvent event) =
       OverlayWindowEventMessage;
+
+  const factory OverlayWindowRuntimeMessage.toast(OverlayToast toast) =
+      OverlayWindowToastMessage;
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:JsxposedX/common/widgets/overlay_window/overlay_bubble.dart';
 import 'package:JsxposedX/common/widgets/overlay_window/overlay_window.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
+import 'package:JsxposedX/features/overlay_window/domain/models/overlay_toast.dart';
 import 'package:JsxposedX/features/overlay_window/domain/models/overlay_window_payload.dart';
 import 'package:JsxposedX/features/overlay_window/domain/models/overlay_window_presentation.dart';
 import 'package:JsxposedX/features/overlay_window/presentation/models/overlay_scene_definition.dart';
@@ -34,14 +35,22 @@ class OverlayWindowHostPage extends HookConsumerWidget {
 
     final runtimeState = ref.watch(overlayWindowHostRuntimeProvider);
     final payload = runtimeState.payload;
+    final content = runtimeState.isTransitioningToPanel
+        ? const SizedBox.expand()
+        : payload.isPanel
+        ? _buildPanelWindow(context, ref, payload.sceneId)
+        : _buildBubble(ref, payload.sceneId);
 
     return Material(
       color: Colors.transparent,
-      child: runtimeState.isTransitioningToPanel
-          ? const SizedBox.expand()
-          : payload.isPanel
-          ? _buildPanelWindow(context, ref, payload.sceneId)
-          : _buildBubble(ref, payload.sceneId),
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          content,
+          if (runtimeState.activeToast != null)
+            _OverlayToastView(toast: runtimeState.activeToast!),
+        ],
+      ),
     );
   }
 }
@@ -139,4 +148,77 @@ Widget _buildUnknownScene(BuildContext context, WidgetRef ref) {
 double _bubbleSizeForScene(WidgetRef ref, int sceneId) {
   return _scene(ref, sceneId)?.bubbleSize ??
       OverlayWindowPresentation.defaultBubbleSize;
+}
+
+class _OverlayToastView extends StatelessWidget {
+  const _OverlayToastView({required this.toast});
+
+  final OverlayToast toast;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 20.w,
+              right: 20.w,
+              bottom: 32.h,
+            ),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) {
+                return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, (1 - value) * 18),
+                    child: child,
+                  ),
+                );
+              },
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: context.colorScheme.primary.withValues(alpha: 0.94),
+                  borderRadius: BorderRadius.circular(22.r),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.28),
+                  ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 18.r,
+                      offset: Offset(0, 8.h),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 18.w,
+                    vertical: 12.h,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 0.82.sw),
+                    child: Text(
+                      toast.message,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

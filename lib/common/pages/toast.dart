@@ -1,6 +1,11 @@
+import 'dart:io';
+
 import 'package:JsxposedX/common/widgets/cache_image.dart';
 import 'package:JsxposedX/core/constants/assets_constants.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
+import 'package:JsxposedX/features/overlay_window/data/datasources/overlay_window_platform_gateway.dart';
+import 'package:JsxposedX/features/overlay_window/data/models/overlay_toast_dto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -45,5 +50,44 @@ class ToastMessage {
         ),
       ),
     );
+  }
+}
+
+class ToastOverlayMessage {
+  const ToastOverlayMessage._();
+
+  static const OverlayWindowPlatformGateway _gateway =
+      FlutterOverlayWindowPlatformGateway();
+
+  static Future<void> show(
+    dynamic msg, {
+    Duration duration = const Duration(milliseconds: 2200),
+  }) async {
+    final message = msg.toString().trim();
+    if (message.isEmpty) {
+      return;
+    }
+
+    if (kIsWeb || !Platform.isAndroid) {
+      ToastMessage.show(message);
+      return;
+    }
+
+    try {
+      final active = await _gateway.isActive();
+      if (!active) {
+        ToastMessage.show(message);
+        return;
+      }
+
+      final dto = OverlayToastDto(
+        message: message,
+        durationMs: duration.inMilliseconds,
+        id: DateTime.now().microsecondsSinceEpoch,
+      );
+      await _gateway.shareData(dto.toJson());
+    } catch (_) {
+      ToastMessage.show(message);
+    }
   }
 }

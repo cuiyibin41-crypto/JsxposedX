@@ -55,12 +55,13 @@ extension OverlayWindowRuntimeMessagePatterns on OverlayWindowRuntimeMessage {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( OverlayWindowPayloadMessage value)?  payload,TResult Function( OverlayWindowEventMessage value)?  event,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( OverlayWindowPayloadMessage value)?  payload,TResult Function( OverlayWindowEventMessage value)?  event,TResult Function( OverlayWindowToastMessage value)?  toast,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case OverlayWindowPayloadMessage() when payload != null:
 return payload(_that);case OverlayWindowEventMessage() when event != null:
-return event(_that);case _:
+return event(_that);case OverlayWindowToastMessage() when toast != null:
+return toast(_that);case _:
   return orElse();
 
 }
@@ -78,12 +79,13 @@ return event(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( OverlayWindowPayloadMessage value)  payload,required TResult Function( OverlayWindowEventMessage value)  event,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( OverlayWindowPayloadMessage value)  payload,required TResult Function( OverlayWindowEventMessage value)  event,required TResult Function( OverlayWindowToastMessage value)  toast,}){
 final _that = this;
 switch (_that) {
 case OverlayWindowPayloadMessage():
 return payload(_that);case OverlayWindowEventMessage():
-return event(_that);case _:
+return event(_that);case OverlayWindowToastMessage():
+return toast(_that);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -100,12 +102,13 @@ return event(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( OverlayWindowPayloadMessage value)?  payload,TResult? Function( OverlayWindowEventMessage value)?  event,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( OverlayWindowPayloadMessage value)?  payload,TResult? Function( OverlayWindowEventMessage value)?  event,TResult? Function( OverlayWindowToastMessage value)?  toast,}){
 final _that = this;
 switch (_that) {
 case OverlayWindowPayloadMessage() when payload != null:
 return payload(_that);case OverlayWindowEventMessage() when event != null:
-return event(_that);case _:
+return event(_that);case OverlayWindowToastMessage() when toast != null:
+return toast(_that);case _:
   return null;
 
 }
@@ -122,11 +125,12 @@ return event(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( OverlayWindowPayload payload)?  payload,TResult Function( OverlayWindowEvent event)?  event,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( OverlayWindowPayload payload)?  payload,TResult Function( OverlayWindowEvent event)?  event,TResult Function( OverlayToast toast)?  toast,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case OverlayWindowPayloadMessage() when payload != null:
 return payload(_that.payload);case OverlayWindowEventMessage() when event != null:
-return event(_that.event);case _:
+return event(_that.event);case OverlayWindowToastMessage() when toast != null:
+return toast(_that.toast);case _:
   return orElse();
 
 }
@@ -144,11 +148,12 @@ return event(_that.event);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( OverlayWindowPayload payload)  payload,required TResult Function( OverlayWindowEvent event)  event,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( OverlayWindowPayload payload)  payload,required TResult Function( OverlayWindowEvent event)  event,required TResult Function( OverlayToast toast)  toast,}) {final _that = this;
 switch (_that) {
 case OverlayWindowPayloadMessage():
 return payload(_that.payload);case OverlayWindowEventMessage():
-return event(_that.event);case _:
+return event(_that.event);case OverlayWindowToastMessage():
+return toast(_that.toast);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -165,11 +170,12 @@ return event(_that.event);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( OverlayWindowPayload payload)?  payload,TResult? Function( OverlayWindowEvent event)?  event,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( OverlayWindowPayload payload)?  payload,TResult? Function( OverlayWindowEvent event)?  event,TResult? Function( OverlayToast toast)?  toast,}) {final _that = this;
 switch (_that) {
 case OverlayWindowPayloadMessage() when payload != null:
 return payload(_that.payload);case OverlayWindowEventMessage() when event != null:
-return event(_that.event);case _:
+return event(_that.event);case OverlayWindowToastMessage() when toast != null:
+return toast(_that.toast);case _:
   return null;
 
 }
@@ -323,6 +329,81 @@ $OverlayWindowEventCopyWith<$Res> get event {
   
   return $OverlayWindowEventCopyWith<$Res>(_self.event, (value) {
     return _then(_self.copyWith(event: value));
+  });
+}
+}
+
+/// @nodoc
+
+
+class OverlayWindowToastMessage extends OverlayWindowRuntimeMessage {
+  const OverlayWindowToastMessage(this.toast): super._();
+  
+
+ final  OverlayToast toast;
+
+/// Create a copy of OverlayWindowRuntimeMessage
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$OverlayWindowToastMessageCopyWith<OverlayWindowToastMessage> get copyWith => _$OverlayWindowToastMessageCopyWithImpl<OverlayWindowToastMessage>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is OverlayWindowToastMessage&&(identical(other.toast, toast) || other.toast == toast));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,toast);
+
+@override
+String toString() {
+  return 'OverlayWindowRuntimeMessage.toast(toast: $toast)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $OverlayWindowToastMessageCopyWith<$Res> implements $OverlayWindowRuntimeMessageCopyWith<$Res> {
+  factory $OverlayWindowToastMessageCopyWith(OverlayWindowToastMessage value, $Res Function(OverlayWindowToastMessage) _then) = _$OverlayWindowToastMessageCopyWithImpl;
+@useResult
+$Res call({
+ OverlayToast toast
+});
+
+
+$OverlayToastCopyWith<$Res> get toast;
+
+}
+/// @nodoc
+class _$OverlayWindowToastMessageCopyWithImpl<$Res>
+    implements $OverlayWindowToastMessageCopyWith<$Res> {
+  _$OverlayWindowToastMessageCopyWithImpl(this._self, this._then);
+
+  final OverlayWindowToastMessage _self;
+  final $Res Function(OverlayWindowToastMessage) _then;
+
+/// Create a copy of OverlayWindowRuntimeMessage
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? toast = null,}) {
+  return _then(OverlayWindowToastMessage(
+null == toast ? _self.toast : toast // ignore: cast_nullable_to_non_nullable
+as OverlayToast,
+  ));
+}
+
+/// Create a copy of OverlayWindowRuntimeMessage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$OverlayToastCopyWith<$Res> get toast {
+  
+  return $OverlayToastCopyWith<$Res>(_self.toast, (value) {
+    return _then(_self.copyWith(toast: value));
   });
 }
 }

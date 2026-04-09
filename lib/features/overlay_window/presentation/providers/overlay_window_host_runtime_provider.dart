@@ -24,6 +24,7 @@ final overlayWindowHostRuntimeProvider =
 class OverlayWindowHostRuntimeNotifier
     extends Notifier<OverlayWindowHostRuntimeState> {
   StreamSubscription<OverlayWindowRuntimeMessage>? _subscription;
+  Timer? _toastTimer;
 
   @override
   OverlayWindowHostRuntimeState build() {
@@ -32,6 +33,8 @@ class OverlayWindowHostRuntimeNotifier
         .overlayEvents
         .listen(_handleRuntimeMessage);
     ref.onDispose(() async {
+      _toastTimer?.cancel();
+      _toastTimer = null;
       await _subscription?.cancel();
       _subscription = null;
     });
@@ -121,7 +124,15 @@ class OverlayWindowHostRuntimeNotifier
   }
 
   Future<void> closeOverlay() async {
+    _toastTimer?.cancel();
+    _toastTimer = null;
     await ref.read(overlayWindowActionRepositoryProvider).closeOverlay();
+  }
+
+  void clearActiveToast() {
+    _toastTimer?.cancel();
+    _toastTimer = null;
+    state = state.copyWith(clearActiveToast: true);
   }
 
   Future<void> refreshViewportMetrics({
@@ -248,6 +259,14 @@ class OverlayWindowHostRuntimeNotifier
               bubbleSize: _bubbleSizeForScene(state.payload.sceneId),
             );
         unawaited(moveBubbleHostToVisualOffset(snappedVisualOffset));
+      },
+      toast: (toastMessage) {
+        _toastTimer?.cancel();
+        state = state.copyWith(activeToast: toastMessage.toast);
+        _toastTimer = Timer(
+          Duration(milliseconds: toastMessage.toast.durationMs),
+          clearActiveToast,
+        );
       },
     );
   }
