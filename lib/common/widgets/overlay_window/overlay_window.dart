@@ -110,14 +110,13 @@ class OverlayWindow extends StatelessWidget {
                         decoration: decoration ?? const BoxDecoration(),
                         child: Padding(
                           padding: resolvedPadding,
-                          child: SingleChildScrollView(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                if (hasHeader) header!,
-                                if (hasHeader) const SizedBox(height: 16),
-                                DecoratedBox(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.max,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              if (hasHeader) header!,
+                              Expanded(
+                                child: DecoratedBox(
                                   decoration:
                                       contentDecoration ??
                                       const BoxDecoration(),
@@ -126,12 +125,9 @@ class OverlayWindow extends StatelessWidget {
                                     child: child,
                                   ),
                                 ),
-                                if (footer != null) ...<Widget>[
-                                  const SizedBox(height: 12),
-                                  footer!,
-                                ],
-                              ],
-                            ),
+                              ),
+                              if (footer != null) footer!,
+                            ],
                           ),
                         ),
                       ),
@@ -154,6 +150,7 @@ class OverlayWindowScaffold extends StatelessWidget {
     this.overlayConfig,
     this.overlayBar,
     this.bottomBar,
+    this.backgroundColor,
     this.onBackdropTap,
     this.margin,
     this.maxWidth,
@@ -178,6 +175,7 @@ class OverlayWindowScaffold extends StatelessWidget {
   final Widget? footer;
   @Deprecated('Use body instead.')
   final Widget? child;
+  final Color? backgroundColor;
   final VoidCallback? onBackdropTap;
   final EdgeInsetsGeometry? margin;
   final double? maxWidth;
@@ -212,55 +210,52 @@ class OverlayWindowScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = context.colorScheme;
     final controls = OverlayWindowPanelScope.maybeOf(context);
     final resolvedBody = body ?? child!;
     final resolvedOverlayBar = overlayBar ?? header;
     final resolvedBottomBar = bottomBar ?? footer;
-    final resolvedBackdrop =
-        backdrop ??
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: colorScheme.scrim.withValues(alpha: 0.6),
-          ),
-          child: const SizedBox.expand(),
-        );
-    final resolvedDecoration =
-        decoration ??
-        BoxDecoration(
-          color: colorScheme.surface.withValues(alpha: 0.97),
-          borderRadius: BorderRadius.circular(24.r),
-          border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.42),
-          ),
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.24),
-              blurRadius: 20.r,
-              offset: Offset(0, 12.h),
-            ),
-          ],
-        );
-    final resolvedContentDecoration =
-        contentDecoration ??
-        BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
-          borderRadius: BorderRadius.circular(18.r),
-        );
+    final resolvedBackdrop = backdrop ?? const SizedBox.expand();
+    final resolvedBackgroundColor =
+        backgroundColor ?? Theme.of(context).colorScheme.surface;
+    final resolvedDecoration = decoration;
+    final resolvedContentDecoration = contentDecoration;
 
     return OverlayWindow(
       header: resolvedOverlayBar,
       onBackdropTap: onBackdropTap ?? controls?.minimize,
-      footer: resolvedBottomBar,
+      footer: _adaptBottomBar(resolvedBottomBar),
       margin: margin,
       maxWidth: maxWidth,
       maxHeight: maxHeight,
       backdrop: resolvedBackdrop,
       decoration: resolvedDecoration,
-      contentDecoration: resolvedContentDecoration,
-      padding: padding ?? EdgeInsets.all(20.r),
-      contentPadding: contentPadding ?? EdgeInsets.all(16.r),
+      contentDecoration:
+          resolvedContentDecoration ??
+          BoxDecoration(color: resolvedBackgroundColor),
+      padding: padding ?? EdgeInsets.zero,
+      contentPadding: contentPadding ?? EdgeInsets.zero,
       child: resolvedBody,
+    );
+  }
+
+  Widget? _adaptBottomBar(Widget? bottomBar) {
+    if (bottomBar is! BottomAppBar) {
+      return bottomBar;
+    }
+
+    return Material(
+      color: bottomBar.color,
+      elevation: bottomBar.elevation ?? 0,
+      shadowColor: bottomBar.shadowColor,
+      surfaceTintColor: bottomBar.surfaceTintColor,
+      clipBehavior: bottomBar.clipBehavior,
+      child: SizedBox(
+        height: bottomBar.height,
+        child: Padding(
+          padding: bottomBar.padding ?? EdgeInsets.zero,
+          child: bottomBar.child,
+        ),
+      ),
     );
   }
 }
@@ -279,7 +274,7 @@ class OverlayWindowConfig {
   final OverlaySceneTextBuilder notificationContent;
 }
 
-class OverlayWindowBar extends StatelessWidget {
+class OverlayWindowBar extends StatelessWidget implements PreferredSizeWidget {
   const OverlayWindowBar({
     super.key,
     this.leading,
@@ -287,7 +282,10 @@ class OverlayWindowBar extends StatelessWidget {
     this.title,
     this.subtitle,
     this.actions = const <Widget>[],
-    this.padding,
+    this.centerTitle,
+    this.toolbarHeight,
+    this.foregroundColor,
+    this.backgroundColor,
     this.decoration,
     this.titleSpacing,
     this.actionSpacing,
@@ -302,7 +300,10 @@ class OverlayWindowBar extends StatelessWidget {
   final Widget? title;
   final Widget? subtitle;
   final List<Widget> actions;
-  final EdgeInsetsGeometry? padding;
+  final bool? centerTitle;
+  final double? toolbarHeight;
+  final Color? foregroundColor;
+  final Color? backgroundColor;
   final Decoration? decoration;
   final double? titleSpacing;
   final double? actionSpacing;
@@ -312,19 +313,31 @@ class OverlayWindowBar extends StatelessWidget {
   final VoidCallback? onClose;
 
   @override
+  Size get preferredSize => Size.fromHeight(toolbarHeight ?? kToolbarHeight);
+
+  @override
   Widget build(BuildContext context) {
-    final colorScheme = context.colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appBarTheme = theme.appBarTheme;
     final controls = OverlayWindowPanelScope.maybeOf(context);
-    final resolvedLeadingWidth = leadingWidth ?? 48.w;
-    final resolvedTitleSpacing = titleSpacing ?? 12.w;
+    final resolvedLeadingWidth =
+        leadingWidth ?? appBarTheme.leadingWidth ?? kToolbarHeight;
+    final resolvedTitleSpacing =
+        titleSpacing ??
+        appBarTheme.titleSpacing ??
+        NavigationToolbar.kMiddleSpacing;
     final resolvedActionSpacing = actionSpacing ?? 8.w;
-    final resolvedPadding =
-        padding ?? EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h);
+    final resolvedToolbarHeight = toolbarHeight ?? kToolbarHeight;
+    final resolvedForegroundColor =
+        foregroundColor ?? appBarTheme.foregroundColor ?? colorScheme.onSurface;
     final resolvedDecoration =
         decoration ??
         BoxDecoration(
-          color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(18.r),
+          color:
+              backgroundColor ??
+              appBarTheme.backgroundColor ??
+              colorScheme.surface,
         );
     final content = (title == null && subtitle == null)
         ? const SizedBox.shrink()
@@ -334,11 +347,17 @@ class OverlayWindowBar extends StatelessWidget {
             children: <Widget>[
               if (title != null)
                 DefaultTextStyle(
-                  style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontSize: 17.sp,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style:
+                      appBarTheme.titleTextStyle ??
+                      theme.textTheme.titleLarge?.copyWith(
+                        color: resolvedForegroundColor,
+                        fontWeight: FontWeight.w600,
+                      ) ??
+                      TextStyle(
+                        color: resolvedForegroundColor,
+                        fontSize: 22.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   child: title!,
@@ -346,11 +365,15 @@ class OverlayWindowBar extends StatelessWidget {
               if (subtitle != null) ...<Widget>[
                 if (title != null) SizedBox(height: 4.h),
                 DefaultTextStyle(
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style:
+                      appBarTheme.toolbarTextStyle ??
+                      theme.textTheme.bodySmall?.copyWith(
+                        color: resolvedForegroundColor.withValues(alpha: 0.78),
+                      ) ??
+                      TextStyle(
+                        color: resolvedForegroundColor.withValues(alpha: 0.78),
+                        fontSize: 12.sp,
+                      ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   child: subtitle!,
@@ -360,17 +383,29 @@ class OverlayWindowBar extends StatelessWidget {
           );
     final builtInActions = <Widget>[
       if (showMinimizeAction)
-        OverlayWindowHeaderButton(
-          icon: Icons.remove_rounded,
+        IconButton(
           onPressed: onMinimize ?? controls?.minimize ?? () {},
+          icon: const Icon(Icons.remove_rounded),
+          tooltip: 'Minimize',
         ),
       if (showCloseAction)
-        OverlayWindowHeaderButton(
-          icon: Icons.close_rounded,
+        IconButton(
           onPressed: onClose ?? controls?.close ?? () {},
+          icon: const Icon(Icons.close_rounded),
+          tooltip: 'Close',
         ),
     ];
     final resolvedActions = <Widget>[...actions, ...builtInActions];
+    final resolvedLeading = switch (leading) {
+      null => null,
+      final widget? => ConstrainedBox(
+        constraints: BoxConstraints.tightFor(width: resolvedLeadingWidth),
+        child: Align(
+          alignment: Alignment.center,
+          child: widget is IconButton ? Center(child: widget) : widget,
+        ),
+      ),
+    };
 
     if (leading == null &&
         title == null &&
@@ -381,28 +416,30 @@ class OverlayWindowBar extends StatelessWidget {
 
     return DecoratedBox(
       decoration: resolvedDecoration,
-      child: Padding(
-        padding: resolvedPadding,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: <Widget>[
-            if (leading != null) ...<Widget>[
-              ConstrainedBox(
-                constraints: BoxConstraints.tightFor(width: resolvedLeadingWidth),
-                child: Align(alignment: Alignment.centerLeft, child: leading),
-              ),
-              SizedBox(width: resolvedTitleSpacing),
-            ],
-            Expanded(child: content),
-            if (resolvedActions.isNotEmpty) ...<Widget>[
-              SizedBox(width: resolvedTitleSpacing),
-              Wrap(
-                spacing: resolvedActionSpacing,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: resolvedActions,
-              ),
-            ],
-          ],
+      child: IconTheme.merge(
+        data: IconThemeData(color: resolvedForegroundColor),
+        child: DefaultTextStyle.merge(
+          style: TextStyle(color: resolvedForegroundColor),
+          child: SizedBox(
+            height: resolvedToolbarHeight,
+            child: NavigationToolbar(
+              leading: resolvedLeading,
+              middle: content,
+              trailing: resolvedActions.isEmpty
+                  ? null
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        for (var i = 0; i < resolvedActions.length; i++) ...<Widget>[
+                          if (i > 0) SizedBox(width: resolvedActionSpacing),
+                          resolvedActions[i],
+                        ],
+                      ],
+                    ),
+              centerMiddle: centerTitle ?? appBarTheme.centerTitle ?? false,
+              middleSpacing: resolvedTitleSpacing,
+            ),
+          ),
         ),
       ),
     );
@@ -418,7 +455,10 @@ class OverlayWindowHeader extends OverlayWindowBar {
     super.title,
     super.subtitle,
     super.actions = const <Widget>[],
-    super.padding,
+    super.centerTitle,
+    super.toolbarHeight,
+    super.foregroundColor,
+    super.backgroundColor,
     super.decoration,
     super.titleSpacing,
     super.actionSpacing,

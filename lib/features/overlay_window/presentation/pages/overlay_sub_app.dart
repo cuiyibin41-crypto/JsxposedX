@@ -48,7 +48,6 @@ class OverlaySubApp extends ConsumerWidget {
 
   ThemeData _buildOverlayTheme(ThemeData theme) {
     return theme.copyWith(
-      scaffoldBackgroundColor: Colors.transparent,
       canvasColor: Colors.transparent,
       cardColor: Colors.transparent,
       dialogTheme: const DialogThemeData(backgroundColor: Colors.transparent),
