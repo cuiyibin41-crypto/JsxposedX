@@ -4,6 +4,7 @@
 - English: [`README_EN.md`](README_EN.md)
 - 中文：[`README_CN.md`](README_CN.md)
 - Release：[`Download`](https://jsxposed.org)
+- 沐雪AI中转站[`前往`](https://api.muxueai.pro)
 JsxposedX is a Flutter Android application for Xposed/LSPosed and Frida workflows.
 
 ## Summary
