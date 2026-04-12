@@ -34,3 +34,9 @@ coverage/
 ios/Flutter/Generated.xcconfig
 ios/Flutter/flutter_export_environment.sh
 /.codex_tmp_alex110119_JsxposedX/
+/android/app/src/main/cpp/.idea/.gitignore
+/android/app/src/main/cpp/.idea/.name
+/android/app/src/main/cpp/.idea/editor.xml
+/android/app/src/main/cpp/.idea/misc.xml
+/android/app/src/main/cpp/.idea/modules.xml
+/android/app/src/main/cpp/.idea/vcs.xml
