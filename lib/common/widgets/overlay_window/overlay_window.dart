@@ -128,20 +128,18 @@ class OverlayWindow extends StatelessWidget {
                 onTap: onBackdropTap,
                 child: backdrop ?? const SizedBox.expand(),
               ),
-              SafeArea(
-                child: Padding(
-                  padding: resolvedMargin,
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minWidth: maxWidth == null ? resolvedMaxWidth : 0,
-                        maxWidth: resolvedMaxWidth,
-                        minHeight: maxHeight == null ? resolvedMaxHeight : 0,
-                        maxHeight: resolvedMaxHeight,
-                      ),
-                      child: panel,
+              Padding(
+                padding: resolvedMargin,
+                child: Align(
+                  alignment: Alignment.center,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: maxWidth == null ? resolvedMaxWidth : 0,
+                      maxWidth: resolvedMaxWidth,
+                      minHeight: maxHeight == null ? resolvedMaxHeight : 0,
+                      maxHeight: resolvedMaxHeight,
                     ),
+                    child: panel,
                   ),
                 ),
               ),

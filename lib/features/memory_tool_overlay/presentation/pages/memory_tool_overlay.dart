@@ -31,7 +31,6 @@ class MemoryToolOverlay extends HookConsumerWidget {
       children: [
         OverlayWindowScaffold(
           overlayConfig: overlayConfig,
-          borderRadius: BorderRadius.circular(8.r),
           overlayBar: OverlayWindowBar(
             backgroundColor: context.colorScheme.surface.withValues(alpha: 0.3),
             title: Text(
@@ -50,7 +49,6 @@ class MemoryToolOverlay extends HookConsumerWidget {
             showCloseAction: false,
           ),
           backgroundColor: context.colorScheme.surface.withValues(alpha: 0.6),
-          margin: EdgeInsets.all(8.r),
           body: SelectedProcessPanel(selectedProcess: selectedProcess),
         ),
         if (isPickerVisible.value)
