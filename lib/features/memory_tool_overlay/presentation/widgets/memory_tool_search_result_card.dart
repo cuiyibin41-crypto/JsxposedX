@@ -29,6 +29,7 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
     final selectionNotifier = ref.read(
       memoryToolResultSelectionProvider.notifier,
     );
+    final livePreviewsAsync = ref.watch(currentSearchResultLivePreviewsProvider);
     final selectedPid = ref.watch(memoryToolSelectedProcessProvider)?.pid;
     final isSettingsVisible = useState(false);
 
@@ -107,6 +108,10 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
                               final result = visibleResults[index];
                               return _MemoryToolSearchResultTile(
                                 result: result,
+                                displayValue: _resolveDisplayValue(
+                                  result: result,
+                                  livePreviewsAsync: livePreviewsAsync,
+                                ),
                                 isSelected: selectionState.contains(
                                   result.address,
                                 ),
@@ -155,6 +160,10 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
                                 final result = visibleResults[index];
                                 return _MemoryToolSearchResultTile(
                                   result: result,
+                                  displayValue: _resolveDisplayValue(
+                                    result: result,
+                                    livePreviewsAsync: livePreviewsAsync,
+                                  ),
                                   isSelected: selectionState.contains(
                                     result.address,
                                   ),
@@ -192,6 +201,17 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
       ],
     );
   }
+}
+
+String _resolveDisplayValue({
+  required SearchResult result,
+  required AsyncValue<Map<int, MemoryValuePreview>> livePreviewsAsync,
+}) {
+  return livePreviewsAsync.when(
+    data: (previews) => previews[result.address]?.displayValue ?? '--',
+    error: (_, _) => '--',
+    loading: () => '...',
+  );
 }
 
 class _MemoryToolResultSelectionBar extends StatelessWidget {
@@ -317,12 +337,14 @@ class _MemoryToolToolbarAction extends StatelessWidget {
 class _MemoryToolSearchResultTile extends StatelessWidget {
   const _MemoryToolSearchResultTile({
     required this.result,
+    required this.displayValue,
     required this.isSelected,
     required this.onToggleSelection,
     required this.onLongPress,
   });
 
   final SearchResult result;
+  final String displayValue;
   final bool isSelected;
   final VoidCallback onToggleSelection;
   final VoidCallback onLongPress;
@@ -389,7 +411,7 @@ class _MemoryToolSearchResultTile extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: <Widget>[
                               Text(
-                                result.displayValue,
+                                displayValue,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 softWrap: false,

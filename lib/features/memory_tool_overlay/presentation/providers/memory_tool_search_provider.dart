@@ -10,6 +10,7 @@ import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/me
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/states/memory_tool_result_selection_state.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/states/memory_tool_search_state.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_search_range_key_mapper.dart';
+import 'package:JsxposedX/features/overlay_window/presentation/providers/overlay_window_host_runtime_provider.dart';
 import 'package:JsxposedX/generated/memory_tool.g.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -61,6 +62,43 @@ final memoryToolResultSelectionProvider = NotifierProvider<
   MemoryToolResultSelectionController,
   MemoryToolResultSelectionState
 >(MemoryToolResultSelectionController.new);
+
+final currentSearchResultLivePreviewsProvider =
+    FutureProvider.autoDispose<Map<int, MemoryValuePreview>>((ref) async {
+      final hasMatchingSession = ref.watch(hasMatchingSearchSessionProvider);
+      final isPanelVisible = ref.watch(
+        overlayWindowHostRuntimeProvider.select(
+          (state) => state.payload.isPanel && !state.isTransitioningToPanel,
+        ),
+      );
+      final renderLimit = ref.watch(
+        memoryToolResultSelectionProvider.select((state) => state.selectionLimit),
+      );
+
+      if (!hasMatchingSession || !isPanelVisible) {
+        return const <int, MemoryValuePreview>{};
+      }
+
+      final results = await ref.watch(
+        getSearchResultsProvider(offset: 0, limit: renderLimit).future,
+      );
+      if (results.isEmpty) {
+        return const <int, MemoryValuePreview>{};
+      }
+
+      final previews = await ref
+          .watch(memoryQueryRepositoryProvider)
+          .readMemoryValues(
+            requests: results
+                .take(renderLimit)
+                .map(_buildMemoryReadRequestFromResult)
+                .toList(growable: false),
+          );
+
+      return <int, MemoryValuePreview>{
+        for (final preview in previews) preview.address: preview,
+      };
+    });
 
 class MemoryToolResultSelectionController
     extends Notifier<MemoryToolResultSelectionState> {
@@ -134,6 +172,14 @@ class MemoryToolResultSelectionController
     }
     state = state.copyWith(selectedAddresses: const <int>[]);
   }
+}
+
+MemoryReadRequest _buildMemoryReadRequestFromResult(SearchResult result) {
+  return MemoryReadRequest(
+    address: result.address,
+    type: result.type,
+    length: result.rawBytes.length,
+  );
 }
 
 @Riverpod(keepAlive: true)
