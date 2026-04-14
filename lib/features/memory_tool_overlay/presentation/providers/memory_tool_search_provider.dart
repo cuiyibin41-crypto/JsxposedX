@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_preset_maps.dart';
@@ -343,7 +344,7 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
       return MemoryToolSearchValidationError.unsupportedType;
     }
 
-    if (type == SearchValueType.bytes && _parseBytes(trimmedValue) == null) {
+    if (state.isBytesType && _parseBytes(trimmedValue) == null) {
       return MemoryToolSearchValidationError.invalidBytes;
     }
 
@@ -353,13 +354,20 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
   SearchValue _buildSearchValue() {
     final trimmedValue = state.value.trim();
     final nativeType = state.nativeSearchValueType!;
-    final bytesValue = nativeType == SearchValueType.bytes
+    final bytesValue = state.isTextType
+        ? Uint8List.fromList(utf8.encode(trimmedValue))
+        : nativeType == SearchValueType.bytes
         ? _parseBytes(trimmedValue)
         : null;
+    final textValue = state.isTextType
+        ? trimmedValue
+        : nativeType == SearchValueType.bytes
+        ? null
+        : trimmedValue;
 
     return SearchValue(
       type: nativeType,
-      textValue: nativeType == SearchValueType.bytes ? null : trimmedValue,
+      textValue: textValue,
       bytesValue: bytesValue,
       littleEndian: state.isLittleEndian,
     );

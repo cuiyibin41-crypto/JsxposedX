@@ -52,6 +52,10 @@ std::string FormatHex(const std::vector<uint8_t>& bytes) {
     return stream.str();
 }
 
+std::string FormatUtf8Text(const std::vector<uint8_t>& bytes) {
+    return std::string(bytes.begin(), bytes.end());
+}
+
 }  // namespace
 
 size_t ResolveValueByteLength(SearchValueType type, size_t requested_length) {
@@ -131,9 +135,15 @@ bool BuildSearchPattern(const SearchValue& value,
     return false;
 }
 
+bool ShouldDisplayBytesAsText(const SearchValue& value) {
+    return value.type == SearchValueType::kBytes && !value.text_value.empty() &&
+           !value.bytes_value.empty();
+}
+
 std::string FormatDisplayValue(SearchValueType type,
                                const std::vector<uint8_t>& raw_bytes,
-                               bool little_endian) {
+                               bool little_endian,
+                               bool bytes_as_text) {
     std::ostringstream stream;
     switch (type) {
         case SearchValueType::kI8:
@@ -155,6 +165,9 @@ std::string FormatDisplayValue(SearchValueType type,
             stream << DecodeBytes<double>(raw_bytes, little_endian);
             return stream.str();
         case SearchValueType::kBytes:
+            if (bytes_as_text) {
+                return FormatUtf8Text(raw_bytes);
+            }
             return FormatHex(raw_bytes);
     }
     return {};

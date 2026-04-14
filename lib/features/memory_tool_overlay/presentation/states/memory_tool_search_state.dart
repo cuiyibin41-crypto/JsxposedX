@@ -44,7 +44,11 @@ abstract class MemoryToolSearchState with _$MemoryToolSearchState {
 
   bool get supportsCurrentType => nativeSearchValueType != null;
 
-  bool get isBytesType => nativeSearchValueType == SearchValueType.bytes;
+  bool get isBytesType =>
+      effectiveValueTypeOption == MemorySearchValueTypeOptionEnum.bytes;
+
+  bool get isTextType =>
+      effectiveValueTypeOption == MemorySearchValueTypeOptionEnum.text;
 
   bool get shouldShowAdvancedTypeSelector =>
       selectedValueCategory == MemorySearchValueCategoryEnum.advanced;

@@ -164,8 +164,11 @@ std::vector<MemoryValuePreview> MemoryToolEngine::ReadMemoryValues(
         preview.address = request.address;
         preview.type = request.type;
         preview.raw_bytes = buffer;
-        preview.display_value =
-            FormatDisplayValue(request.type, buffer, session_.little_endian);
+        preview.display_value = FormatDisplayValue(request.type,
+                                                   buffer,
+                                                   session_.little_endian,
+                                                   request.type == SearchValueType::kBytes &&
+                                                       session_.bytes_display_as_text);
         previews.push_back(std::move(preview));
     }
     return previews;
@@ -188,6 +191,7 @@ void MemoryToolEngine::FirstScan(int pid,
 
     const SearchValueType value_type = value.type;
     const bool little_endian = value.little_endian;
+    const bool bytes_display_as_text = ShouldDisplayBytesAsText(value);
     const uint64_t generation = [this, pid]() {
         std::lock_guard<std::mutex> lock(mutex_);
         session_.Clear();
@@ -200,6 +204,7 @@ void MemoryToolEngine::FirstScan(int pid,
                  pattern = std::move(pattern),
                  value_type,
                  little_endian,
+                 bytes_display_as_text,
                  range_section_keys,
                  scan_all_readable_regions]() {
         try {
@@ -332,10 +337,11 @@ void MemoryToolEngine::FirstScan(int pid,
             next_session.type = value_type;
             next_session.exact_mode = true;
             next_session.little_endian = little_endian;
+            next_session.bytes_display_as_text = bytes_display_as_text;
             next_session.value_size = pattern.size();
             next_session.current_value_bytes = pattern;
-            next_session.current_display_value =
-                FormatDisplayValue(value_type, pattern, little_endian);
+            next_session.current_display_value = FormatDisplayValue(
+                value_type, pattern, little_endian, bytes_display_as_text);
             next_session.regions = std::move(regions);
             next_session.results = std::move(results);
             FinishTaskSuccess(generation, std::move(next_session), result_count);
@@ -375,12 +381,14 @@ void MemoryToolEngine::NextScan(const SearchValue& value, SearchMatchMode match_
     }();
 
     const bool little_endian = value.little_endian;
+    const bool bytes_display_as_text = ShouldDisplayBytesAsText(value);
 
     std::thread([this,
                  generation,
                  session_snapshot = std::move(session_snapshot),
                  pattern = std::move(pattern),
-                 little_endian]() mutable {
+                 little_endian,
+                 bytes_display_as_text]() mutable {
         try {
             ProcessMemoryReader reader(session_snapshot.pid);
             std::vector<SearchResultEntry> results = ::memory_tool::NextScan(
@@ -395,9 +403,13 @@ void MemoryToolEngine::NextScan(const SearchValue& value, SearchMatchMode match_
             session_snapshot.results = std::move(results);
             session_snapshot.value_size = pattern.size();
             session_snapshot.little_endian = little_endian;
+            session_snapshot.bytes_display_as_text = bytes_display_as_text;
             session_snapshot.current_value_bytes = pattern;
-            session_snapshot.current_display_value =
-                FormatDisplayValue(session_snapshot.type, pattern, little_endian);
+            session_snapshot.current_display_value = FormatDisplayValue(
+                session_snapshot.type,
+                pattern,
+                little_endian,
+                bytes_display_as_text);
             FinishTaskSuccess(generation, std::move(session_snapshot), result_count);
         } catch (const std::exception& exception) {
             FinishTaskFailure(generation, exception.what());

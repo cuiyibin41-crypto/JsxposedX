@@ -452,7 +452,10 @@ class _MemoryToolSearchResultTile extends StatelessWidget {
                               ),
                               SizedBox(height: 2.r),
                               MemoryToolResultBadge(
-                                label: _typeLabel(result.type),
+                                label: _typeLabel(
+                                  type: result.type,
+                                  displayValue: displayValue,
+                                ),
                                 backgroundColor: _typeBadgeBackground(
                                   context,
                                   result.type,
@@ -517,7 +520,10 @@ class _MemoryToolSearchResultTile extends StatelessWidget {
     return '0x${value.toRadixString(16).toUpperCase()}';
   }
 
-  String _typeLabel(SearchValueType type) {
+  String _typeLabel({
+    required SearchValueType type,
+    required String displayValue,
+  }) {
     return switch (type) {
       SearchValueType.i8 => 'I8',
       SearchValueType.i16 => 'I16',
@@ -525,8 +531,18 @@ class _MemoryToolSearchResultTile extends StatelessWidget {
       SearchValueType.i64 => 'I64',
       SearchValueType.f32 => 'F32',
       SearchValueType.f64 => 'F64',
-      SearchValueType.bytes => 'AOB',
+      SearchValueType.bytes => _looksLikeHexByteSequence(displayValue)
+          ? 'AOB'
+          : 'TEXT',
     };
+  }
+
+  bool _looksLikeHexByteSequence(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return RegExp(r'^[0-9A-F]{2}( [0-9A-F]{2})*$').hasMatch(normalized);
   }
 
   String _regionTypeLabel(BuildContext context, String regionTypeKey) {

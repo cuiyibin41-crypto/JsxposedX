@@ -289,7 +289,7 @@ class _MemoryToolSearchValueField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isBytes = selectedType == SearchValueType.bytes;
+    final isBytes = valueTypeOption == MemorySearchValueTypeOptionEnum.bytes;
     final isText = valueTypeOption == MemorySearchValueTypeOptionEnum.text;
     final isFloatType =
         selectedType == SearchValueType.f32 || selectedType == SearchValueType.f64;
@@ -330,7 +330,7 @@ class _MemoryToolSearchValueField extends StatelessWidget {
   }
 
   String _valueHint(BuildContext context) {
-    if (selectedType == SearchValueType.bytes) {
+    if (valueTypeOption == MemorySearchValueTypeOptionEnum.bytes) {
       return context.l10n.memoryToolSearchBytesHint;
     }
     if (valueTypeOption == MemorySearchValueTypeOptionEnum.text) {

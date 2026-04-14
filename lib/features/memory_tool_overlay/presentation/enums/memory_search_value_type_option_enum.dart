@@ -25,7 +25,7 @@ extension MemorySearchValueTypeOptionEnumX on MemorySearchValueTypeOptionEnum {
       MemorySearchValueTypeOptionEnum.bytes => SearchValueType.bytes,
       MemorySearchValueTypeOptionEnum.xor => null,
       MemorySearchValueTypeOptionEnum.auto => null,
-      MemorySearchValueTypeOptionEnum.text => null,
+      MemorySearchValueTypeOptionEnum.text => SearchValueType.bytes,
     };
   }
 
