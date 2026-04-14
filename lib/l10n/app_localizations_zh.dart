@@ -1993,4 +1993,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get memoryToolValidationTypeUnsupported => '当前搜索类型尚未接入扫描内核。';
+
+  @override
+  String get memoryToolProcessTerminatedTitle => '目标进程已退出';
+
+  @override
+  String get memoryToolProcessTerminatedDescription =>
+      '当前选中的目标进程已经关闭，搜索会话和选择状态已被终止。请重新选择进程后再继续操作。';
+
+  @override
+  String get memoryToolProcessTerminatedAction => '我知道了';
 }

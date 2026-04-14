@@ -3943,6 +3943,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'当前搜索类型尚未接入扫描内核。'**
   String get memoryToolValidationTypeUnsupported;
+
+  /// No description provided for @memoryToolProcessTerminatedTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标进程已退出'**
+  String get memoryToolProcessTerminatedTitle;
+
+  /// No description provided for @memoryToolProcessTerminatedDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前选中的目标进程已经关闭，搜索会话和选择状态已被终止。请重新选择进程后再继续操作。'**
+  String get memoryToolProcessTerminatedDescription;
+
+  /// No description provided for @memoryToolProcessTerminatedAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'我知道了'**
+  String get memoryToolProcessTerminatedAction;
 }
 
 class _AppLocalizationsDelegate

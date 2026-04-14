@@ -957,5 +957,8 @@
   "memoryToolTargetProcess": "目标进程",
   "memoryToolValidationValueRequired": "请先输入搜索值。",
   "memoryToolValidationBytesInvalid": "字节数组格式不正确，请输入偶数位十六进制，例如 12 34 AB。",
-  "memoryToolValidationTypeUnsupported": "当前搜索类型尚未接入扫描内核。"
+  "memoryToolValidationTypeUnsupported": "当前搜索类型尚未接入扫描内核。",
+  "memoryToolProcessTerminatedTitle": "目标进程已退出",
+  "memoryToolProcessTerminatedDescription": "当前选中的目标进程已经关闭，搜索会话和选择状态已被终止。请重新选择进程后再继续操作。",
+  "memoryToolProcessTerminatedAction": "我知道了"
 }

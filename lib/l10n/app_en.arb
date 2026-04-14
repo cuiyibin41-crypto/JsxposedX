@@ -952,5 +952,8 @@
   "memoryToolTargetProcess": "Target Process",
   "memoryToolValidationValueRequired": "Enter a search value first.",
   "memoryToolValidationBytesInvalid": "Invalid byte pattern. Use even-length hex such as 12 34 AB.",
-  "memoryToolValidationTypeUnsupported": "This search type is not wired to the scan core yet."
+  "memoryToolValidationTypeUnsupported": "This search type is not wired to the scan core yet.",
+  "memoryToolProcessTerminatedTitle": "Target Process Closed",
+  "memoryToolProcessTerminatedDescription": "The selected target process has exited. The current search session and selections were cleared. Please pick a process again before continuing.",
+  "memoryToolProcessTerminatedAction": "OK"
 }

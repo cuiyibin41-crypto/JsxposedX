@@ -1,10 +1,15 @@
 import 'package:JsxposedX/common/widgets/overlay_window/overlay_window.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_action_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_search_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_process_terminated_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/process_avatar.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/process_picker_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/selected_process_panel.dart';
 import 'package:JsxposedX/features/overlay_window/domain/models/overlay_window_presentation.dart';
+import 'package:JsxposedX/features/overlay_window/presentation/providers/overlay_window_host_runtime_provider.dart';
+import 'package:JsxposedX/generated/memory_tool.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -27,10 +32,155 @@ class MemoryToolOverlay extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     useAutomaticKeepAlive();
     final isPickerVisible = useState(false);
+    final isProcessTerminatedDialogVisible = useState(false);
+    final hasPendingProcessTerminatedDialog = useState(false);
+    final isHandlingProcessTerminated = useRef(false);
     final selectedProcess = ref.watch(memoryToolSelectedProcessProvider);
+    final isPanelVisible = ref.watch(
+      overlayWindowHostRuntimeProvider.select(
+        (state) => state.payload.isPanel && !state.isTransitioningToPanel,
+      ),
+    );
     final mediaQuery = MediaQuery.of(context);
     final isPortrait = mediaQuery.orientation == Orientation.portrait;
     final portraitTopInset = isPortrait ? mediaQuery.padding.top : 0.0;
+
+    Future<void> handleProcessTerminated() async {
+      if (isHandlingProcessTerminated.value) {
+        return;
+      }
+
+      isHandlingProcessTerminated.value = true;
+      try {
+        try {
+          await ref.read(memorySearchActionProvider.notifier).cancelSearch();
+        } catch (_) {}
+
+        try {
+          await ref.read(memorySearchActionProvider.notifier).resetSearchSession();
+        } catch (_) {}
+
+        ref.read(memoryToolSelectedProcessProvider.notifier).clear();
+        ref.read(memoryToolResultSelectionProvider.notifier).clear();
+        ref.invalidate(memorySearchActionProvider);
+        ref.invalidate(getSearchSessionStateProvider);
+        ref.invalidate(getSearchTaskStateProvider);
+        ref.invalidate(getSearchResultsProvider);
+        ref.invalidate(currentSearchResultsProvider);
+        ref.invalidate(currentSearchResultLivePreviewsProvider);
+        ref.invalidate(hasMatchingSearchSessionProvider);
+        ref.invalidate(hasRunningSearchTaskProvider);
+
+        if (!context.mounted) {
+          return;
+        }
+
+        final shouldShowDialogImmediately = ref
+            .read(overlayWindowHostRuntimeProvider)
+            .payload
+            .isPanel;
+        if (shouldShowDialogImmediately) {
+          isProcessTerminatedDialogVisible.value = true;
+          hasPendingProcessTerminatedDialog.value = false;
+        } else {
+          hasPendingProcessTerminatedDialog.value = true;
+        }
+      } finally {
+        isHandlingProcessTerminated.value = false;
+      }
+    }
+
+    ref.listen<AsyncValue<void>>(memorySearchActionProvider, (_, next) {
+      next.whenOrNull(
+        error: (error, _) {
+          if (_isProcessUnavailableError(error)) {
+            Future.microtask(handleProcessTerminated);
+          }
+        },
+      );
+    });
+
+    ref.listen<AsyncValue<List<SearchResult>>>(currentSearchResultsProvider, (
+      _,
+      next,
+    ) {
+      next.whenOrNull(
+        error: (error, _) {
+          if (_isProcessUnavailableError(error)) {
+            Future.microtask(handleProcessTerminated);
+          }
+        },
+      );
+    });
+
+    ref.listen<AsyncValue<Map<int, MemoryValuePreview>>>(
+      currentSearchResultLivePreviewsProvider,
+      (_, next) {
+        next.whenOrNull(
+          error: (error, _) {
+            if (_isProcessUnavailableError(error)) {
+              Future.microtask(handleProcessTerminated);
+            }
+          },
+        );
+      },
+    );
+
+    ref.listen<AsyncValue<SearchTaskState>>(getSearchTaskStateProvider, (
+      _,
+      next,
+    ) {
+      next.whenOrNull(
+        error: (error, _) {
+          if (_isProcessUnavailableError(error)) {
+            Future.microtask(handleProcessTerminated);
+          }
+        },
+      );
+    });
+
+    useEffect(() {
+      if (!isPanelVisible || !hasPendingProcessTerminatedDialog.value) {
+        return null;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) {
+          return;
+        }
+        isProcessTerminatedDialogVisible.value = true;
+        hasPendingProcessTerminatedDialog.value = false;
+      });
+      return null;
+    }, [isPanelVisible, hasPendingProcessTerminatedDialog.value]);
+
+    useEffect(() {
+      if (!isPanelVisible || selectedProcess == null) {
+        return null;
+      }
+
+      var isDisposed = false;
+      Future.microtask(() async {
+        int latestPid;
+        try {
+          latestPid = await ref.refresh(
+            getPidProvider(packageName: selectedProcess.packageName).future,
+          );
+        } catch (_) {
+          return;
+        }
+        if (isDisposed || !context.mounted) {
+          return;
+        }
+        if (latestPid == 0) {
+          await handleProcessTerminated();
+        }
+      });
+
+      return () {
+        isDisposed = true;
+      };
+    }, [isPanelVisible, selectedProcess?.packageName, selectedProcess?.pid]);
 
     return DefaultTabController(
       length: 3,
@@ -95,8 +245,22 @@ class MemoryToolOverlay extends HookConsumerWidget {
                 },
               ),
             ),
+          if (isProcessTerminatedDialogVisible.value)
+            Positioned.fill(
+              child: MemoryToolProcessTerminatedDialog(
+                onConfirm: () {
+                  isProcessTerminatedDialogVisible.value = false;
+                },
+              ),
+            ),
         ],
       ),
     );
   }
+}
+
+bool _isProcessUnavailableError(Object error) {
+  final normalized = error.toString().toLowerCase();
+  return normalized.contains('target process is no longer available') ||
+      normalized.contains('search session target process is no longer available');
 }

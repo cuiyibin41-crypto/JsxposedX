@@ -2034,4 +2034,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get memoryToolValidationTypeUnsupported =>
       'This search type is not wired to the scan core yet.';
+
+  @override
+  String get memoryToolProcessTerminatedTitle => 'Target Process Closed';
+
+  @override
+  String get memoryToolProcessTerminatedDescription =>
+      'The selected target process has exited. The current search session and selections were cleared. Please pick a process again before continuing.';
+
+  @override
+  String get memoryToolProcessTerminatedAction => 'OK';
 }
