@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/tabs/widgets/memory_tool_search_form_card.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/tabs/widgets/memory_tool_search_result_card.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/tabs/widgets/memory_tool_search_session_card.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/tabs/widgets/memory_tool_search_task_feedback.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/tabs/widgets/memory_tool_search_task_overlay.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_action_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_search_provider.dart';
+import 'package:JsxposedX/generated/memory_tool.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -19,11 +24,13 @@ class MemoryToolSearchTab extends HookConsumerWidget {
     final searchFormState = ref.watch(memoryToolSearchFormProvider);
     final searchActionState = ref.watch(memorySearchActionProvider);
     final sessionStateAsync = ref.watch(getSearchSessionStateProvider);
+    final taskStateAsync = ref.watch(getSearchTaskStateProvider);
     final hasMatchingSession = ref.watch(hasMatchingSearchSessionProvider);
-    final resultsAsync = ref.watch(currentSearchResultsProvider);
+    final hasRunningTask = ref.watch(hasRunningSearchTaskProvider);
     final valueController = useTextEditingController(
       text: searchFormState.value,
     );
+    final previousTaskStatus = useRef<SearchTaskStatus?>(null);
 
     useEffect(() {
       if (valueController.text == searchFormState.value) {
@@ -40,11 +47,39 @@ class MemoryToolSearchTab extends HookConsumerWidget {
       return null;
     }, [searchFormState.value, valueController]);
 
+    useEffect(() {
+      if (!hasRunningTask) {
+        return null;
+      }
+
+      final timer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+        ref.invalidate(getSearchTaskStateProvider);
+      });
+      return timer.cancel;
+    }, [hasRunningTask]);
+
+    useEffect(() {
+      taskStateAsync.whenData((state) {
+        final previousStatus = previousTaskStatus.value;
+        final currentStatus = state.status;
+        if (previousStatus == SearchTaskStatus.running &&
+            currentStatus != SearchTaskStatus.running) {
+          ref.invalidate(getSearchSessionStateProvider);
+          ref.invalidate(getSearchTaskStateProvider);
+          ref.invalidate(getSearchResultsProvider);
+          ref.invalidate(hasMatchingSearchSessionProvider);
+          ref.invalidate(currentSearchResultsProvider);
+        }
+        previousTaskStatus.value = currentStatus;
+      });
+      return null;
+    }, [taskStateAsync]);
+
     final formCard = MemoryToolSearchFormCard(
-      selectedProcess: selectedProcess,
       valueController: valueController,
       state: searchFormState,
       actionState: searchActionState,
+      hasRunningTask: hasRunningTask,
       canRunNextScan: hasMatchingSession,
       onValueChanged: ref
           .read(memoryToolSearchFormProvider.notifier)
@@ -58,6 +93,7 @@ class MemoryToolSearchTab extends HookConsumerWidget {
       onReset: ref
           .read(memoryToolSearchFormProvider.notifier)
           .resetSearchSession,
+      taskStatus: MemoryToolSearchTaskFeedback(taskStateAsync: taskStateAsync),
     );
 
     final sessionCard = MemoryToolSearchSessionCard(
@@ -67,7 +103,7 @@ class MemoryToolSearchTab extends HookConsumerWidget {
 
     final resultCard = MemoryToolSearchResultCard(
       hasMatchingSession: hasMatchingSession,
-      resultsAsync: resultsAsync,
+      sessionStateAsync: sessionStateAsync,
       onRetry: () {
         ref.invalidate(getSearchSessionStateProvider);
         ref.invalidate(getSearchResultsProvider);
@@ -86,8 +122,9 @@ class MemoryToolSearchTab extends HookConsumerWidget {
             constraints.maxHeight < 320 && constraints.maxWidth > 560;
         final isCompactHeight = constraints.maxHeight < 420;
 
+        Widget content;
         if (isCompactLandscape) {
-          return Padding(
+          content = Padding(
             padding: padding,
             child: Row(
               children: <Widget>[
@@ -106,12 +143,10 @@ class MemoryToolSearchTab extends HookConsumerWidget {
               ],
             ),
           );
-        }
-
-        if (isCompactHeight) {
+        } else if (isCompactHeight) {
           final resultHeight =
               (constraints.maxHeight.clamp(220.0, 320.0) as double) * 0.9;
-          return ListView(
+          content = ListView(
             padding: padding,
             children: <Widget>[
               formCard,
@@ -121,19 +156,31 @@ class MemoryToolSearchTab extends HookConsumerWidget {
               SizedBox(height: resultHeight, child: resultCard),
             ],
           );
+        } else {
+          content = Padding(
+            padding: padding,
+            child: Column(
+              children: <Widget>[
+                formCard,
+                SizedBox(height: spacing),
+                sessionCard,
+                SizedBox(height: spacing),
+                Expanded(child: resultCard),
+              ],
+            ),
+          );
         }
 
-        return Padding(
-          padding: padding,
-          child: Column(
-            children: <Widget>[
-              formCard,
-              SizedBox(height: spacing),
-              sessionCard,
-              SizedBox(height: spacing),
-              Expanded(child: resultCard),
-            ],
-          ),
+        return Stack(
+          children: <Widget>[
+            Positioned.fill(child: content),
+            MemoryToolSearchTaskOverlay(
+              taskStateAsync: taskStateAsync,
+              onCancel: () {
+                ref.read(memorySearchActionProvider.notifier).cancelSearch();
+              },
+            ),
+          ],
         );
       },
     );

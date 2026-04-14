@@ -12,10 +12,12 @@ class MemoryToolDaemonClient(
         private const val METHOD_PING = "ping"
         private const val METHOD_GET_MEMORY_REGIONS = "getMemoryRegions"
         private const val METHOD_GET_SEARCH_SESSION_STATE = "getSearchSessionState"
+        private const val METHOD_GET_SEARCH_TASK_STATE = "getSearchTaskState"
         private const val METHOD_GET_SEARCH_RESULTS = "getSearchResults"
         private const val METHOD_READ_MEMORY_VALUES = "readMemoryValues"
         private const val METHOD_FIRST_SCAN = "firstScan"
         private const val METHOD_NEXT_SCAN = "nextScan"
+        private const val METHOD_CANCEL_SEARCH = "cancelSearch"
         private const val METHOD_RESET_SEARCH_SESSION = "resetSearchSession"
 
         fun ping(socketName: String): Boolean {
@@ -126,6 +128,43 @@ class MemoryToolDaemonClient(
         )
     }
 
+    fun getSearchTaskState(): SearchTaskState {
+        if (!helperManager.isDaemonAlive()) {
+            return SearchTaskState(
+                status = SearchTaskStatus.IDLE,
+                isFirstScan = true,
+                pid = 0,
+                processedRegions = 0,
+                totalRegions = 0,
+                processedEntries = 0,
+                totalEntries = 0,
+                processedBytes = 0,
+                totalBytes = 0,
+                resultCount = 0,
+                elapsedMilliseconds = 0,
+                canCancel = false,
+                message = ""
+            )
+        }
+
+        val item = sendOrThrow(METHOD_GET_SEARCH_TASK_STATE, null).getJSONObject("result")
+        return SearchTaskState(
+            status = SearchTaskStatus.entries[item.getInt("status")],
+            isFirstScan = item.getBoolean("isFirstScan"),
+            pid = item.getLong("pid"),
+            processedRegions = item.getLong("processedRegions"),
+            totalRegions = item.getLong("totalRegions"),
+            processedEntries = item.getLong("processedEntries"),
+            totalEntries = item.getLong("totalEntries"),
+            processedBytes = item.getLong("processedBytes"),
+            totalBytes = item.getLong("totalBytes"),
+            resultCount = item.getLong("resultCount"),
+            elapsedMilliseconds = item.getLong("elapsedMilliseconds"),
+            canCancel = item.getBoolean("canCancel"),
+            message = item.optString("message")
+        )
+    }
+
     fun getSearchResults(offset: Int, limit: Int): List<SearchResult> {
         if (!helperManager.isDaemonAlive()) {
             return emptyList()
@@ -210,6 +249,14 @@ class MemoryToolDaemonClient(
                 put("matchMode", request.matchMode.ordinal)
             }
         )
+    }
+
+    fun cancelSearch() {
+        if (!helperManager.isDaemonAlive()) {
+            return
+        }
+
+        sendOrThrow(METHOD_CANCEL_SEARCH, null)
     }
 
     fun resetSearchSession() {

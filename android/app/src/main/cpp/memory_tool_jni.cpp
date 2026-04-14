@@ -95,6 +95,11 @@ jstring MemoryToolJniBridge::GetSearchSessionStateJson(JNIEnv* env) {
     return env->NewStringUTF(protocol::SerializeSearchSessionState(state).c_str());
 }
 
+jstring MemoryToolJniBridge::GetSearchTaskStateJson(JNIEnv* env) {
+    const auto state = MemoryToolEngine::Instance().GetSearchTaskState();
+    return env->NewStringUTF(protocol::SerializeSearchTaskState(state).c_str());
+}
+
 jstring MemoryToolJniBridge::GetSearchResultsJson(JNIEnv* env, jint offset, jint limit) {
     const auto results = MemoryToolEngine::Instance().GetSearchResults(offset, limit);
     return env->NewStringUTF(protocol::SerializeSearchResults(results).c_str());
@@ -134,6 +139,10 @@ void MemoryToolJniBridge::NextScan(JNIEnv* env,
     const SearchValue value =
         BuildSearchValue(env, type, text_value, bytes_value, little_endian);
     MemoryToolEngine::Instance().NextScan(value, ToSearchMatchMode(match_mode));
+}
+
+void MemoryToolJniBridge::CancelSearch() {
+    MemoryToolEngine::Instance().CancelSearch();
 }
 
 void MemoryToolJniBridge::ResetSearchSession() {
@@ -260,6 +269,18 @@ Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridg
 }
 
 extern "C" JNIEXPORT jstring JNICALL
+Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridge_getSearchTaskStateJson(
+        JNIEnv* env,
+        jobject /* thiz */) {
+    try {
+        return memory_tool::MemoryToolJniBridge::GetSearchTaskStateJson(env);
+    } catch (const std::exception& exception) {
+        memory_tool::ThrowRuntimeException(env, exception.what());
+        return nullptr;
+    }
+}
+
+extern "C" JNIEXPORT jstring JNICALL
 Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridge_getSearchResultsJson(
         JNIEnv* env,
         jobject /* thiz */,
@@ -331,6 +352,17 @@ Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridg
             bytes_value,
             little_endian,
             match_mode);
+    } catch (const std::exception& exception) {
+        memory_tool::ThrowRuntimeException(env, exception.what());
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridge_cancelSearch(
+        JNIEnv* env,
+        jobject /* thiz */) {
+    try {
+        memory_tool::MemoryToolJniBridge::CancelSearch();
     } catch (const std::exception& exception) {
         memory_tool::ThrowRuntimeException(env, exception.what());
     }

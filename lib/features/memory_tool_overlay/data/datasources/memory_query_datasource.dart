@@ -24,6 +24,10 @@ class MemoryQueryDatasource {
     return await _native.getSearchSessionState();
   }
 
+  Future<SearchTaskState> getSearchTaskState() async {
+    return await _native.getSearchTaskState();
+  }
+
   Future<List<SearchResult>> getSearchResults({
     required int offset,
     required int limit,

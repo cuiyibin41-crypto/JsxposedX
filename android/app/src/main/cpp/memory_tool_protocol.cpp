@@ -16,6 +16,10 @@ int ToRawType(SearchValueType type) {
     return static_cast<int>(type);
 }
 
+int ToRawTaskStatus(SearchTaskStatus status) {
+    return static_cast<int>(status);
+}
+
 }  // namespace
 
 std::string SerializeMemoryRegions(const std::vector<MemoryRegion>& regions) {
@@ -48,6 +52,26 @@ std::string SerializeSearchSessionState(const SearchSessionStateView& state) {
            << "\"regionCount\":" << state.region_count << ','
            << "\"resultCount\":" << state.result_count << ','
            << "\"exactMode\":" << ToJsonBool(state.exact_mode)
+           << '}';
+    return stream.str();
+}
+
+std::string SerializeSearchTaskState(const SearchTaskStateView& state) {
+    std::ostringstream stream;
+    stream << '{'
+           << "\"status\":" << ToRawTaskStatus(state.status) << ','
+           << "\"isFirstScan\":" << ToJsonBool(state.is_first_scan) << ','
+           << "\"pid\":" << state.pid << ','
+           << "\"processedRegions\":" << state.processed_region_count << ','
+           << "\"totalRegions\":" << state.total_region_count << ','
+           << "\"processedEntries\":" << state.processed_entry_count << ','
+           << "\"totalEntries\":" << state.total_entry_count << ','
+           << "\"processedBytes\":" << state.processed_byte_count << ','
+           << "\"totalBytes\":" << state.total_byte_count << ','
+           << "\"resultCount\":" << state.result_count << ','
+           << "\"elapsedMilliseconds\":" << state.elapsed_milliseconds << ','
+           << "\"canCancel\":" << ToJsonBool(state.can_cancel) << ','
+           << "\"message\":\"" << utils::JsonEscape(state.message) << "\""
            << '}';
     return stream.str();
 }

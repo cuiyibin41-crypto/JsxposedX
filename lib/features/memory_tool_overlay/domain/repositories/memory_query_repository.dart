@@ -19,6 +19,8 @@ abstract class MemoryQueryRepository {
 
   Future<SearchSessionState> getSearchSessionState();
 
+  Future<SearchTaskState> getSearchTaskState();
+
   Future<List<SearchResult>> getSearchResults({
     required int offset,
     required int limit,

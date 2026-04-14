@@ -3572,6 +3572,72 @@ abstract class AppLocalizations {
   /// **'已绑定当前进程'**
   String get memoryToolSessionBoundToCurrent;
 
+  /// No description provided for @memoryToolTaskFirstScanTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'首次扫描进行中'**
+  String get memoryToolTaskFirstScanTitle;
+
+  /// No description provided for @memoryToolTaskNextScanTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续筛选进行中'**
+  String get memoryToolTaskNextScanTitle;
+
+  /// No description provided for @memoryToolTaskRunningHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在读取目标进程内存，期间可以取消扫描。'**
+  String get memoryToolTaskRunningHint;
+
+  /// No description provided for @memoryToolTaskElapsedLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'耗时'**
+  String get memoryToolTaskElapsedLabel;
+
+  /// No description provided for @memoryToolTaskRegionsLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'区段'**
+  String get memoryToolTaskRegionsLabel;
+
+  /// No description provided for @memoryToolTaskEntriesLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'候选'**
+  String get memoryToolTaskEntriesLabel;
+
+  /// No description provided for @memoryToolTaskBytesLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'字节'**
+  String get memoryToolTaskBytesLabel;
+
+  /// No description provided for @memoryToolTaskResultCountLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'命中'**
+  String get memoryToolTaskResultCountLabel;
+
+  /// No description provided for @memoryToolTaskCancelAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消扫描'**
+  String get memoryToolTaskCancelAction;
+
+  /// No description provided for @memoryToolTaskCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描已取消。'**
+  String get memoryToolTaskCancelled;
+
+  /// No description provided for @memoryToolTaskFailedFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描失败，请重试。'**
+  String get memoryToolTaskFailedFallback;
+
   /// No description provided for @memoryToolResultTitle.
   ///
   /// In zh, this message translates to:

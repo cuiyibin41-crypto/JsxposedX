@@ -1844,6 +1844,40 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryToolSessionBoundToCurrent => 'Bound to current process';
 
   @override
+  String get memoryToolTaskFirstScanTitle => 'First Scan In Progress';
+
+  @override
+  String get memoryToolTaskNextScanTitle => 'Next Scan In Progress';
+
+  @override
+  String get memoryToolTaskRunningHint =>
+      'Reading the target process memory. You can cancel the scan at any time.';
+
+  @override
+  String get memoryToolTaskElapsedLabel => 'Elapsed';
+
+  @override
+  String get memoryToolTaskRegionsLabel => 'Regions';
+
+  @override
+  String get memoryToolTaskEntriesLabel => 'Candidates';
+
+  @override
+  String get memoryToolTaskBytesLabel => 'Bytes';
+
+  @override
+  String get memoryToolTaskResultCountLabel => 'Results';
+
+  @override
+  String get memoryToolTaskCancelAction => 'Cancel Scan';
+
+  @override
+  String get memoryToolTaskCancelled => 'Scan cancelled.';
+
+  @override
+  String get memoryToolTaskFailedFallback => 'Scan failed. Please try again.';
+
+  @override
   String get memoryToolResultTitle => 'Matched Results';
 
   @override

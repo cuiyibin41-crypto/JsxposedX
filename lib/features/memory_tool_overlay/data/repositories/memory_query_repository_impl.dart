@@ -47,6 +47,11 @@ class MemoryQueryRepositoryImpl implements MemoryQueryRepository {
   }
 
   @override
+  Future<SearchTaskState> getSearchTaskState() async {
+    return await dataSource.getSearchTaskState();
+  }
+
+  @override
   Future<List<SearchResult>> getSearchResults({
     required int offset,
     required int limit,

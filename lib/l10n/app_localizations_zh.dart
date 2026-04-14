@@ -1808,6 +1808,39 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryToolSessionBoundToCurrent => '已绑定当前进程';
 
   @override
+  String get memoryToolTaskFirstScanTitle => '首次扫描进行中';
+
+  @override
+  String get memoryToolTaskNextScanTitle => '继续筛选进行中';
+
+  @override
+  String get memoryToolTaskRunningHint => '正在读取目标进程内存，期间可以取消扫描。';
+
+  @override
+  String get memoryToolTaskElapsedLabel => '耗时';
+
+  @override
+  String get memoryToolTaskRegionsLabel => '区段';
+
+  @override
+  String get memoryToolTaskEntriesLabel => '候选';
+
+  @override
+  String get memoryToolTaskBytesLabel => '字节';
+
+  @override
+  String get memoryToolTaskResultCountLabel => '命中';
+
+  @override
+  String get memoryToolTaskCancelAction => '取消扫描';
+
+  @override
+  String get memoryToolTaskCancelled => '扫描已取消。';
+
+  @override
+  String get memoryToolTaskFailedFallback => '扫描失败，请重试。';
+
+  @override
   String get memoryToolResultTitle => '命中结果';
 
   @override

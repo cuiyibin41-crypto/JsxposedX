@@ -12,6 +12,8 @@ object MemoryToolHelperNativeBridge {
 
     external fun getSearchSessionStateJson(): String
 
+    external fun getSearchTaskStateJson(): String
+
     external fun getSearchResultsJson(offset: Int, limit: Int): String
 
     external fun readMemoryValuesJson(
@@ -37,6 +39,8 @@ object MemoryToolHelperNativeBridge {
         littleEndian: Boolean,
         matchMode: Int
     )
+
+    external fun cancelSearch()
 
     external fun resetSearchSession()
 }

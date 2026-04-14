@@ -22,6 +22,14 @@ enum class SearchMatchMode : int {
     kExact = 0,
 };
 
+enum class SearchTaskStatus : int {
+    kIdle = 0,
+    kRunning = 1,
+    kCompleted = 2,
+    kCancelled = 3,
+    kFailed = 4,
+};
+
 struct SearchValue {
     SearchValueType type = SearchValueType::kI32;
     std::string text_value;
@@ -72,6 +80,22 @@ struct SearchSessionStateView {
     size_t region_count = 0;
     size_t result_count = 0;
     bool exact_mode = true;
+};
+
+struct SearchTaskStateView {
+    SearchTaskStatus status = SearchTaskStatus::kIdle;
+    bool is_first_scan = true;
+    int pid = 0;
+    size_t processed_region_count = 0;
+    size_t total_region_count = 0;
+    size_t processed_entry_count = 0;
+    size_t total_entry_count = 0;
+    uint64_t processed_byte_count = 0;
+    uint64_t total_byte_count = 0;
+    size_t result_count = 0;
+    uint64_t elapsed_milliseconds = 0;
+    bool can_cancel = false;
+    std::string message;
 };
 
 struct SearchSession {

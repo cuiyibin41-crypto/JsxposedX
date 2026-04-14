@@ -19,8 +19,12 @@ class MemoryActionRepositoryImpl implements MemoryActionRepository {
   }
 
   @override
+  Future<void> cancelSearch() async {
+    await _dataSource.cancelSearch();
+  }
+
+  @override
   Future<void> resetSearchSession() async {
     await _dataSource.resetSearchSession();
   }
-
 }

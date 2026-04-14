@@ -28,7 +28,9 @@ class MemorySearchAction extends _$MemorySearchAction {
   Future<void> firstScan({required FirstScanRequest request}) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      await ref.read(memoryActionRepositoryProvider).firstScan(request: request);
+      await ref
+          .read(memoryActionRepositoryProvider)
+          .firstScan(request: request);
       _invalidateSearchQueries();
     });
   }
@@ -37,6 +39,14 @@ class MemorySearchAction extends _$MemorySearchAction {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       await ref.read(memoryActionRepositoryProvider).nextScan(request: request);
+      _invalidateSearchQueries();
+    });
+  }
+
+  Future<void> cancelSearch() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(memoryActionRepositoryProvider).cancelSearch();
       _invalidateSearchQueries();
     });
   }
@@ -51,6 +61,7 @@ class MemorySearchAction extends _$MemorySearchAction {
 
   void _invalidateSearchQueries() {
     ref.invalidate(getSearchSessionStateProvider);
+    ref.invalidate(getSearchTaskStateProvider);
     ref.invalidate(getSearchResultsProvider);
   }
 }

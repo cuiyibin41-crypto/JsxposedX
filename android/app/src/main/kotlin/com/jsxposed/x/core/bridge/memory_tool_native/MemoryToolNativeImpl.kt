@@ -1,6 +1,8 @@
 package com.jsxposed.x.core.bridge.memory_tool_native
 
 import android.content.Context
+import android.os.Build
+import androidx.annotation.RequiresApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,6 +28,7 @@ class MemoryToolNativeImpl(val context: Context) : MemoryToolNative {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.P)
     override fun getProcessInfo(offset: Long, limit: Long, callback: (Result<List<ProcessInfo>>) -> Unit) {
         scope.launch {
             try {
@@ -60,6 +63,21 @@ class MemoryToolNativeImpl(val context: Context) : MemoryToolNative {
         scope.launch {
             try {
                 val result = memoryTool.getSearchSessionState()
+                withContext(Dispatchers.Main) {
+                    callback(Result.success(result))
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback(Result.failure(e))
+                }
+            }
+        }
+    }
+
+    override fun getSearchTaskState(callback: (Result<SearchTaskState>) -> Unit) {
+        scope.launch {
+            try {
+                val result = memoryTool.getSearchTaskState()
                 withContext(Dispatchers.Main) {
                     callback(Result.success(result))
                 }
@@ -120,6 +138,21 @@ class MemoryToolNativeImpl(val context: Context) : MemoryToolNative {
         scope.launch {
             try {
                 memoryTool.nextScan(request)
+                withContext(Dispatchers.Main) {
+                    callback(Result.success(Unit))
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback(Result.failure(e))
+                }
+            }
+        }
+    }
+
+    override fun cancelSearch(callback: (Result<Unit>) -> Unit) {
+        scope.launch {
+            try {
+                memoryTool.cancelSearch()
                 withContext(Dispatchers.Main) {
                     callback(Result.success(Unit))
                 }

@@ -8,10 +8,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 class MemoryToolSearchFormCard extends StatelessWidget {
   const MemoryToolSearchFormCard({
     super.key,
-    required this.selectedProcess,
     required this.valueController,
     required this.state,
     required this.actionState,
+    required this.hasRunningTask,
     required this.canRunNextScan,
     required this.onValueChanged,
     required this.onTypeChanged,
@@ -19,12 +19,13 @@ class MemoryToolSearchFormCard extends StatelessWidget {
     required this.onFirstScan,
     required this.onNextScan,
     required this.onReset,
+    this.taskStatus,
   });
 
-  final ProcessInfo? selectedProcess;
   final TextEditingController valueController;
   final MemoryToolSearchState state;
   final AsyncValue<void> actionState;
+  final bool hasRunningTask;
   final bool canRunNextScan;
   final ValueChanged<String> onValueChanged;
   final ValueChanged<SearchValueType> onTypeChanged;
@@ -32,11 +33,11 @@ class MemoryToolSearchFormCard extends StatelessWidget {
   final Future<void> Function() onFirstScan;
   final Future<void> Function() onNextScan;
   final Future<void> Function() onReset;
+  final Widget? taskStatus;
 
   @override
   Widget build(BuildContext context) {
-    final isRunning = actionState.isLoading;
-    final hasSelectedProcess = selectedProcess != null;
+    final isRunning = actionState.isLoading || hasRunningTask;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -63,8 +64,6 @@ class MemoryToolSearchFormCard extends StatelessWidget {
                 color: context.colorScheme.onSurface.withValues(alpha: 0.66),
               ),
             ),
-            SizedBox(height: 12.r),
-            _MemoryToolSelectedProcessCard(selectedProcess: selectedProcess),
             SizedBox(height: 12.r),
             LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) {
@@ -145,6 +144,10 @@ class MemoryToolSearchFormCard extends StatelessWidget {
                 ),
               ),
             ],
+            if (taskStatus != null) ...<Widget>[
+              SizedBox(height: 10.r),
+              taskStatus!,
+            ],
             if (actionState.hasError) ...<Widget>[
               SizedBox(height: 10.r),
               Text(
@@ -160,7 +163,7 @@ class MemoryToolSearchFormCard extends StatelessWidget {
               runSpacing: 10.r,
               children: <Widget>[
                 FilledButton(
-                  onPressed: isRunning || !hasSelectedProcess
+                  onPressed: isRunning
                       ? null
                       : () {
                           onFirstScan();
@@ -201,47 +204,6 @@ class MemoryToolSearchFormCard extends StatelessWidget {
       MemoryToolSearchValidationError.invalidBytes =>
         context.l10n.memoryToolValidationBytesInvalid,
     };
-  }
-}
-
-class _MemoryToolSelectedProcessCard extends StatelessWidget {
-  const _MemoryToolSelectedProcessCard({required this.selectedProcess});
-
-  final ProcessInfo? selectedProcess;
-
-  @override
-  Widget build(BuildContext context) {
-    final process = selectedProcess;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: context.colorScheme.surface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(14.r),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(12.r),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              context.l10n.memoryToolTargetProcess,
-              style: context.textTheme.labelMedium?.copyWith(
-                color: context.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-            SizedBox(height: 6.r),
-            Text(
-              process == null
-                  ? context.l10n.selectApp
-                  : '${process.packageName}  •  pid ${process.pid}',
-              style: context.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

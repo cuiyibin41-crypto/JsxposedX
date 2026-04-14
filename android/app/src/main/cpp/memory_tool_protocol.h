@@ -12,6 +12,8 @@ std::string SerializeMemoryRegions(const std::vector<MemoryRegion>& regions);
 
 std::string SerializeSearchSessionState(const SearchSessionStateView& state);
 
+std::string SerializeSearchTaskState(const SearchTaskStateView& state);
+
 std::string SerializeSearchResults(const std::vector<SearchResultView>& results);
 
 std::string SerializeMemoryValuePreviews(const std::vector<MemoryValuePreview>& previews);

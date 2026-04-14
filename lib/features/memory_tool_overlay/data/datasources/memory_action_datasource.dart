@@ -11,6 +11,10 @@ class MemoryActionDatasource {
     await _native.nextScan(request);
   }
 
+  Future<void> cancelSearch() async {
+    await _native.cancelSearch();
+  }
+
   Future<void> resetSearchSession() async {
     await _native.resetSearchSession();
   }

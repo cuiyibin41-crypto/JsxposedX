@@ -51,6 +51,48 @@ final class HasMatchingSearchSessionProvider
 String _$hasMatchingSearchSessionHash() =>
     r'64de4e9ebae599d1bc7cb1d90eb8ff682202f130';
 
+@ProviderFor(hasRunningSearchTask)
+const hasRunningSearchTaskProvider = HasRunningSearchTaskProvider._();
+
+final class HasRunningSearchTaskProvider
+    extends $FunctionalProvider<bool, bool, bool>
+    with $Provider<bool> {
+  const HasRunningSearchTaskProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'hasRunningSearchTaskProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$hasRunningSearchTaskHash();
+
+  @$internal
+  @override
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  bool create(Ref ref) {
+    return hasRunningSearchTask(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$hasRunningSearchTaskHash() =>
+    r'7eee66a056808bfa565a6e27a2ae4380acd927a6';
+
 @ProviderFor(currentSearchResults)
 const currentSearchResultsProvider = CurrentSearchResultsProvider._();
 

@@ -5,5 +5,7 @@ abstract class MemoryActionRepository {
 
   Future<void> nextScan({required NextScanRequest request});
 
+  Future<void> cancelSearch();
+
   Future<void> resetSearchSession();
 }

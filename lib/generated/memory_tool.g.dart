@@ -43,6 +43,14 @@ enum SearchMatchMode {
   exact,
 }
 
+enum SearchTaskStatus {
+  idle,
+  running,
+  completed,
+  cancelled,
+  failed,
+}
+
 class ProcessInfo {
   ProcessInfo({
     required this.pid,
@@ -623,6 +631,107 @@ class SearchSessionState {
 ;
 }
 
+class SearchTaskState {
+  SearchTaskState({
+    required this.status,
+    required this.isFirstScan,
+    required this.pid,
+    required this.processedRegions,
+    required this.totalRegions,
+    required this.processedEntries,
+    required this.totalEntries,
+    required this.processedBytes,
+    required this.totalBytes,
+    required this.resultCount,
+    required this.elapsedMilliseconds,
+    required this.canCancel,
+    required this.message,
+  });
+
+  SearchTaskStatus status;
+
+  bool isFirstScan;
+
+  int pid;
+
+  int processedRegions;
+
+  int totalRegions;
+
+  int processedEntries;
+
+  int totalEntries;
+
+  int processedBytes;
+
+  int totalBytes;
+
+  int resultCount;
+
+  int elapsedMilliseconds;
+
+  bool canCancel;
+
+  String message;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      status,
+      isFirstScan,
+      pid,
+      processedRegions,
+      totalRegions,
+      processedEntries,
+      totalEntries,
+      processedBytes,
+      totalBytes,
+      resultCount,
+      elapsedMilliseconds,
+      canCancel,
+      message,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static SearchTaskState decode(Object result) {
+    result as List<Object?>;
+    return SearchTaskState(
+      status: result[0]! as SearchTaskStatus,
+      isFirstScan: result[1]! as bool,
+      pid: result[2]! as int,
+      processedRegions: result[3]! as int,
+      totalRegions: result[4]! as int,
+      processedEntries: result[5]! as int,
+      totalEntries: result[6]! as int,
+      processedBytes: result[7]! as int,
+      totalBytes: result[8]! as int,
+      resultCount: result[9]! as int,
+      elapsedMilliseconds: result[10]! as int,
+      canCancel: result[11]! as bool,
+      message: result[12]! as String,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! SearchTaskState || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList())
+;
+}
+
 
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
@@ -637,35 +746,41 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is SearchMatchMode) {
       buffer.putUint8(130);
       writeValue(buffer, value.index);
-    }    else if (value is ProcessInfo) {
+    }    else if (value is SearchTaskStatus) {
       buffer.putUint8(131);
-      writeValue(buffer, value.encode());
-    }    else if (value is SearchValue) {
+      writeValue(buffer, value.index);
+    }    else if (value is ProcessInfo) {
       buffer.putUint8(132);
       writeValue(buffer, value.encode());
-    }    else if (value is MemoryRegion) {
+    }    else if (value is SearchValue) {
       buffer.putUint8(133);
       writeValue(buffer, value.encode());
-    }    else if (value is MemoryRegionQuery) {
+    }    else if (value is MemoryRegion) {
       buffer.putUint8(134);
       writeValue(buffer, value.encode());
-    }    else if (value is FirstScanRequest) {
+    }    else if (value is MemoryRegionQuery) {
       buffer.putUint8(135);
       writeValue(buffer, value.encode());
-    }    else if (value is NextScanRequest) {
+    }    else if (value is FirstScanRequest) {
       buffer.putUint8(136);
       writeValue(buffer, value.encode());
-    }    else if (value is SearchResult) {
+    }    else if (value is NextScanRequest) {
       buffer.putUint8(137);
       writeValue(buffer, value.encode());
-    }    else if (value is MemoryReadRequest) {
+    }    else if (value is SearchResult) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    }    else if (value is MemoryValuePreview) {
+    }    else if (value is MemoryReadRequest) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    }    else if (value is SearchSessionState) {
+    }    else if (value is MemoryValuePreview) {
       buffer.putUint8(140);
+      writeValue(buffer, value.encode());
+    }    else if (value is SearchSessionState) {
+      buffer.putUint8(141);
+      writeValue(buffer, value.encode());
+    }    else if (value is SearchTaskState) {
+      buffer.putUint8(142);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -682,25 +797,30 @@ class _PigeonCodec extends StandardMessageCodec {
         final int? value = readValue(buffer) as int?;
         return value == null ? null : SearchMatchMode.values[value];
       case 131: 
-        return ProcessInfo.decode(readValue(buffer)!);
+        final int? value = readValue(buffer) as int?;
+        return value == null ? null : SearchTaskStatus.values[value];
       case 132: 
-        return SearchValue.decode(readValue(buffer)!);
+        return ProcessInfo.decode(readValue(buffer)!);
       case 133: 
-        return MemoryRegion.decode(readValue(buffer)!);
+        return SearchValue.decode(readValue(buffer)!);
       case 134: 
-        return MemoryRegionQuery.decode(readValue(buffer)!);
+        return MemoryRegion.decode(readValue(buffer)!);
       case 135: 
-        return FirstScanRequest.decode(readValue(buffer)!);
+        return MemoryRegionQuery.decode(readValue(buffer)!);
       case 136: 
-        return NextScanRequest.decode(readValue(buffer)!);
+        return FirstScanRequest.decode(readValue(buffer)!);
       case 137: 
-        return SearchResult.decode(readValue(buffer)!);
+        return NextScanRequest.decode(readValue(buffer)!);
       case 138: 
-        return MemoryReadRequest.decode(readValue(buffer)!);
+        return SearchResult.decode(readValue(buffer)!);
       case 139: 
-        return MemoryValuePreview.decode(readValue(buffer)!);
+        return MemoryReadRequest.decode(readValue(buffer)!);
       case 140: 
+        return MemoryValuePreview.decode(readValue(buffer)!);
+      case 141: 
         return SearchSessionState.decode(readValue(buffer)!);
+      case 142: 
+        return SearchTaskState.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
@@ -832,6 +952,34 @@ class MemoryToolNative {
     }
   }
 
+  Future<SearchTaskState> getSearchTaskState() async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.JsxposedX.MemoryToolNative.getSearchTaskState$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as SearchTaskState?)!;
+    }
+  }
+
   Future<List<SearchResult>> getSearchResults(int offset, int limit) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.JsxposedX.MemoryToolNative.getSearchResults$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
@@ -919,6 +1067,29 @@ class MemoryToolNative {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[request]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else {
+      return;
+    }
+  }
+
+  Future<void> cancelSearch() async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.JsxposedX.MemoryToolNative.cancelSearch$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_sendFuture as List<Object?>?;
     if (pigeonVar_replyList == null) {

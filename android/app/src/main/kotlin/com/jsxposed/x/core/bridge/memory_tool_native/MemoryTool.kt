@@ -90,6 +90,10 @@ class MemoryTool(private val context: Context) {
         return daemonClient.getSearchSessionState()
     }
 
+    fun getSearchTaskState(): SearchTaskState {
+        return daemonClient.getSearchTaskState()
+    }
+
     fun getSearchResults(offset: Int, limit: Int): List<SearchResult> {
         return daemonClient.getSearchResults(offset, limit)
     }
@@ -104,6 +108,10 @@ class MemoryTool(private val context: Context) {
 
     fun nextScan(request: NextScanRequest) {
         daemonClient.nextScan(request)
+    }
+
+    fun cancelSearch() {
+        daemonClient.cancelSearch()
     }
 
     fun resetSearchSession() {

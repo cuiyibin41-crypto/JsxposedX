@@ -1,25 +1,88 @@
 import 'package:JsxposedX/common/widgets/loading.dart';
 import 'package:JsxposedX/common/widgets/ref_error.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_search_provider.dart';
 import 'package:JsxposedX/generated/memory_tool.g.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-class MemoryToolSearchResultCard extends StatelessWidget {
+class MemoryToolSearchResultCard extends HookConsumerWidget {
   const MemoryToolSearchResultCard({
     super.key,
     required this.hasMatchingSession,
-    required this.resultsAsync,
+    required this.sessionStateAsync,
     required this.onRetry,
   });
 
   final bool hasMatchingSession;
-  final AsyncValue<List<SearchResult>> resultsAsync;
+  final AsyncValue<SearchSessionState> sessionStateAsync;
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visibleLimit = useState(memoryToolSearchResultPageLimit);
+    final scrollController = useScrollController();
+
+    useEffect(() {
+      visibleLimit.value = memoryToolSearchResultPageLimit;
+      return null;
+    }, [hasMatchingSession]);
+
+    final resultsAsync = hasMatchingSession
+        ? ref.watch(
+            getSearchResultsProvider(offset: 0, limit: visibleLimit.value),
+          )
+        : const AsyncValue.data(<SearchResult>[]);
+
+    useEffect(
+      () {
+        if (!hasMatchingSession) {
+          return null;
+        }
+
+        void onScroll() {
+          if (!scrollController.hasClients) {
+            return;
+          }
+
+          final position = scrollController.position;
+          final shouldLoadMore =
+              position.pixels >= position.maxScrollExtent - 120.r;
+          if (!shouldLoadMore) {
+            return;
+          }
+
+          final totalCount = sessionStateAsync.maybeWhen(
+            data: (state) => state.resultCount,
+            orElse: () => 0,
+          );
+          if (totalCount <= visibleLimit.value) {
+            return;
+          }
+
+          visibleLimit.value =
+              (visibleLimit.value + memoryToolSearchResultPageLimit).clamp(
+                0,
+                totalCount,
+              );
+        }
+
+        scrollController.addListener(onScroll);
+        return () {
+          scrollController.removeListener(onScroll);
+        };
+      },
+      [
+        hasMatchingSession,
+        scrollController,
+        sessionStateAsync,
+        visibleLimit.value,
+      ],
+    );
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: context.colorScheme.surfaceContainerHighest.withValues(
@@ -68,10 +131,38 @@ class MemoryToolSearchResultCard extends StatelessWidget {
                           );
                         }
 
+                        final totalCount = sessionStateAsync.maybeWhen(
+                          data: (state) => state.resultCount,
+                          orElse: () => results.length,
+                        );
+                        final hasMore = results.length < totalCount;
+
                         return ListView.separated(
-                          itemCount: results.length,
-                          separatorBuilder: (_, _) => SizedBox(height: 8.r),
+                          controller: scrollController,
+                          itemCount: results.length + (hasMore ? 1 : 0),
+                          separatorBuilder: (_, index) => SizedBox(
+                            height: index == results.length - 1 && hasMore
+                                ? 10.r
+                                : 8.r,
+                          ),
                           itemBuilder: (BuildContext context, int index) {
+                            if (index >= results.length) {
+                              return Padding(
+                                padding: EdgeInsets.symmetric(vertical: 6.r),
+                                child: Center(
+                                  child: Text(
+                                    '${results.length}/$totalCount',
+                                    style: context.textTheme.labelMedium
+                                        ?.copyWith(
+                                          color: context.colorScheme.onSurface
+                                              .withValues(alpha: 0.64),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                ),
+                              );
+                            }
+
                             return _MemoryToolSearchResultTile(
                               result: results[index],
                             );

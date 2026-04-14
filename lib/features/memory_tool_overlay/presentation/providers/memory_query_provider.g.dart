@@ -381,6 +381,46 @@ final class GetSearchSessionStateProvider
 String _$getSearchSessionStateHash() =>
     r'36d80a242c90e296647922a54e58b9229c2af0bf';
 
+@ProviderFor(getSearchTaskState)
+const getSearchTaskStateProvider = GetSearchTaskStateProvider._();
+
+final class GetSearchTaskStateProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<SearchTaskState>,
+          SearchTaskState,
+          FutureOr<SearchTaskState>
+        >
+    with $FutureModifier<SearchTaskState>, $FutureProvider<SearchTaskState> {
+  const GetSearchTaskStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'getSearchTaskStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$getSearchTaskStateHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<SearchTaskState> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<SearchTaskState> create(Ref ref) {
+    return getSearchTaskState(ref);
+  }
+}
+
+String _$getSearchTaskStateHash() =>
+    r'eb31d63a30a8dd9905354e22385e50af45b96f88';
+
 @ProviderFor(getSearchResults)
 const getSearchResultsProvider = GetSearchResultsFamily._();
 

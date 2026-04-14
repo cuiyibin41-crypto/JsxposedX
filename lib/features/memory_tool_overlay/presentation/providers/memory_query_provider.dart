@@ -58,6 +58,11 @@ Future<SearchSessionState> getSearchSessionState(Ref ref) async {
 }
 
 @riverpod
+Future<SearchTaskState> getSearchTaskState(Ref ref) async {
+  return await ref.watch(memoryQueryRepositoryProvider).getSearchTaskState();
+}
+
+@riverpod
 Future<List<SearchResult>> getSearchResults(
   Ref ref, {
   required int offset,

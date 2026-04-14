@@ -105,6 +105,10 @@ private class MemoryToolDaemonServer(
                 MemoryToolHelperNativeBridge.getSearchSessionStateJson()
             )
 
+            "getSearchTaskState" -> JSONObject(
+                MemoryToolHelperNativeBridge.getSearchTaskStateJson()
+            )
+
             "getSearchResults" -> JSONArray(
                 MemoryToolHelperNativeBridge.getSearchResultsJson(
                     offset = params.getInt("offset"),
@@ -148,6 +152,11 @@ private class MemoryToolDaemonServer(
 
             "resetSearchSession" -> {
                 MemoryToolHelperNativeBridge.resetSearchSession()
+                JSONObject.NULL
+            }
+
+            "cancelSearch" -> {
+                MemoryToolHelperNativeBridge.cancelSearch()
                 JSONObject.NULL
             }
 

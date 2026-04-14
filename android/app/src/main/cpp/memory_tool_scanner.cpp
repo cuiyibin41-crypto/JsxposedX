@@ -30,7 +30,8 @@ size_t ResolveStep(SearchValueType type) {
 std::vector<SearchResultEntry> FirstScan(ProcessMemoryReader* reader,
                                          const std::vector<MemoryRegion>& regions,
                                          const std::vector<uint8_t>& pattern,
-                                         SearchValueType type) {
+                                         SearchValueType type,
+                                         const SearchProgressCallback& progress_callback) {
     std::vector<SearchResultEntry> results;
     if (reader == nullptr || pattern.empty()) {
         return results;
@@ -38,6 +39,14 @@ std::vector<SearchResultEntry> FirstScan(ProcessMemoryReader* reader,
 
     const size_t step = ResolveStep(type);
     const size_t overlap = pattern.size() > 1 ? pattern.size() - 1 : 0;
+    SearchScanProgress progress;
+    progress.total_region_count = regions.size();
+    for (const MemoryRegion& region : regions) {
+        progress.total_byte_count += region.size;
+    }
+    if (progress_callback && !progress_callback(progress)) {
+        return results;
+    }
 
     for (const MemoryRegion& region : regions) {
         for (uint64_t cursor = region.start_address; cursor < region.end_address;) {
@@ -68,7 +77,18 @@ std::vector<SearchResultEntry> FirstScan(ProcessMemoryReader* reader,
                 results.push_back(std::move(entry));
             }
 
+            progress.processed_byte_count += base_read_size;
+            progress.result_count = results.size();
+            if (progress_callback && !progress_callback(progress)) {
+                return results;
+            }
             cursor += base_read_size;
+        }
+
+        ++progress.processed_region_count;
+        progress.result_count = results.size();
+        if (progress_callback && !progress_callback(progress)) {
+            return results;
         }
     }
 
@@ -77,24 +97,52 @@ std::vector<SearchResultEntry> FirstScan(ProcessMemoryReader* reader,
 
 std::vector<SearchResultEntry> NextScan(ProcessMemoryReader* reader,
                                         const std::vector<SearchResultEntry>& previous_results,
-                                        const std::vector<uint8_t>& pattern) {
+                                        const std::vector<uint8_t>& pattern,
+                                        const SearchProgressCallback& progress_callback) {
     std::vector<SearchResultEntry> results;
     if (reader == nullptr || pattern.empty()) {
+        return results;
+    }
+
+    SearchScanProgress progress;
+    progress.total_entry_count = previous_results.size();
+    progress.total_byte_count =
+        static_cast<uint64_t>(previous_results.size()) * static_cast<uint64_t>(pattern.size());
+    if (progress_callback && !progress_callback(progress)) {
         return results;
     }
 
     for (const SearchResultEntry& candidate : previous_results) {
         std::vector<uint8_t> current;
         if (!reader->Read(candidate.address, pattern.size(), &current)) {
+            ++progress.processed_entry_count;
+            progress.processed_byte_count += pattern.size();
+            progress.result_count = results.size();
+            if (progress_callback && !progress_callback(progress)) {
+                return results;
+            }
             continue;
         }
         if (!std::equal(pattern.begin(), pattern.end(), current.begin())) {
+            ++progress.processed_entry_count;
+            progress.processed_byte_count += pattern.size();
+            progress.result_count = results.size();
+            if (progress_callback && !progress_callback(progress)) {
+                return results;
+            }
             continue;
         }
 
         SearchResultEntry entry = candidate;
         entry.raw_bytes = std::move(current);
         results.push_back(std::move(entry));
+
+        ++progress.processed_entry_count;
+        progress.processed_byte_count += pattern.size();
+        progress.result_count = results.size();
+        if (progress_callback && !progress_callback(progress)) {
+            return results;
+        }
     }
 
     return results;

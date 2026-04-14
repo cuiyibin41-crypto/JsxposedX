@@ -1,18 +1,10 @@
 import 'package:pigeon/pigeon.dart';
 
-enum SearchValueType {
-  i8,
-  i16,
-  i32,
-  i64,
-  f32,
-  f64,
-  bytes,
-}
+enum SearchValueType { i8, i16, i32, i64, f32, f64, bytes }
 
-enum SearchMatchMode {
-  exact,
-}
+enum SearchMatchMode { exact }
+
+enum SearchTaskStatus { idle, running, completed, cancelled, failed }
 
 class ProcessInfo {
   final int pid;
@@ -96,10 +88,7 @@ class NextScanRequest {
   final SearchValue value;
   final SearchMatchMode matchMode;
 
-  const NextScanRequest({
-    required this.value,
-    required this.matchMode,
-  });
+  const NextScanRequest({required this.value, required this.matchMode});
 }
 
 class SearchResult {
@@ -162,6 +151,38 @@ class SearchSessionState {
   });
 }
 
+class SearchTaskState {
+  final SearchTaskStatus status;
+  final bool isFirstScan;
+  final int pid;
+  final int processedRegions;
+  final int totalRegions;
+  final int processedEntries;
+  final int totalEntries;
+  final int processedBytes;
+  final int totalBytes;
+  final int resultCount;
+  final int elapsedMilliseconds;
+  final bool canCancel;
+  final String message;
+
+  const SearchTaskState({
+    required this.status,
+    required this.isFirstScan,
+    required this.pid,
+    required this.processedRegions,
+    required this.totalRegions,
+    required this.processedEntries,
+    required this.totalEntries,
+    required this.processedBytes,
+    required this.totalBytes,
+    required this.resultCount,
+    required this.elapsedMilliseconds,
+    required this.canCancel,
+    required this.message,
+  });
+}
+
 @HostApi()
 abstract class MemoryToolNative {
   @async
@@ -177,6 +198,9 @@ abstract class MemoryToolNative {
   SearchSessionState getSearchSessionState();
 
   @async
+  SearchTaskState getSearchTaskState();
+
+  @async
   List<SearchResult> getSearchResults(int offset, int limit);
 
   @async
@@ -187,6 +211,9 @@ abstract class MemoryToolNative {
 
   @async
   void nextScan(NextScanRequest request);
+
+  @async
+  void cancelSearch();
 
   @async
   void resetSearchSession();

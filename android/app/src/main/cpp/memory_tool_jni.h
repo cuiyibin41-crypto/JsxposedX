@@ -25,6 +25,8 @@ public:
 
     static jstring GetSearchSessionStateJson(JNIEnv* env);
 
+    static jstring GetSearchTaskStateJson(JNIEnv* env);
+
     static jstring GetSearchResultsJson(JNIEnv* env, jint offset, jint limit);
 
     static jstring ReadMemoryValuesJson(JNIEnv* env,
@@ -47,6 +49,8 @@ public:
                          jbyteArray bytes_value,
                          jboolean little_endian,
                          jint match_mode);
+
+    static void CancelSearch();
 
     static void ResetSearchSession();
 

@@ -25,6 +25,15 @@ bool hasMatchingSearchSession(Ref ref) {
 }
 
 @riverpod
+bool hasRunningSearchTask(Ref ref) {
+  final taskStateAsync = ref.watch(getSearchTaskStateProvider);
+  return taskStateAsync.maybeWhen(
+    data: (state) => state.status == SearchTaskStatus.running,
+    orElse: () => false,
+  );
+}
+
+@riverpod
 AsyncValue<List<SearchResult>> currentSearchResults(Ref ref) {
   final hasMatchingSession = ref.watch(hasMatchingSearchSessionProvider);
   if (!hasMatchingSession) {
