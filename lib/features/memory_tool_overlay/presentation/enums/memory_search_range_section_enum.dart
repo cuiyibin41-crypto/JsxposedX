@@ -1,0 +1,15 @@
+enum MemorySearchRangeSectionEnum {
+  anonymous,
+  java,
+  javaHeap,
+  cAlloc,
+  cHeap,
+  cData,
+  cBss,
+  codeApp,
+  codeSys,
+  stack,
+  ashmem,
+  other,
+  bad,
+}
