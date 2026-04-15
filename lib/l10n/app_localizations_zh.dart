@@ -2000,6 +2000,57 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryToolResultValue => '值';
 
   @override
+  String get memoryToolResultDetailTitle => '结果详情';
+
+  @override
+  String get memoryToolResultDetailActionsLabel => '快捷操作';
+
+  @override
+  String get memoryToolResultDetailActionEdit => '编辑';
+
+  @override
+  String get memoryToolResultDetailActionWatch => '加入监视';
+
+  @override
+  String get memoryToolResultDetailActionCopyAddress => '复制地址';
+
+  @override
+  String get memoryToolResultDetailActionCopyValue => '复制数值';
+
+  @override
+  String get memoryToolResultActionTitle => '更多操作';
+
+  @override
+  String get memoryToolResultActionSelectCurrent => '选中当前项';
+
+  @override
+  String get memoryToolResultActionSelectCurrentHint => '把当前结果加入选择集，便于后续统一处理。';
+
+  @override
+  String get memoryToolResultActionStartMultiSelect => '进入多选模式';
+
+  @override
+  String get memoryToolResultActionStartMultiSelectHint => '从当前结果开始进行多选和批量操作。';
+
+  @override
+  String get memoryToolResultActionBatchEdit => '批量修改入口';
+
+  @override
+  String get memoryToolResultActionBatchEditHint => '为后续批量写入和筛选后的编辑预留入口。';
+
+  @override
+  String get memoryToolResultActionAddWatch => '加入监视列表';
+
+  @override
+  String get memoryToolResultActionAddWatchHint => '把当前结果加入监视区，后续持续查看变化。';
+
+  @override
+  String get memoryToolResultActionFreeze => '加入冻结队列';
+
+  @override
+  String get memoryToolResultActionFreezeHint => '为后续冻结和保持数值稳定预留入口。';
+
+  @override
   String get memoryToolTargetProcess => '目标进程';
 
   @override

@@ -2040,6 +2040,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryToolResultValue => 'Value';
 
   @override
+  String get memoryToolResultDetailTitle => 'Result Details';
+
+  @override
+  String get memoryToolResultDetailActionsLabel => 'Quick Actions';
+
+  @override
+  String get memoryToolResultDetailActionEdit => 'Edit';
+
+  @override
+  String get memoryToolResultDetailActionWatch => 'Add to Watch';
+
+  @override
+  String get memoryToolResultDetailActionCopyAddress => 'Copy Address';
+
+  @override
+  String get memoryToolResultDetailActionCopyValue => 'Copy Value';
+
+  @override
+  String get memoryToolResultActionTitle => 'More Actions';
+
+  @override
+  String get memoryToolResultActionSelectCurrent => 'Select Current';
+
+  @override
+  String get memoryToolResultActionSelectCurrentHint =>
+      'Add the current result to the selection set for later unified actions.';
+
+  @override
+  String get memoryToolResultActionStartMultiSelect => 'Enter Multi-Select';
+
+  @override
+  String get memoryToolResultActionStartMultiSelectHint =>
+      'Start multi-select and batch operations from the current result.';
+
+  @override
+  String get memoryToolResultActionBatchEdit => 'Batch Edit Entry';
+
+  @override
+  String get memoryToolResultActionBatchEditHint =>
+      'Reserve an entry point for future batch write and filtered edit flows.';
+
+  @override
+  String get memoryToolResultActionAddWatch => 'Add to Watch List';
+
+  @override
+  String get memoryToolResultActionAddWatchHint =>
+      'Add the current result to the watch area for continuous observation.';
+
+  @override
+  String get memoryToolResultActionFreeze => 'Add to Freeze Queue';
+
+  @override
+  String get memoryToolResultActionFreezeHint =>
+      'Reserve an entry point for future freeze and keep-value-stable actions.';
+
+  @override
   String get memoryToolTargetProcess => 'Target Process';
 
   @override

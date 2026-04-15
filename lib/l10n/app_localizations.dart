@@ -3956,6 +3956,108 @@ abstract class AppLocalizations {
   /// **'值'**
   String get memoryToolResultValue;
 
+  /// No description provided for @memoryToolResultDetailTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'结果详情'**
+  String get memoryToolResultDetailTitle;
+
+  /// No description provided for @memoryToolResultDetailActionsLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'快捷操作'**
+  String get memoryToolResultDetailActionsLabel;
+
+  /// No description provided for @memoryToolResultDetailActionEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑'**
+  String get memoryToolResultDetailActionEdit;
+
+  /// No description provided for @memoryToolResultDetailActionWatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入监视'**
+  String get memoryToolResultDetailActionWatch;
+
+  /// No description provided for @memoryToolResultDetailActionCopyAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制地址'**
+  String get memoryToolResultDetailActionCopyAddress;
+
+  /// No description provided for @memoryToolResultDetailActionCopyValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制数值'**
+  String get memoryToolResultDetailActionCopyValue;
+
+  /// No description provided for @memoryToolResultActionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多操作'**
+  String get memoryToolResultActionTitle;
+
+  /// No description provided for @memoryToolResultActionSelectCurrent.
+  ///
+  /// In zh, this message translates to:
+  /// **'选中当前项'**
+  String get memoryToolResultActionSelectCurrent;
+
+  /// No description provided for @memoryToolResultActionSelectCurrentHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'把当前结果加入选择集，便于后续统一处理。'**
+  String get memoryToolResultActionSelectCurrentHint;
+
+  /// No description provided for @memoryToolResultActionStartMultiSelect.
+  ///
+  /// In zh, this message translates to:
+  /// **'进入多选模式'**
+  String get memoryToolResultActionStartMultiSelect;
+
+  /// No description provided for @memoryToolResultActionStartMultiSelectHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'从当前结果开始进行多选和批量操作。'**
+  String get memoryToolResultActionStartMultiSelectHint;
+
+  /// No description provided for @memoryToolResultActionBatchEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量修改入口'**
+  String get memoryToolResultActionBatchEdit;
+
+  /// No description provided for @memoryToolResultActionBatchEditHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'为后续批量写入和筛选后的编辑预留入口。'**
+  String get memoryToolResultActionBatchEditHint;
+
+  /// No description provided for @memoryToolResultActionAddWatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入监视列表'**
+  String get memoryToolResultActionAddWatch;
+
+  /// No description provided for @memoryToolResultActionAddWatchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'把当前结果加入监视区，后续持续查看变化。'**
+  String get memoryToolResultActionAddWatchHint;
+
+  /// No description provided for @memoryToolResultActionFreeze.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入冻结队列'**
+  String get memoryToolResultActionFreeze;
+
+  /// No description provided for @memoryToolResultActionFreezeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'为后续冻结和保持数值稳定预留入口。'**
+  String get memoryToolResultActionFreezeHint;
+
   /// No description provided for @memoryToolTargetProcess.
   ///
   /// In zh, this message translates to:
