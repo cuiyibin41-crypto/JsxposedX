@@ -37,4 +37,19 @@ extension MemorySearchValueTypeOptionEnumX on MemorySearchValueTypeOptionEnum {
   }
 
   bool get isImplemented => true;
+
+  bool get supportsFuzzySearch {
+    return switch (this) {
+      MemorySearchValueTypeOptionEnum.i8 ||
+      MemorySearchValueTypeOptionEnum.i16 ||
+      MemorySearchValueTypeOptionEnum.i32 ||
+      MemorySearchValueTypeOptionEnum.i64 ||
+      MemorySearchValueTypeOptionEnum.f32 ||
+      MemorySearchValueTypeOptionEnum.f64 => true,
+      MemorySearchValueTypeOptionEnum.bytes ||
+      MemorySearchValueTypeOptionEnum.xor ||
+      MemorySearchValueTypeOptionEnum.auto ||
+      MemorySearchValueTypeOptionEnum.text => false,
+    };
+  }
 }

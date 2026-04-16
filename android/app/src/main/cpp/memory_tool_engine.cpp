@@ -114,6 +114,8 @@ SearchRuntimeMode ToRuntimeMode(SpecialSearchMode mode) {
             return SearchRuntimeMode::kXor;
         case SpecialSearchMode::kAuto:
             return SearchRuntimeMode::kAuto;
+        case SpecialSearchMode::kFuzzy:
+            return SearchRuntimeMode::kFuzzy;
         case SpecialSearchMode::kNone:
             return SearchRuntimeMode::kStandard;
     }
@@ -126,6 +128,8 @@ SearchValueType ResolveSessionType(const SearchValue& value, SpecialSearchMode m
             return SearchValueType::kI32;
         case SpecialSearchMode::kAuto:
             return SearchValueType::kBytes;
+        case SpecialSearchMode::kFuzzy:
+            return value.type;
         case SpecialSearchMode::kNone:
             return value.type;
     }
@@ -135,6 +139,14 @@ SearchValueType ResolveSessionType(const SearchValue& value, SpecialSearchMode m
 bool CanContinueWithRequestMode(SearchRuntimeMode session_mode,
                                 SearchRuntimeMode request_mode) {
     if (session_mode == request_mode) {
+        return true;
+    }
+    if (session_mode == SearchRuntimeMode::kStandard &&
+        request_mode == SearchRuntimeMode::kFuzzy) {
+        return true;
+    }
+    if (session_mode == SearchRuntimeMode::kFuzzy &&
+        request_mode == SearchRuntimeMode::kStandard) {
         return true;
     }
     return session_mode == SearchRuntimeMode::kAuto &&
@@ -179,6 +191,75 @@ bool BuildWritableValuePayload(const SearchValue& value,
     return true;
 }
 
+size_t ResolveSessionResultCount(const SearchSession& session) {
+    if (session.mode == SearchRuntimeMode::kFuzzy) {
+        if (session.fuzzy_candidates) {
+            return session.fuzzy_candidates->size();
+        }
+        if (!session.fuzzy_initial_regions) {
+            return 0;
+        }
+
+        size_t total_count = 0;
+        for (const FuzzyInitialRegion& region : *session.fuzzy_initial_regions) {
+            total_count += region.slot_count;
+        }
+        return total_count;
+    }
+    return session.results.size();
+}
+
+std::vector<SearchResultEntry> CollectFuzzyResultEntries(const SearchSession& session,
+                                                         size_t start,
+                                                         size_t limit) {
+    std::vector<SearchResultEntry> entries;
+    if (limit == 0 || !session.fuzzy_candidates || session.fuzzy_candidates->empty()) {
+        if (!session.fuzzy_initial_regions || session.fuzzy_initial_regions->empty()) {
+            return entries;
+        }
+
+        entries.reserve(limit);
+        const size_t step = session.value_size;
+        if (step == 0) {
+            return entries;
+        }
+
+        size_t skipped = 0;
+        for (const FuzzyInitialRegion& region : *session.fuzzy_initial_regions) {
+            for (size_t slot_index = 0; slot_index < region.slot_count; ++slot_index) {
+                if (skipped < start) {
+                    ++skipped;
+                    continue;
+                }
+
+                SearchResultEntry entry;
+                entry.address = region.region_start + (slot_index * step);
+                entry.region_start = region.region_start;
+                entry.matched_type = session.type;
+                entries.push_back(std::move(entry));
+                if (entries.size() >= limit) {
+                    return entries;
+                }
+            }
+        }
+        return entries;
+    }
+
+    entries.reserve(limit);
+
+    const std::vector<FuzzyCandidate>& fuzzy_candidates = *session.fuzzy_candidates;
+    const size_t end = std::min(fuzzy_candidates.size(), start + limit);
+    for (size_t index = start; index < end; ++index) {
+        const FuzzyCandidate& candidate = fuzzy_candidates[index];
+        SearchResultEntry entry;
+        entry.address = candidate.address;
+        entry.region_start = candidate.region_start;
+        entry.matched_type = session.type;
+        entries.push_back(std::move(entry));
+    }
+    return entries;
+}
+
 }  // namespace
 
 MemoryToolEngine& MemoryToolEngine::Instance() {
@@ -217,14 +298,25 @@ SearchTaskStateView MemoryToolEngine::GetSearchTaskState() {
 std::vector<SearchResultView> MemoryToolEngine::GetSearchResults(int offset, int limit) {
     std::lock_guard<std::mutex> lock(mutex_);
     EnsureActiveSessionLocked();
-    if (limit <= 0 || offset >= static_cast<int>(session_.results.size())) {
+    const size_t total_result_count = ResolveSessionResultCount(session_);
+    if (limit <= 0 || offset >= static_cast<int>(total_result_count)) {
         return {};
     }
 
     const size_t start = static_cast<size_t>(std::max(offset, 0));
-    const size_t end = std::min(session_.results.size(), start + static_cast<size_t>(limit));
+    const size_t end = std::min(total_result_count, start + static_cast<size_t>(limit));
     std::vector<SearchResultView> views;
     views.reserve(end - start);
+    if (session_.mode == SearchRuntimeMode::kFuzzy) {
+        const std::vector<SearchResultEntry> result_entries =
+            CollectFuzzyResultEntries(session_, start, end - start);
+        views.reserve(result_entries.size());
+        for (const SearchResultEntry& entry : result_entries) {
+            views.push_back(BuildSearchResultViewLocked(entry));
+        }
+        return views;
+    }
+
     for (size_t index = start; index < end; ++index) {
         views.push_back(BuildSearchResultViewLocked(session_.results[index]));
     }
@@ -391,6 +483,7 @@ void MemoryToolEngine::FirstScan(int pid,
     std::vector<uint8_t> pattern;
     std::vector<SearchPatternVariant> auto_variants;
     uint32_t xor_target_value = 0;
+    FuzzyCompareMode fuzzy_compare_mode = FuzzyCompareMode::kUnknown;
     std::string error;
     std::string current_display_value;
     const SpecialSearchMode special_mode = ResolveSpecialSearchMode(value);
@@ -407,6 +500,19 @@ void MemoryToolEngine::FirstScan(int pid,
             }
             auto_variants = std::move(auto_plan.variants);
             current_display_value = std::move(auto_plan.display_value);
+            break;
+        }
+        case SpecialSearchMode::kFuzzy: {
+            if (value.type == SearchValueType::kBytes) {
+                throw std::runtime_error(
+                    "Fuzzy scan supports fixed-width numeric types only.");
+            }
+            if (!ParseFuzzyCompareMode(value, &fuzzy_compare_mode, &current_display_value, &error)) {
+                throw std::runtime_error(error.empty() ? "Invalid fuzzy scan request." : error);
+            }
+            if (fuzzy_compare_mode != FuzzyCompareMode::kUnknown) {
+                throw std::runtime_error("First fuzzy scan must start from unknown initial value.");
+            }
             break;
         }
         case SpecialSearchMode::kNone:
@@ -427,9 +533,11 @@ void MemoryToolEngine::FirstScan(int pid,
         ResolveBytesDisplayEncoding(value);
     const size_t session_value_size = runtime_mode == SearchRuntimeMode::kXor
                                           ? sizeof(uint32_t)
-                                          : runtime_mode == SearchRuntimeMode::kAuto
+                                              : runtime_mode == SearchRuntimeMode::kAuto
                                               ? 0
-                                              : pattern.size();
+                                              : runtime_mode == SearchRuntimeMode::kFuzzy
+                                                    ? ResolveValueByteLength(session_type, 0)
+                                                : pattern.size();
     std::vector<uint8_t> current_value_bytes;
     if (runtime_mode == SearchRuntimeMode::kStandard) {
         current_value_bytes = pattern;
@@ -446,6 +554,7 @@ void MemoryToolEngine::FirstScan(int pid,
                  pattern = std::move(pattern),
                  auto_variants = std::move(auto_variants),
                  xor_target_value,
+                 fuzzy_compare_mode,
                  runtime_mode,
                  session_type,
                  little_endian,
@@ -478,6 +587,7 @@ void MemoryToolEngine::FirstScan(int pid,
             std::atomic_bool should_stop{false};
             std::mutex progress_mutex;
             std::vector<std::vector<SearchResultEntry>> worker_results(region_buckets.size());
+            std::vector<FuzzyScanState> worker_fuzzy_states(region_buckets.size());
             std::vector<std::thread> workers;
             workers.reserve(region_buckets.size());
 
@@ -518,6 +628,7 @@ void MemoryToolEngine::FirstScan(int pid,
                                       &auto_variants,
                                       &region_buckets,
                                       &worker_results,
+                                      &worker_fuzzy_states,
                                       &processed_region_count,
                                       &processed_byte_count,
                                       &aggregated_result_count,
@@ -562,6 +673,13 @@ void MemoryToolEngine::FirstScan(int pid,
                                 auto_variants,
                                 on_progress);
                             return;
+                        case SearchRuntimeMode::kFuzzy:
+                            worker_fuzzy_states[index] = ::memory_tool::FirstScanFuzzy(
+                                &reader,
+                                region_buckets[index],
+                                session_type,
+                                on_progress);
+                            return;
                         case SearchRuntimeMode::kStandard:
                             worker_results[index] = ::memory_tool::FirstScan(
                                 &reader,
@@ -586,27 +704,54 @@ void MemoryToolEngine::FirstScan(int pid,
 
             std::vector<SearchResultEntry> results;
             size_t result_count = 0;
-            for (const auto& entries : worker_results) {
-                result_count += entries.size();
-            }
-            results.reserve(result_count);
-            for (auto& entries : worker_results) {
-                results.insert(results.end(),
-                               std::make_move_iterator(entries.begin()),
-                               std::make_move_iterator(entries.end()));
+            std::shared_ptr<std::vector<FuzzyInitialRegion>> fuzzy_initial_regions;
+            std::shared_ptr<std::vector<FuzzyCandidate>> fuzzy_candidates;
+            if (runtime_mode == SearchRuntimeMode::kFuzzy) {
+                fuzzy_initial_regions = std::make_shared<std::vector<FuzzyInitialRegion>>();
+                fuzzy_initial_regions->reserve(regions.size());
+                for (const FuzzyScanState& fuzzy_state : worker_fuzzy_states) {
+                    if (!fuzzy_state.initial_regions) {
+                        continue;
+                    }
+                    for (const FuzzyInitialRegion& initial_region : *fuzzy_state.initial_regions) {
+                        result_count += initial_region.slot_count;
+                    }
+                }
+                for (auto& fuzzy_state : worker_fuzzy_states) {
+                    if (!fuzzy_state.initial_regions) {
+                        continue;
+                    }
+                    fuzzy_initial_regions->insert(
+                        fuzzy_initial_regions->end(),
+                        std::make_move_iterator(fuzzy_state.initial_regions->begin()),
+                        std::make_move_iterator(fuzzy_state.initial_regions->end()));
+                }
+            } else {
+                for (const auto& entries : worker_results) {
+                    result_count += entries.size();
+                }
+                results.reserve(result_count);
+                for (auto& entries : worker_results) {
+                    results.insert(results.end(),
+                                   std::make_move_iterator(entries.begin()),
+                                   std::make_move_iterator(entries.end()));
+                }
             }
             SearchSession next_session;
             next_session.has_active_session = true;
             next_session.pid = pid;
             next_session.type = session_type;
             next_session.mode = runtime_mode;
-            next_session.exact_mode = true;
+            next_session.fuzzy_compare_mode = fuzzy_compare_mode;
+            next_session.exact_mode = runtime_mode != SearchRuntimeMode::kFuzzy;
             next_session.little_endian = little_endian;
             next_session.bytes_display_encoding = bytes_display_encoding;
             next_session.value_size = session_value_size;
             next_session.current_value_bytes = current_value_bytes;
             next_session.current_display_value = current_display_value;
             next_session.regions = std::move(regions);
+            next_session.fuzzy_initial_regions = std::move(fuzzy_initial_regions);
+            next_session.fuzzy_candidates = std::move(fuzzy_candidates);
             next_session.results = std::move(results);
             FinishTaskSuccess(generation, std::move(next_session), result_count);
         } catch (const std::exception& exception) {
@@ -625,6 +770,7 @@ void MemoryToolEngine::NextScan(const SearchValue& value, SearchMatchMode match_
     std::vector<uint8_t> pattern;
     std::vector<SearchPatternVariant> auto_variants;
     uint32_t xor_target_value = 0;
+    FuzzyCompareMode fuzzy_compare_mode = FuzzyCompareMode::kUnknown;
     std::string error;
     std::string current_display_value;
     const SpecialSearchMode special_mode = ResolveSpecialSearchMode(value);
@@ -643,6 +789,11 @@ void MemoryToolEngine::NextScan(const SearchValue& value, SearchMatchMode match_
             current_display_value = std::move(auto_plan.display_value);
             break;
         }
+        case SpecialSearchMode::kFuzzy:
+            if (!ParseFuzzyCompareMode(value, &fuzzy_compare_mode, &current_display_value, &error)) {
+                throw std::runtime_error(error.empty() ? "Invalid fuzzy scan request." : error);
+            }
+            break;
         case SpecialSearchMode::kNone:
             if (!BuildSearchPattern(value, &pattern, &error)) {
                 throw std::runtime_error(error.empty() ? "Invalid search value." : error);
@@ -655,9 +806,17 @@ void MemoryToolEngine::NextScan(const SearchValue& value, SearchMatchMode match_
     }
 
     SearchSession session_snapshot;
+    std::shared_ptr<std::vector<FuzzyInitialRegion>> fuzzy_initial_regions_snapshot;
+    std::shared_ptr<std::vector<FuzzyCandidate>> fuzzy_candidates_snapshot;
     const SearchRuntimeMode runtime_mode = ToRuntimeMode(special_mode);
     const SearchValueType session_type = ResolveSessionType(value, special_mode);
-    const uint64_t generation = [this, &session_snapshot, &value]() {
+    const uint64_t generation =
+        [this,
+         &session_snapshot,
+         &fuzzy_initial_regions_snapshot,
+         &fuzzy_candidates_snapshot,
+         &value,
+         fuzzy_compare_mode]() {
         std::lock_guard<std::mutex> lock(mutex_);
         EnsureTaskNotRunningLocked();
         EnsureActiveSessionLocked();
@@ -670,11 +829,55 @@ void MemoryToolEngine::NextScan(const SearchValue& value, SearchMatchMode match_
             throw std::runtime_error("Search value type does not match the active session.");
         }
         if (session_.mode == SearchRuntimeMode::kStandard &&
-            request_mode == SearchRuntimeMode::kStandard &&
+            (request_mode == SearchRuntimeMode::kStandard ||
+             request_mode == SearchRuntimeMode::kFuzzy) &&
             value.type != session_.type) {
             throw std::runtime_error("Search value type does not match the active session.");
         }
-        session_snapshot = session_;
+        if (session_.mode == SearchRuntimeMode::kFuzzy &&
+            value.type != session_.type) {
+            throw std::runtime_error("Search value type does not match the active session.");
+        }
+        if (session_.mode == SearchRuntimeMode::kFuzzy &&
+            request_mode == SearchRuntimeMode::kFuzzy &&
+            fuzzy_compare_mode == FuzzyCompareMode::kUnknown) {
+            throw std::runtime_error("Next fuzzy scan must use a comparison mode.");
+        }
+        if (session_.mode == SearchRuntimeMode::kFuzzy) {
+            session_snapshot.has_active_session = session_.has_active_session;
+            session_snapshot.pid = session_.pid;
+            session_snapshot.type = session_.type;
+            session_snapshot.mode = session_.mode;
+            session_snapshot.fuzzy_compare_mode = session_.fuzzy_compare_mode;
+            session_snapshot.exact_mode = session_.exact_mode;
+            session_snapshot.little_endian = session_.little_endian;
+            session_snapshot.bytes_display_encoding = session_.bytes_display_encoding;
+            session_snapshot.value_size = session_.value_size;
+            session_snapshot.current_value_bytes = session_.current_value_bytes;
+            session_snapshot.current_display_value = session_.current_display_value;
+            session_snapshot.regions = session_.regions;
+            session_snapshot.results = session_.results;
+            fuzzy_initial_regions_snapshot = session_.fuzzy_initial_regions;
+            session_snapshot.fuzzy_initial_regions = fuzzy_initial_regions_snapshot;
+            fuzzy_candidates_snapshot = session_.fuzzy_candidates;
+            session_snapshot.fuzzy_candidates = fuzzy_candidates_snapshot;
+        } else {
+            session_snapshot.has_active_session = session_.has_active_session;
+            session_snapshot.pid = session_.pid;
+            session_snapshot.type = session_.type;
+            session_snapshot.mode = session_.mode;
+            session_snapshot.fuzzy_compare_mode = session_.fuzzy_compare_mode;
+            session_snapshot.exact_mode = session_.exact_mode;
+            session_snapshot.little_endian = session_.little_endian;
+            session_snapshot.bytes_display_encoding = session_.bytes_display_encoding;
+            session_snapshot.value_size = session_.value_size;
+            session_snapshot.current_value_bytes = session_.current_value_bytes;
+            session_snapshot.current_display_value = session_.current_display_value;
+            session_snapshot.regions = session_.regions;
+            session_snapshot.results = session_.results;
+            session_snapshot.fuzzy_initial_regions = session_.fuzzy_initial_regions;
+            session_snapshot.fuzzy_candidates = session_.fuzzy_candidates;
+        }
         return StartTaskLocked(false, session_.pid);
     }();
 
@@ -683,8 +886,10 @@ void MemoryToolEngine::NextScan(const SearchValue& value, SearchMatchMode match_
         ResolveBytesDisplayEncoding(value);
     const size_t session_value_size = runtime_mode == SearchRuntimeMode::kXor
                                           ? sizeof(uint32_t)
-                                          : runtime_mode == SearchRuntimeMode::kAuto
+                                              : runtime_mode == SearchRuntimeMode::kAuto
                                               ? 0
+                                              : runtime_mode == SearchRuntimeMode::kFuzzy
+                                                  ? ResolveValueByteLength(session_type, 0)
                                               : pattern.size();
     std::vector<uint8_t> current_value_bytes;
     if (runtime_mode == SearchRuntimeMode::kStandard) {
@@ -694,9 +899,12 @@ void MemoryToolEngine::NextScan(const SearchValue& value, SearchMatchMode match_
     std::thread([this,
                  generation,
                  session_snapshot = std::move(session_snapshot),
+                 fuzzy_initial_regions_snapshot = std::move(fuzzy_initial_regions_snapshot),
+                 fuzzy_candidates_snapshot = std::move(fuzzy_candidates_snapshot),
                  pattern = std::move(pattern),
                  auto_variants = std::move(auto_variants),
                  xor_target_value,
+                 fuzzy_compare_mode,
                  runtime_mode,
                  session_type,
                  little_endian,
@@ -706,55 +914,157 @@ void MemoryToolEngine::NextScan(const SearchValue& value, SearchMatchMode match_
                  current_value_bytes = std::move(current_value_bytes)]() mutable {
         try {
             ProcessMemoryReader reader(session_snapshot.pid);
+            const SearchRuntimeMode request_mode = runtime_mode;
             const bool isAutoSessionToTypedScan =
                 session_snapshot.mode == SearchRuntimeMode::kAuto &&
-                runtime_mode == SearchRuntimeMode::kStandard;
-            const std::vector<SearchResultEntry> next_scan_source_results =
-                isAutoSessionToTypedScan
-                    ? FilterResultsByMatchedType(session_snapshot.results, session_type)
-                    : session_snapshot.results;
+                request_mode == SearchRuntimeMode::kStandard;
+            const bool isFuzzySession = session_snapshot.mode == SearchRuntimeMode::kFuzzy;
+            std::vector<SearchResultEntry> filtered_results;
+            const std::vector<SearchResultEntry>* next_scan_source_results =
+                &session_snapshot.results;
+            if (isAutoSessionToTypedScan) {
+                filtered_results =
+                    FilterResultsByMatchedType(session_snapshot.results, session_type);
+                next_scan_source_results = &filtered_results;
+            }
 
             std::vector<SearchResultEntry> results;
-            switch (runtime_mode) {
+            size_t result_count = 0;
+            std::shared_ptr<std::vector<FuzzyInitialRegion>> next_fuzzy_initial_regions =
+                fuzzy_initial_regions_snapshot;
+            std::shared_ptr<std::vector<FuzzyCandidate>> next_fuzzy_candidates =
+                fuzzy_candidates_snapshot;
+            switch (request_mode) {
                 case SearchRuntimeMode::kXor:
                     results = ::memory_tool::NextScanXor(
                         &reader,
-                        next_scan_source_results,
+                        *next_scan_source_results,
                         xor_target_value,
                         little_endian,
                         [this, generation](const SearchScanProgress& progress) {
                             return UpdateTaskProgress(generation, progress);
                         });
+                    result_count = results.size();
                     break;
                 case SearchRuntimeMode::kAuto:
                     results = ::memory_tool::NextScanMultiType(
                         &reader,
-                        next_scan_source_results,
+                        *next_scan_source_results,
                         auto_variants,
                         [this, generation](const SearchScanProgress& progress) {
                             return UpdateTaskProgress(generation, progress);
                         });
+                    result_count = results.size();
                     break;
                 case SearchRuntimeMode::kStandard:
-                    results = ::memory_tool::NextScan(
-                        &reader,
-                        next_scan_source_results,
-                        pattern,
-                        [this, generation](const SearchScanProgress& progress) {
-                            return UpdateTaskProgress(generation, progress);
-                        });
+                    if (isFuzzySession) {
+                        if (next_fuzzy_candidates) {
+                            result_count = ::memory_tool::NextScanFuzzyExact(
+                                &reader,
+                                pattern,
+                                session_type,
+                                next_fuzzy_candidates,
+                                &next_fuzzy_candidates,
+                                [this, generation](const SearchScanProgress& progress) {
+                                    return UpdateTaskProgress(generation, progress);
+                                });
+                        } else {
+                            result_count = ::memory_tool::NextScanFuzzyExactFromInitial(
+                                &reader,
+                                next_fuzzy_initial_regions,
+                                pattern,
+                                session_type,
+                                &next_fuzzy_candidates,
+                                [this, generation](const SearchScanProgress& progress) {
+                                    return UpdateTaskProgress(generation, progress);
+                                });
+                        }
+                        next_fuzzy_initial_regions.reset();
+                        results.clear();
+                    } else {
+                        results = ::memory_tool::NextScan(
+                            &reader,
+                            *next_scan_source_results,
+                            pattern,
+                            [this, generation](const SearchScanProgress& progress) {
+                                return UpdateTaskProgress(generation, progress);
+                            });
+                        result_count = results.size();
+                    }
+                    break;
+                case SearchRuntimeMode::kFuzzy:
+                    if (!isFuzzySession) {
+                        FuzzyScanState fuzzy_state = ::memory_tool::SeedFuzzyFromResults(
+                            &reader,
+                            *next_scan_source_results,
+                            session_snapshot.current_value_bytes,
+                            session_type,
+                            session_snapshot.little_endian,
+                            fuzzy_compare_mode,
+                            [this, generation](const SearchScanProgress& progress) {
+                                return UpdateTaskProgress(generation, progress);
+                            });
+                        next_fuzzy_initial_regions.reset();
+                        next_fuzzy_candidates = std::move(fuzzy_state.candidates);
+                        result_count =
+                            next_fuzzy_candidates ? next_fuzzy_candidates->size() : 0;
+                    } else {
+                        if (next_fuzzy_candidates) {
+                            result_count = ::memory_tool::NextScanFuzzy(
+                                &reader,
+                                session_type,
+                                little_endian,
+                                fuzzy_compare_mode,
+                                next_fuzzy_candidates,
+                                &next_fuzzy_candidates,
+                                [this, generation](const SearchScanProgress& progress) {
+                                    return UpdateTaskProgress(generation, progress);
+                                });
+                        } else {
+                            result_count = ::memory_tool::NextScanFuzzyFromInitial(
+                                &reader,
+                                next_fuzzy_initial_regions,
+                                session_type,
+                                little_endian,
+                                fuzzy_compare_mode,
+                                &next_fuzzy_candidates,
+                                [this, generation](const SearchScanProgress& progress) {
+                                    return UpdateTaskProgress(generation, progress);
+                                });
+                        }
+                        next_fuzzy_initial_regions.reset();
+                    }
+                    results.clear();
                     break;
             }
 
-            const size_t result_count = results.size();
             session_snapshot.results = std::move(results);
             session_snapshot.type = session_type;
-            session_snapshot.mode = runtime_mode;
+            session_snapshot.mode =
+                session_snapshot.mode == SearchRuntimeMode::kFuzzy
+                    ? SearchRuntimeMode::kFuzzy
+                    : request_mode;
+            session_snapshot.fuzzy_compare_mode =
+                session_snapshot.mode == SearchRuntimeMode::kFuzzy
+                    ? (request_mode == SearchRuntimeMode::kFuzzy
+                           ? fuzzy_compare_mode
+                           : session_snapshot.fuzzy_compare_mode)
+                    : FuzzyCompareMode::kUnknown;
+            session_snapshot.exact_mode =
+                session_snapshot.mode != SearchRuntimeMode::kFuzzy;
             session_snapshot.value_size = session_value_size;
             session_snapshot.little_endian = little_endian;
             session_snapshot.bytes_display_encoding = bytes_display_encoding;
             session_snapshot.current_value_bytes = current_value_bytes;
             session_snapshot.current_display_value = current_display_value;
+            session_snapshot.fuzzy_initial_regions =
+                session_snapshot.mode == SearchRuntimeMode::kFuzzy
+                    ? std::move(next_fuzzy_initial_regions)
+                    : nullptr;
+            session_snapshot.fuzzy_candidates =
+                session_snapshot.mode == SearchRuntimeMode::kFuzzy
+                    ? std::move(next_fuzzy_candidates)
+                    : nullptr;
             FinishTaskSuccess(generation, std::move(session_snapshot), result_count);
         } catch (const std::exception& exception) {
             FinishTaskFailure(generation, exception.what());
@@ -857,7 +1167,7 @@ SearchSessionStateView MemoryToolEngine::BuildSessionStateLocked() const {
     state.pid = session_.pid;
     state.type = session_.type;
     state.region_count = session_.regions.size();
-    state.result_count = session_.results.size();
+    state.result_count = ResolveSessionResultCount(session_);
     state.exact_mode = session_.exact_mode;
     state.little_endian = session_.little_endian;
     return state;

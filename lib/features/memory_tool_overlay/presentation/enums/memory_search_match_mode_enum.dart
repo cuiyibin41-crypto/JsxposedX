@@ -1,0 +1,4 @@
+enum MemorySearchMatchModeEnum {
+  exact,
+  fuzzy,
+}

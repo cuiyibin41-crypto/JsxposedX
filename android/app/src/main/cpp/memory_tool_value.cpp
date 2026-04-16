@@ -16,6 +16,7 @@ namespace {
 
 constexpr char kXorPrefix[] = "__jsx_xor__:";
 constexpr char kAutoPrefix[] = "__jsx_auto__:";
+constexpr char kFuzzyPrefix[] = "__jsx_fuzzy__:";
 
 template <typename T>
 std::vector<uint8_t> EncodeBytes(T value, bool little_endian) {
@@ -143,6 +144,9 @@ SpecialSearchMode ResolveSpecialSearchMode(const SearchValue& value) {
     if (HasPrefix(value.text_value, kAutoPrefix)) {
         return SpecialSearchMode::kAuto;
     }
+    if (HasPrefix(value.text_value, kFuzzyPrefix)) {
+        return SpecialSearchMode::kFuzzy;
+    }
     return SpecialSearchMode::kNone;
 }
 
@@ -155,29 +159,33 @@ bool BuildSearchPattern(const SearchValue& value,
 
     bytes->clear();
     try {
+        const std::string raw_value =
+            HasPrefix(value.text_value, kFuzzyPrefix)
+                ? StripPrefix(value.text_value, kFuzzyPrefix)
+                : value.text_value;
         switch (value.type) {
             case SearchValueType::kI8:
-                *bytes = EncodeBytes(static_cast<int8_t>(std::stoi(value.text_value)),
+                *bytes = EncodeBytes(static_cast<int8_t>(std::stoi(raw_value)),
                                      value.little_endian);
                 return true;
             case SearchValueType::kI16:
-                *bytes = EncodeBytes(static_cast<int16_t>(std::stoi(value.text_value)),
+                *bytes = EncodeBytes(static_cast<int16_t>(std::stoi(raw_value)),
                                      value.little_endian);
                 return true;
             case SearchValueType::kI32:
-                *bytes = EncodeBytes(static_cast<int32_t>(std::stol(value.text_value)),
+                *bytes = EncodeBytes(static_cast<int32_t>(std::stol(raw_value)),
                                      value.little_endian);
                 return true;
             case SearchValueType::kI64:
-                *bytes = EncodeBytes(static_cast<int64_t>(std::stoll(value.text_value)),
+                *bytes = EncodeBytes(static_cast<int64_t>(std::stoll(raw_value)),
                                      value.little_endian);
                 return true;
             case SearchValueType::kF32:
-                *bytes = EncodeBytes(static_cast<float>(std::stof(value.text_value)),
+                *bytes = EncodeBytes(static_cast<float>(std::stof(raw_value)),
                                      value.little_endian);
                 return true;
             case SearchValueType::kF64:
-                *bytes = EncodeBytes(static_cast<double>(std::stod(value.text_value)),
+                *bytes = EncodeBytes(static_cast<double>(std::stod(raw_value)),
                                      value.little_endian);
                 return true;
             case SearchValueType::kBytes:
@@ -231,6 +239,38 @@ bool ParseXorTargetValue(const SearchValue& value,
         }
         return false;
     }
+}
+
+bool ParseFuzzyCompareMode(const SearchValue& value,
+                           FuzzyCompareMode* compare_mode,
+                           std::string* display_value,
+                           std::string* error) {
+    if (compare_mode == nullptr) {
+        return false;
+    }
+
+    const std::string raw_value = StripPrefix(value.text_value, kFuzzyPrefix);
+    if (raw_value == "unknown") {
+        *compare_mode = FuzzyCompareMode::kUnknown;
+    } else if (raw_value == "unchanged") {
+        *compare_mode = FuzzyCompareMode::kUnchanged;
+    } else if (raw_value == "changed") {
+        *compare_mode = FuzzyCompareMode::kChanged;
+    } else if (raw_value == "increased") {
+        *compare_mode = FuzzyCompareMode::kIncreased;
+    } else if (raw_value == "decreased") {
+        *compare_mode = FuzzyCompareMode::kDecreased;
+    } else {
+        if (error != nullptr) {
+            *error = "Unsupported fuzzy compare mode.";
+        }
+        return false;
+    }
+
+    if (display_value != nullptr) {
+        *display_value = raw_value;
+    }
+    return true;
 }
 
 bool BuildAutoSearchPlan(const SearchValue& value,

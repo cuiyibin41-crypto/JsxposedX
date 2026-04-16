@@ -1757,6 +1757,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryToolFieldScopePlaceholder => 'All memory';
 
   @override
+  String get memoryToolFieldSearchMode => 'Search Mode';
+
+  @override
+  String get memoryToolFieldFuzzyMode => 'Fuzzy Filter';
+
+  @override
   String get memoryToolFieldValueCategory => 'Search Type';
 
   @override
@@ -1776,6 +1782,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memoryToolSearchExact => 'Exact Scan';
+
+  @override
+  String get memoryToolSearchFuzzy => 'Fuzzy Scan';
+
+  @override
+  String get memoryToolSearchFuzzyUnknown => 'Unknown Initial';
+
+  @override
+  String get memoryToolSearchFuzzyUnchanged => 'Unchanged';
+
+  @override
+  String get memoryToolSearchFuzzyChanged => 'Changed';
+
+  @override
+  String get memoryToolSearchFuzzyIncreased => 'Increased';
+
+  @override
+  String get memoryToolSearchFuzzyDecreased => 'Decreased';
+
+  @override
+  String get memoryToolSearchFuzzyHint =>
+      'Fuzzy first scan can start without a value. Enter the current value when filtering next.';
+
+  @override
+  String get memoryToolSearchFuzzyUnsupportedHint =>
+      'Fuzzy scan currently supports fixed-width numeric types only.';
 
   @override
   String get memoryToolSearchBytesHint => 'Example: 12 34 AB CD';

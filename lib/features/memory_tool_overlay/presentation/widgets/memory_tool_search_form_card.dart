@@ -1,4 +1,6 @@
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_match_mode_enum.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_fuzzy_mode_enum.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_preset_maps.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_range_preset_enum.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_range_section_enum.dart';
@@ -19,7 +21,10 @@ class MemoryToolSearchFormCard extends StatelessWidget {
     required this.state,
     required this.actionState,
     required this.hasRunningTask,
+    required this.hasMatchingSession,
     required this.onValueChanged,
+    required this.onMatchModeChanged,
+    required this.onFuzzyModeChanged,
     required this.onValueCategoryChanged,
     required this.onValueTypeOptionChanged,
     required this.onRangePresetChanged,
@@ -32,7 +37,10 @@ class MemoryToolSearchFormCard extends StatelessWidget {
   final MemoryToolSearchState state;
   final AsyncValue<void> actionState;
   final bool hasRunningTask;
+  final bool hasMatchingSession;
   final ValueChanged<String> onValueChanged;
+  final ValueChanged<MemorySearchMatchModeEnum> onMatchModeChanged;
+  final ValueChanged<MemorySearchFuzzyModeEnum> onFuzzyModeChanged;
   final ValueChanged<MemorySearchValueCategoryEnum> onValueCategoryChanged;
   final ValueChanged<MemorySearchValueTypeOptionEnum> onValueTypeOptionChanged;
   final ValueChanged<MemorySearchRangePresetEnum> onRangePresetChanged;
@@ -43,7 +51,13 @@ class MemoryToolSearchFormCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRunning = actionState.isLoading || hasRunningTask;
-    final isTypeSupported = state.supportsCurrentType;
+    final isTypeSupported = state.supportsSelectedMatchMode;
+    final fuzzyModes = hasMatchingSession
+        ? memorySearchFuzzyFollowUpModes
+        : memorySearchFuzzyInitialModes;
+    final selectedFuzzyMode = fuzzyModes.contains(state.selectedFuzzyMode)
+        ? state.selectedFuzzyMode
+        : fuzzyModes.first;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -73,22 +87,47 @@ class MemoryToolSearchFormCard extends StatelessWidget {
             onSelected: isRunning ? null : onValueTypeOptionChanged,
           ),
         ],
-        if (!isTypeSupported) ...<Widget>[
-          SizedBox(height: 10.r),
-          _InlineHint(
-            message: context.l10n.memoryToolSearchTypePendingHint,
-            color: context.colorScheme.error,
+        SizedBox(height: 12.r),
+        _FieldLabel(label: context.l10n.memoryToolFieldSearchMode),
+        SizedBox(height: 6.r),
+        _MemoryToolChoiceChipWrap<MemorySearchMatchModeEnum>(
+          values: memorySearchMatchModes,
+          selectedValue: state.selectedMatchMode,
+          labelBuilder: (mode) => mapMemorySearchMatchModeLabel(context, mode),
+          onSelected: isRunning ? null : onMatchModeChanged,
+        ),
+        if (state.isFuzzyMatchMode) ...<Widget>[
+          SizedBox(height: 12.r),
+          _FieldLabel(label: _fuzzyModeLabel(context)),
+          SizedBox(height: 6.r),
+          _MemoryToolChoiceChipWrap<MemorySearchFuzzyModeEnum>(
+            values: fuzzyModes,
+            selectedValue: selectedFuzzyMode,
+            labelBuilder: (mode) => mapMemorySearchFuzzyModeLabel(context, mode),
+            onSelected: isRunning ? null : onFuzzyModeChanged,
           ),
         ],
-        SizedBox(height: 12.r),
-        _FieldLabel(label: context.l10n.memoryToolFieldValue),
-        SizedBox(height: 6.r),
-        _MemoryToolSearchValueField(
-          controller: valueController,
-          valueTypeOption: state.effectiveValueTypeOption,
-          selectedType: state.nativeSearchValueType,
-          onChanged: onValueChanged,
-        ),
+        if (!isTypeSupported) ...<Widget>[
+          SizedBox(height: 10.r),
+          Text(
+            context.l10n.memoryToolValidationTypeUnsupported,
+            style: context.textTheme.bodySmall?.copyWith(
+              color: context.colorScheme.error,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+        if (!state.shouldHideValueField) ...<Widget>[
+          SizedBox(height: 12.r),
+          _FieldLabel(label: context.l10n.memoryToolFieldValue),
+          SizedBox(height: 6.r),
+          _MemoryToolSearchValueField(
+            controller: valueController,
+            valueTypeOption: state.effectiveValueTypeOption,
+            selectedType: state.nativeSearchValueType,
+            onChanged: onValueChanged,
+          ),
+        ],
         SizedBox(height: 12.r),
         _FieldLabel(label: context.l10n.memoryToolFieldScope),
         SizedBox(height: 6.r),
@@ -204,6 +243,13 @@ class MemoryToolSearchFormCard extends StatelessWidget {
         context.l10n.memoryToolValidationTypeUnsupported,
     };
   }
+
+  String _fuzzyModeLabel(BuildContext context) {
+    final isZh = Localizations.localeOf(context).languageCode.toLowerCase().startsWith(
+      'zh',
+    );
+    return isZh ? '模糊条件' : 'Fuzzy Filter';
+  }
 }
 
 class _FieldLabel extends StatelessWidget {
@@ -218,24 +264,6 @@ class _FieldLabel extends StatelessWidget {
       style: context.textTheme.labelLarge?.copyWith(
         fontWeight: FontWeight.w800,
         color: context.colorScheme.onSurface.withValues(alpha: 0.82),
-      ),
-    );
-  }
-}
-
-class _InlineHint extends StatelessWidget {
-  const _InlineHint({required this.message, required this.color});
-
-  final String message;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      message,
-      style: context.textTheme.bodySmall?.copyWith(
-        color: color,
-        fontWeight: FontWeight.w600,
       ),
     );
   }

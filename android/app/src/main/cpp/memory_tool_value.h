@@ -15,6 +15,7 @@ enum class SpecialSearchMode : int {
     kNone = 0,
     kXor = 1,
     kAuto = 2,
+    kFuzzy = 3,
 };
 
 struct AutoSearchPlan {
@@ -34,6 +35,11 @@ bool ParseXorTargetValue(const SearchValue& value,
                          uint32_t* target_value,
                          std::string* display_value,
                          std::string* error);
+
+bool ParseFuzzyCompareMode(const SearchValue& value,
+                           FuzzyCompareMode* compare_mode,
+                           std::string* display_value,
+                           std::string* error);
 
 bool BuildAutoSearchPlan(const SearchValue& value,
                          AutoSearchPlan* plan,

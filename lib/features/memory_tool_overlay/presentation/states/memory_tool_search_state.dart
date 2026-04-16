@@ -1,3 +1,5 @@
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_fuzzy_mode_enum.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_match_mode_enum.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_preset_maps.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_range_preset_enum.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_range_section_enum.dart';
@@ -23,6 +25,10 @@ abstract class MemoryToolSearchState with _$MemoryToolSearchState {
 
   const factory MemoryToolSearchState({
     @Default('') String value,
+    @Default(MemorySearchMatchModeEnum.exact)
+    MemorySearchMatchModeEnum selectedMatchMode,
+    @Default(MemorySearchFuzzyModeEnum.unknown)
+    MemorySearchFuzzyModeEnum selectedFuzzyMode,
     @Default(MemorySearchValueCategoryEnum.integer)
     MemorySearchValueCategoryEnum selectedValueCategory,
     @Default(MemorySearchValueTypeOptionEnum.i32)
@@ -49,6 +55,13 @@ abstract class MemoryToolSearchState with _$MemoryToolSearchState {
 
   bool get supportsCurrentType => effectiveValueTypeOption.isImplemented;
 
+  bool get isFuzzyMatchMode =>
+      selectedMatchMode == MemorySearchMatchModeEnum.fuzzy;
+
+  bool get supportsSelectedMatchMode =>
+      supportsCurrentType &&
+      (!isFuzzyMatchMode || effectiveValueTypeOption.supportsFuzzySearch);
+
   bool get isBytesType =>
       effectiveValueTypeOption == MemorySearchValueTypeOptionEnum.bytes;
 
@@ -68,6 +81,8 @@ abstract class MemoryToolSearchState with _$MemoryToolSearchState {
 
   bool get shouldShowCustomRangeSections =>
       selectedRangePreset == MemorySearchRangePresetEnum.custom;
+
+  bool get shouldHideValueField => isFuzzyMatchMode;
 
   List<MemorySearchRangeSectionEnum> get effectiveRangeSections {
     if (shouldShowCustomRangeSections) {

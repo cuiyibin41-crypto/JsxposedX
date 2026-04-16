@@ -35,13 +35,13 @@ class MemoryToolSearchDialog extends HookConsumerWidget {
         selectedProcess != null &&
         !searchActionState.isLoading &&
         !hasRunningTask &&
-        searchFormState.supportsCurrentType;
+        searchFormState.supportsSelectedMatchMode;
     final canRunNextScan =
         selectedProcess != null &&
         !searchActionState.isLoading &&
         !hasRunningTask &&
         hasMatchingSession &&
-        searchFormState.supportsCurrentType;
+        searchFormState.supportsSelectedMatchMode;
     final canReset =
         selectedProcess != null &&
         !searchActionState.isLoading &&
@@ -126,7 +126,10 @@ class MemoryToolSearchDialog extends HookConsumerWidget {
                 state: searchFormState,
                 actionState: searchActionState,
                 hasRunningTask: hasRunningTask,
+                hasMatchingSession: hasMatchingSession,
                 onValueChanged: searchFormNotifier.updateValue,
+                onMatchModeChanged: searchFormNotifier.updateMatchMode,
+                onFuzzyModeChanged: searchFormNotifier.updateFuzzyMode,
                 onValueCategoryChanged:
                     searchFormNotifier.updateValueCategory,
                 onValueTypeOptionChanged:

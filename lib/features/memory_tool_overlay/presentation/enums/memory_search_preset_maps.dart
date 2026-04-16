@@ -1,3 +1,5 @@
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_fuzzy_mode_enum.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_match_mode_enum.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_range_preset_enum.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_range_section_enum.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_value_category_enum.dart';
@@ -25,6 +27,23 @@ memorySearchAdvancedValueOptions = <MemorySearchValueCategoryEnum, List<MemorySe
     MemorySearchValueTypeOptionEnum.auto,
   ],
 };
+
+const List<MemorySearchMatchModeEnum> memorySearchMatchModes =
+    <MemorySearchMatchModeEnum>[
+      MemorySearchMatchModeEnum.exact,
+      MemorySearchMatchModeEnum.fuzzy,
+    ];
+
+const List<MemorySearchFuzzyModeEnum> memorySearchFuzzyInitialModes =
+    <MemorySearchFuzzyModeEnum>[MemorySearchFuzzyModeEnum.unknown];
+
+const List<MemorySearchFuzzyModeEnum> memorySearchFuzzyFollowUpModes =
+    <MemorySearchFuzzyModeEnum>[
+      MemorySearchFuzzyModeEnum.unchanged,
+      MemorySearchFuzzyModeEnum.changed,
+      MemorySearchFuzzyModeEnum.increased,
+      MemorySearchFuzzyModeEnum.decreased,
+    ];
 
 const Map<MemorySearchRangePresetEnum, List<MemorySearchRangeSectionEnum>>
 memorySearchRangePresetSections = <MemorySearchRangePresetEnum, List<MemorySearchRangeSectionEnum>>{

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_fuzzy_mode_enum.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_match_mode_enum.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_preset_maps.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_range_preset_enum.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_range_section_enum.dart';
@@ -275,6 +277,24 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
     state = state.copyWith(value: value, validationError: null);
   }
 
+  void updateMatchMode(MemorySearchMatchModeEnum mode) {
+    final hasMatchingSession = ref.read(hasMatchingSearchSessionProvider);
+    state = state.copyWith(
+      value: mode == MemorySearchMatchModeEnum.fuzzy ? '' : state.value,
+      selectedMatchMode: mode,
+      selectedFuzzyMode: mode == MemorySearchMatchModeEnum.fuzzy
+          ? hasMatchingSession
+                ? MemorySearchFuzzyModeEnum.changed
+                : MemorySearchFuzzyModeEnum.unknown
+          : state.selectedFuzzyMode,
+      validationError: null,
+    );
+  }
+
+  void updateFuzzyMode(MemorySearchFuzzyModeEnum mode) {
+    state = state.copyWith(selectedFuzzyMode: mode, validationError: null);
+  }
+
   void updateValueCategory(MemorySearchValueCategoryEnum category) {
     final defaultOption = memorySearchCategoryDefaults[category];
     final advancedOptions =
@@ -296,6 +316,11 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
     state = state.copyWith(
       selectedValueCategory: category,
       selectedValueTypeOption: nextTypeOption,
+      selectedMatchMode:
+          state.selectedMatchMode == MemorySearchMatchModeEnum.fuzzy &&
+              !nextTypeOption.supportsFuzzySearch
+          ? MemorySearchMatchModeEnum.exact
+          : state.selectedMatchMode,
       isLittleEndian: isSwitchingToText ? false : state.isLittleEndian,
       validationError: null,
     );
@@ -304,6 +329,11 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
   void updateValueTypeOption(MemorySearchValueTypeOptionEnum option) {
     state = state.copyWith(
       selectedValueTypeOption: option,
+      selectedMatchMode:
+          state.selectedMatchMode == MemorySearchMatchModeEnum.fuzzy &&
+              !option.supportsFuzzySearch
+          ? MemorySearchMatchModeEnum.exact
+          : state.selectedMatchMode,
       validationError: null,
     );
   }
@@ -350,10 +380,7 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
       return;
     }
 
-    final validationError = _validateValue(
-      option: state.effectiveValueTypeOption,
-      rawValue: state.value,
-    );
+    final validationError = _validateFirstScanValue();
     if (validationError != null) {
       state = state.copyWith(validationError: validationError);
       return;
@@ -361,7 +388,7 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
 
     final request = FirstScanRequest(
       pid: selectedProcess.pid,
-      value: _buildSearchValue(),
+      value: _buildSearchValue(isFirstScan: true),
       matchMode: SearchMatchMode.exact,
       rangeSectionKeys: state.effectiveRangeSections
           .map(mapMemorySearchRangeSectionKey)
@@ -382,10 +409,7 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
       return;
     }
 
-    final validationError = _validateValue(
-      option: state.effectiveValueTypeOption,
-      rawValue: state.value,
-    );
+    final validationError = _validateNextScanValue();
     if (validationError != null) {
       state = state.copyWith(validationError: validationError);
       return;
@@ -402,7 +426,7 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
     }
 
     final request = NextScanRequest(
-      value: _buildSearchValue(),
+      value: _buildSearchValue(isFirstScan: false),
       matchMode: SearchMatchMode.exact,
     );
 
@@ -463,6 +487,36 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
       case MemorySearchValueTypeOptionEnum.text:
         return null;
     }
+  }
+
+  MemoryToolSearchValidationError? _validateFirstScanValue() {
+    if (!state.supportsSelectedMatchMode) {
+      return MemoryToolSearchValidationError.unsupportedType;
+    }
+
+    if (state.isFuzzyMatchMode) {
+      return null;
+    }
+
+    return _validateValue(
+      option: state.effectiveValueTypeOption,
+      rawValue: state.value,
+    );
+  }
+
+  MemoryToolSearchValidationError? _validateNextScanValue() {
+    if (!state.supportsSelectedMatchMode) {
+      return MemoryToolSearchValidationError.unsupportedType;
+    }
+
+    if (state.isFuzzyMatchMode) {
+      return null;
+    }
+
+    return _validateValue(
+      option: state.effectiveValueTypeOption,
+      rawValue: state.value,
+    );
   }
 
   MemoryToolSearchValidationError? _validateIntegerValue({
@@ -536,7 +590,9 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
     return null;
   }
 
-  SearchValue _buildSearchValue() {
+  SearchValue _buildSearchValue({
+    required bool isFirstScan,
+  }) {
     final trimmedValue = state.value.trim();
     final requestType = state.requestSearchValueType;
     final bytesValue = state.isTextType
@@ -552,6 +608,8 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
         ? state.usesUtf16LeTextEncoding
               ? '__jsx_text_utf16le__:$trimmedValue'
               : '__jsx_text_utf8__:$trimmedValue'
+        : state.isFuzzyMatchMode
+        ? '__jsx_fuzzy__:${_buildFuzzyCommand(isFirstScan: isFirstScan)}'
         : state.isXorType
         ? '__jsx_xor__:$trimmedValue'
         : state.isAutoType
@@ -566,6 +624,21 @@ class MemoryToolSearchForm extends _$MemoryToolSearchForm {
       bytesValue: bytesValue,
       littleEndian: state.isLittleEndian,
     );
+  }
+
+  String _buildFuzzyCommand({required bool isFirstScan}) {
+    final effectiveMode = isFirstScan
+        ? MemorySearchFuzzyModeEnum.unknown
+        : state.selectedFuzzyMode == MemorySearchFuzzyModeEnum.unknown
+        ? MemorySearchFuzzyModeEnum.changed
+        : state.selectedFuzzyMode;
+    return switch (effectiveMode) {
+      MemorySearchFuzzyModeEnum.unknown => 'unknown',
+      MemorySearchFuzzyModeEnum.unchanged => 'unchanged',
+      MemorySearchFuzzyModeEnum.changed => 'changed',
+      MemorySearchFuzzyModeEnum.increased => 'increased',
+      MemorySearchFuzzyModeEnum.decreased => 'decreased',
+    };
   }
 
   List<MemorySearchRangeSectionEnum> _defaultCustomRangeSections() {

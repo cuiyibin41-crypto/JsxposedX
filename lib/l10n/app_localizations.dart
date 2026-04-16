@@ -3416,6 +3416,18 @@ abstract class AppLocalizations {
   /// **'全部内存'**
   String get memoryToolFieldScopePlaceholder;
 
+  /// No description provided for @memoryToolFieldSearchMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索模式'**
+  String get memoryToolFieldSearchMode;
+
+  /// No description provided for @memoryToolFieldFuzzyMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'模糊条件'**
+  String get memoryToolFieldFuzzyMode;
+
   /// No description provided for @memoryToolFieldValueCategory.
   ///
   /// In zh, this message translates to:
@@ -3457,6 +3469,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'精确搜索'**
   String get memoryToolSearchExact;
+
+  /// No description provided for @memoryToolSearchFuzzy.
+  ///
+  /// In zh, this message translates to:
+  /// **'模糊搜索'**
+  String get memoryToolSearchFuzzy;
+
+  /// No description provided for @memoryToolSearchFuzzyUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知初值'**
+  String get memoryToolSearchFuzzyUnknown;
+
+  /// No description provided for @memoryToolSearchFuzzyUnchanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'无变化'**
+  String get memoryToolSearchFuzzyUnchanged;
+
+  /// No description provided for @memoryToolSearchFuzzyChanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'有变化'**
+  String get memoryToolSearchFuzzyChanged;
+
+  /// No description provided for @memoryToolSearchFuzzyIncreased.
+  ///
+  /// In zh, this message translates to:
+  /// **'增加了'**
+  String get memoryToolSearchFuzzyIncreased;
+
+  /// No description provided for @memoryToolSearchFuzzyDecreased.
+  ///
+  /// In zh, this message translates to:
+  /// **'减少了'**
+  String get memoryToolSearchFuzzyDecreased;
+
+  /// No description provided for @memoryToolSearchFuzzyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'模糊首次扫描可不填数值，继续筛选时再输入当前值。'**
+  String get memoryToolSearchFuzzyHint;
+
+  /// No description provided for @memoryToolSearchFuzzyUnsupportedHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'模糊搜索目前只支持固定长度数值类型。'**
+  String get memoryToolSearchFuzzyUnsupportedHint;
 
   /// No description provided for @memoryToolSearchBytesHint.
   ///

@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -34,6 +35,15 @@ enum class SearchRuntimeMode : int {
     kStandard = 0,
     kXor = 1,
     kAuto = 2,
+    kFuzzy = 3,
+};
+
+enum class FuzzyCompareMode : int {
+    kUnknown = 0,
+    kUnchanged = 1,
+    kChanged = 2,
+    kIncreased = 3,
+    kDecreased = 4,
 };
 
 enum class BytesDisplayEncoding : int {
@@ -131,11 +141,24 @@ struct SearchTaskStateView {
     std::string message;
 };
 
+struct FuzzyCandidate {
+    uint64_t address = 0;
+    uint64_t region_start = 0;
+    uint64_t previous_value_bits = 0;
+};
+
+struct FuzzyInitialRegion {
+    uint64_t region_start = 0;
+    size_t slot_count = 0;
+    std::vector<uint8_t> snapshot_bytes;
+};
+
 struct SearchSession {
     bool has_active_session = false;
     int pid = 0;
     SearchValueType type = SearchValueType::kI32;
     SearchRuntimeMode mode = SearchRuntimeMode::kStandard;
+    FuzzyCompareMode fuzzy_compare_mode = FuzzyCompareMode::kUnknown;
     bool exact_mode = true;
     bool little_endian = true;
     BytesDisplayEncoding bytes_display_encoding = BytesDisplayEncoding::kHex;
@@ -143,6 +166,8 @@ struct SearchSession {
     std::vector<uint8_t> current_value_bytes;
     std::string current_display_value;
     std::vector<MemoryRegion> regions;
+    std::shared_ptr<std::vector<FuzzyInitialRegion>> fuzzy_initial_regions;
+    std::shared_ptr<std::vector<FuzzyCandidate>> fuzzy_candidates;
     std::vector<SearchResultEntry> results;
 
     void Clear();

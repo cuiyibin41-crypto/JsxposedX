@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$MemoryToolSearchState {
 
- String get value; MemorySearchValueCategoryEnum get selectedValueCategory; MemorySearchValueTypeOptionEnum get selectedValueTypeOption; MemorySearchRangePresetEnum get selectedRangePreset; List<MemorySearchRangeSectionEnum> get customRangeSections; bool get isLittleEndian; MemoryToolSearchValidationError? get validationError;
+ String get value; MemorySearchMatchModeEnum get selectedMatchMode; MemorySearchFuzzyModeEnum get selectedFuzzyMode; MemorySearchValueCategoryEnum get selectedValueCategory; MemorySearchValueTypeOptionEnum get selectedValueTypeOption; MemorySearchRangePresetEnum get selectedRangePreset; List<MemorySearchRangeSectionEnum> get customRangeSections; bool get isLittleEndian; MemoryToolSearchValidationError? get validationError;
 /// Create a copy of MemoryToolSearchState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $MemoryToolSearchStateCopyWith<MemoryToolSearchState> get copyWith => _$MemoryTo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MemoryToolSearchState&&(identical(other.value, value) || other.value == value)&&(identical(other.selectedValueCategory, selectedValueCategory) || other.selectedValueCategory == selectedValueCategory)&&(identical(other.selectedValueTypeOption, selectedValueTypeOption) || other.selectedValueTypeOption == selectedValueTypeOption)&&(identical(other.selectedRangePreset, selectedRangePreset) || other.selectedRangePreset == selectedRangePreset)&&const DeepCollectionEquality().equals(other.customRangeSections, customRangeSections)&&(identical(other.isLittleEndian, isLittleEndian) || other.isLittleEndian == isLittleEndian)&&(identical(other.validationError, validationError) || other.validationError == validationError));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MemoryToolSearchState&&(identical(other.value, value) || other.value == value)&&(identical(other.selectedMatchMode, selectedMatchMode) || other.selectedMatchMode == selectedMatchMode)&&(identical(other.selectedFuzzyMode, selectedFuzzyMode) || other.selectedFuzzyMode == selectedFuzzyMode)&&(identical(other.selectedValueCategory, selectedValueCategory) || other.selectedValueCategory == selectedValueCategory)&&(identical(other.selectedValueTypeOption, selectedValueTypeOption) || other.selectedValueTypeOption == selectedValueTypeOption)&&(identical(other.selectedRangePreset, selectedRangePreset) || other.selectedRangePreset == selectedRangePreset)&&const DeepCollectionEquality().equals(other.customRangeSections, customRangeSections)&&(identical(other.isLittleEndian, isLittleEndian) || other.isLittleEndian == isLittleEndian)&&(identical(other.validationError, validationError) || other.validationError == validationError));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,value,selectedValueCategory,selectedValueTypeOption,selectedRangePreset,const DeepCollectionEquality().hash(customRangeSections),isLittleEndian,validationError);
+int get hashCode => Object.hash(runtimeType,value,selectedMatchMode,selectedFuzzyMode,selectedValueCategory,selectedValueTypeOption,selectedRangePreset,const DeepCollectionEquality().hash(customRangeSections),isLittleEndian,validationError);
 
 @override
 String toString() {
-  return 'MemoryToolSearchState(value: $value, selectedValueCategory: $selectedValueCategory, selectedValueTypeOption: $selectedValueTypeOption, selectedRangePreset: $selectedRangePreset, customRangeSections: $customRangeSections, isLittleEndian: $isLittleEndian, validationError: $validationError)';
+  return 'MemoryToolSearchState(value: $value, selectedMatchMode: $selectedMatchMode, selectedFuzzyMode: $selectedFuzzyMode, selectedValueCategory: $selectedValueCategory, selectedValueTypeOption: $selectedValueTypeOption, selectedRangePreset: $selectedRangePreset, customRangeSections: $customRangeSections, isLittleEndian: $isLittleEndian, validationError: $validationError)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $MemoryToolSearchStateCopyWith<$Res>  {
   factory $MemoryToolSearchStateCopyWith(MemoryToolSearchState value, $Res Function(MemoryToolSearchState) _then) = _$MemoryToolSearchStateCopyWithImpl;
 @useResult
 $Res call({
- String value, MemorySearchValueCategoryEnum selectedValueCategory, MemorySearchValueTypeOptionEnum selectedValueTypeOption, MemorySearchRangePresetEnum selectedRangePreset, List<MemorySearchRangeSectionEnum> customRangeSections, bool isLittleEndian, MemoryToolSearchValidationError? validationError
+ String value, MemorySearchMatchModeEnum selectedMatchMode, MemorySearchFuzzyModeEnum selectedFuzzyMode, MemorySearchValueCategoryEnum selectedValueCategory, MemorySearchValueTypeOptionEnum selectedValueTypeOption, MemorySearchRangePresetEnum selectedRangePreset, List<MemorySearchRangeSectionEnum> customRangeSections, bool isLittleEndian, MemoryToolSearchValidationError? validationError
 });
 
 
@@ -62,10 +62,12 @@ class _$MemoryToolSearchStateCopyWithImpl<$Res>
 
 /// Create a copy of MemoryToolSearchState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? value = null,Object? selectedValueCategory = null,Object? selectedValueTypeOption = null,Object? selectedRangePreset = null,Object? customRangeSections = null,Object? isLittleEndian = null,Object? validationError = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? value = null,Object? selectedMatchMode = null,Object? selectedFuzzyMode = null,Object? selectedValueCategory = null,Object? selectedValueTypeOption = null,Object? selectedRangePreset = null,Object? customRangeSections = null,Object? isLittleEndian = null,Object? validationError = freezed,}) {
   return _then(_self.copyWith(
 value: null == value ? _self.value : value // ignore: cast_nullable_to_non_nullable
-as String,selectedValueCategory: null == selectedValueCategory ? _self.selectedValueCategory : selectedValueCategory // ignore: cast_nullable_to_non_nullable
+as String,selectedMatchMode: null == selectedMatchMode ? _self.selectedMatchMode : selectedMatchMode // ignore: cast_nullable_to_non_nullable
+as MemorySearchMatchModeEnum,selectedFuzzyMode: null == selectedFuzzyMode ? _self.selectedFuzzyMode : selectedFuzzyMode // ignore: cast_nullable_to_non_nullable
+as MemorySearchFuzzyModeEnum,selectedValueCategory: null == selectedValueCategory ? _self.selectedValueCategory : selectedValueCategory // ignore: cast_nullable_to_non_nullable
 as MemorySearchValueCategoryEnum,selectedValueTypeOption: null == selectedValueTypeOption ? _self.selectedValueTypeOption : selectedValueTypeOption // ignore: cast_nullable_to_non_nullable
 as MemorySearchValueTypeOptionEnum,selectedRangePreset: null == selectedRangePreset ? _self.selectedRangePreset : selectedRangePreset // ignore: cast_nullable_to_non_nullable
 as MemorySearchRangePresetEnum,customRangeSections: null == customRangeSections ? _self.customRangeSections : customRangeSections // ignore: cast_nullable_to_non_nullable
@@ -156,10 +158,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String value,  MemorySearchValueCategoryEnum selectedValueCategory,  MemorySearchValueTypeOptionEnum selectedValueTypeOption,  MemorySearchRangePresetEnum selectedRangePreset,  List<MemorySearchRangeSectionEnum> customRangeSections,  bool isLittleEndian,  MemoryToolSearchValidationError? validationError)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String value,  MemorySearchMatchModeEnum selectedMatchMode,  MemorySearchFuzzyModeEnum selectedFuzzyMode,  MemorySearchValueCategoryEnum selectedValueCategory,  MemorySearchValueTypeOptionEnum selectedValueTypeOption,  MemorySearchRangePresetEnum selectedRangePreset,  List<MemorySearchRangeSectionEnum> customRangeSections,  bool isLittleEndian,  MemoryToolSearchValidationError? validationError)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _MemoryToolSearchState() when $default != null:
-return $default(_that.value,_that.selectedValueCategory,_that.selectedValueTypeOption,_that.selectedRangePreset,_that.customRangeSections,_that.isLittleEndian,_that.validationError);case _:
+return $default(_that.value,_that.selectedMatchMode,_that.selectedFuzzyMode,_that.selectedValueCategory,_that.selectedValueTypeOption,_that.selectedRangePreset,_that.customRangeSections,_that.isLittleEndian,_that.validationError);case _:
   return orElse();
 
 }
@@ -177,10 +179,10 @@ return $default(_that.value,_that.selectedValueCategory,_that.selectedValueTypeO
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String value,  MemorySearchValueCategoryEnum selectedValueCategory,  MemorySearchValueTypeOptionEnum selectedValueTypeOption,  MemorySearchRangePresetEnum selectedRangePreset,  List<MemorySearchRangeSectionEnum> customRangeSections,  bool isLittleEndian,  MemoryToolSearchValidationError? validationError)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String value,  MemorySearchMatchModeEnum selectedMatchMode,  MemorySearchFuzzyModeEnum selectedFuzzyMode,  MemorySearchValueCategoryEnum selectedValueCategory,  MemorySearchValueTypeOptionEnum selectedValueTypeOption,  MemorySearchRangePresetEnum selectedRangePreset,  List<MemorySearchRangeSectionEnum> customRangeSections,  bool isLittleEndian,  MemoryToolSearchValidationError? validationError)  $default,) {final _that = this;
 switch (_that) {
 case _MemoryToolSearchState():
-return $default(_that.value,_that.selectedValueCategory,_that.selectedValueTypeOption,_that.selectedRangePreset,_that.customRangeSections,_that.isLittleEndian,_that.validationError);case _:
+return $default(_that.value,_that.selectedMatchMode,_that.selectedFuzzyMode,_that.selectedValueCategory,_that.selectedValueTypeOption,_that.selectedRangePreset,_that.customRangeSections,_that.isLittleEndian,_that.validationError);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -197,10 +199,10 @@ return $default(_that.value,_that.selectedValueCategory,_that.selectedValueTypeO
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String value,  MemorySearchValueCategoryEnum selectedValueCategory,  MemorySearchValueTypeOptionEnum selectedValueTypeOption,  MemorySearchRangePresetEnum selectedRangePreset,  List<MemorySearchRangeSectionEnum> customRangeSections,  bool isLittleEndian,  MemoryToolSearchValidationError? validationError)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String value,  MemorySearchMatchModeEnum selectedMatchMode,  MemorySearchFuzzyModeEnum selectedFuzzyMode,  MemorySearchValueCategoryEnum selectedValueCategory,  MemorySearchValueTypeOptionEnum selectedValueTypeOption,  MemorySearchRangePresetEnum selectedRangePreset,  List<MemorySearchRangeSectionEnum> customRangeSections,  bool isLittleEndian,  MemoryToolSearchValidationError? validationError)?  $default,) {final _that = this;
 switch (_that) {
 case _MemoryToolSearchState() when $default != null:
-return $default(_that.value,_that.selectedValueCategory,_that.selectedValueTypeOption,_that.selectedRangePreset,_that.customRangeSections,_that.isLittleEndian,_that.validationError);case _:
+return $default(_that.value,_that.selectedMatchMode,_that.selectedFuzzyMode,_that.selectedValueCategory,_that.selectedValueTypeOption,_that.selectedRangePreset,_that.customRangeSections,_that.isLittleEndian,_that.validationError);case _:
   return null;
 
 }
@@ -212,10 +214,12 @@ return $default(_that.value,_that.selectedValueCategory,_that.selectedValueTypeO
 
 
 class _MemoryToolSearchState extends MemoryToolSearchState {
-  const _MemoryToolSearchState({this.value = '', this.selectedValueCategory = MemorySearchValueCategoryEnum.integer, this.selectedValueTypeOption = MemorySearchValueTypeOptionEnum.i32, this.selectedRangePreset = MemorySearchRangePresetEnum.all, final  List<MemorySearchRangeSectionEnum> customRangeSections = const <MemorySearchRangeSectionEnum>[], this.isLittleEndian = true, this.validationError}): _customRangeSections = customRangeSections,super._();
+  const _MemoryToolSearchState({this.value = '', this.selectedMatchMode = MemorySearchMatchModeEnum.exact, this.selectedFuzzyMode = MemorySearchFuzzyModeEnum.unknown, this.selectedValueCategory = MemorySearchValueCategoryEnum.integer, this.selectedValueTypeOption = MemorySearchValueTypeOptionEnum.i32, this.selectedRangePreset = MemorySearchRangePresetEnum.all, final  List<MemorySearchRangeSectionEnum> customRangeSections = const <MemorySearchRangeSectionEnum>[], this.isLittleEndian = true, this.validationError}): _customRangeSections = customRangeSections,super._();
   
 
 @override@JsonKey() final  String value;
+@override@JsonKey() final  MemorySearchMatchModeEnum selectedMatchMode;
+@override@JsonKey() final  MemorySearchFuzzyModeEnum selectedFuzzyMode;
 @override@JsonKey() final  MemorySearchValueCategoryEnum selectedValueCategory;
 @override@JsonKey() final  MemorySearchValueTypeOptionEnum selectedValueTypeOption;
 @override@JsonKey() final  MemorySearchRangePresetEnum selectedRangePreset;
@@ -239,16 +243,16 @@ _$MemoryToolSearchStateCopyWith<_MemoryToolSearchState> get copyWith => __$Memor
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MemoryToolSearchState&&(identical(other.value, value) || other.value == value)&&(identical(other.selectedValueCategory, selectedValueCategory) || other.selectedValueCategory == selectedValueCategory)&&(identical(other.selectedValueTypeOption, selectedValueTypeOption) || other.selectedValueTypeOption == selectedValueTypeOption)&&(identical(other.selectedRangePreset, selectedRangePreset) || other.selectedRangePreset == selectedRangePreset)&&const DeepCollectionEquality().equals(other._customRangeSections, _customRangeSections)&&(identical(other.isLittleEndian, isLittleEndian) || other.isLittleEndian == isLittleEndian)&&(identical(other.validationError, validationError) || other.validationError == validationError));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MemoryToolSearchState&&(identical(other.value, value) || other.value == value)&&(identical(other.selectedMatchMode, selectedMatchMode) || other.selectedMatchMode == selectedMatchMode)&&(identical(other.selectedFuzzyMode, selectedFuzzyMode) || other.selectedFuzzyMode == selectedFuzzyMode)&&(identical(other.selectedValueCategory, selectedValueCategory) || other.selectedValueCategory == selectedValueCategory)&&(identical(other.selectedValueTypeOption, selectedValueTypeOption) || other.selectedValueTypeOption == selectedValueTypeOption)&&(identical(other.selectedRangePreset, selectedRangePreset) || other.selectedRangePreset == selectedRangePreset)&&const DeepCollectionEquality().equals(other._customRangeSections, _customRangeSections)&&(identical(other.isLittleEndian, isLittleEndian) || other.isLittleEndian == isLittleEndian)&&(identical(other.validationError, validationError) || other.validationError == validationError));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,value,selectedValueCategory,selectedValueTypeOption,selectedRangePreset,const DeepCollectionEquality().hash(_customRangeSections),isLittleEndian,validationError);
+int get hashCode => Object.hash(runtimeType,value,selectedMatchMode,selectedFuzzyMode,selectedValueCategory,selectedValueTypeOption,selectedRangePreset,const DeepCollectionEquality().hash(_customRangeSections),isLittleEndian,validationError);
 
 @override
 String toString() {
-  return 'MemoryToolSearchState(value: $value, selectedValueCategory: $selectedValueCategory, selectedValueTypeOption: $selectedValueTypeOption, selectedRangePreset: $selectedRangePreset, customRangeSections: $customRangeSections, isLittleEndian: $isLittleEndian, validationError: $validationError)';
+  return 'MemoryToolSearchState(value: $value, selectedMatchMode: $selectedMatchMode, selectedFuzzyMode: $selectedFuzzyMode, selectedValueCategory: $selectedValueCategory, selectedValueTypeOption: $selectedValueTypeOption, selectedRangePreset: $selectedRangePreset, customRangeSections: $customRangeSections, isLittleEndian: $isLittleEndian, validationError: $validationError)';
 }
 
 
@@ -259,7 +263,7 @@ abstract mixin class _$MemoryToolSearchStateCopyWith<$Res> implements $MemoryToo
   factory _$MemoryToolSearchStateCopyWith(_MemoryToolSearchState value, $Res Function(_MemoryToolSearchState) _then) = __$MemoryToolSearchStateCopyWithImpl;
 @override @useResult
 $Res call({
- String value, MemorySearchValueCategoryEnum selectedValueCategory, MemorySearchValueTypeOptionEnum selectedValueTypeOption, MemorySearchRangePresetEnum selectedRangePreset, List<MemorySearchRangeSectionEnum> customRangeSections, bool isLittleEndian, MemoryToolSearchValidationError? validationError
+ String value, MemorySearchMatchModeEnum selectedMatchMode, MemorySearchFuzzyModeEnum selectedFuzzyMode, MemorySearchValueCategoryEnum selectedValueCategory, MemorySearchValueTypeOptionEnum selectedValueTypeOption, MemorySearchRangePresetEnum selectedRangePreset, List<MemorySearchRangeSectionEnum> customRangeSections, bool isLittleEndian, MemoryToolSearchValidationError? validationError
 });
 
 
@@ -276,10 +280,12 @@ class __$MemoryToolSearchStateCopyWithImpl<$Res>
 
 /// Create a copy of MemoryToolSearchState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? value = null,Object? selectedValueCategory = null,Object? selectedValueTypeOption = null,Object? selectedRangePreset = null,Object? customRangeSections = null,Object? isLittleEndian = null,Object? validationError = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? value = null,Object? selectedMatchMode = null,Object? selectedFuzzyMode = null,Object? selectedValueCategory = null,Object? selectedValueTypeOption = null,Object? selectedRangePreset = null,Object? customRangeSections = null,Object? isLittleEndian = null,Object? validationError = freezed,}) {
   return _then(_MemoryToolSearchState(
 value: null == value ? _self.value : value // ignore: cast_nullable_to_non_nullable
-as String,selectedValueCategory: null == selectedValueCategory ? _self.selectedValueCategory : selectedValueCategory // ignore: cast_nullable_to_non_nullable
+as String,selectedMatchMode: null == selectedMatchMode ? _self.selectedMatchMode : selectedMatchMode // ignore: cast_nullable_to_non_nullable
+as MemorySearchMatchModeEnum,selectedFuzzyMode: null == selectedFuzzyMode ? _self.selectedFuzzyMode : selectedFuzzyMode // ignore: cast_nullable_to_non_nullable
+as MemorySearchFuzzyModeEnum,selectedValueCategory: null == selectedValueCategory ? _self.selectedValueCategory : selectedValueCategory // ignore: cast_nullable_to_non_nullable
 as MemorySearchValueCategoryEnum,selectedValueTypeOption: null == selectedValueTypeOption ? _self.selectedValueTypeOption : selectedValueTypeOption // ignore: cast_nullable_to_non_nullable
 as MemorySearchValueTypeOptionEnum,selectedRangePreset: null == selectedRangePreset ? _self.selectedRangePreset : selectedRangePreset // ignore: cast_nullable_to_non_nullable
 as MemorySearchRangePresetEnum,customRangeSections: null == customRangeSections ? _self._customRangeSections : customRangeSections // ignore: cast_nullable_to_non_nullable

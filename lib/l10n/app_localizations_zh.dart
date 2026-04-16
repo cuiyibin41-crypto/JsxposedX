@@ -1730,6 +1730,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryToolFieldScopePlaceholder => '全部内存';
 
   @override
+  String get memoryToolFieldSearchMode => '搜索模式';
+
+  @override
+  String get memoryToolFieldFuzzyMode => '模糊条件';
+
+  @override
   String get memoryToolFieldValueCategory => '搜索类型';
 
   @override
@@ -1749,6 +1755,30 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get memoryToolSearchExact => '精确搜索';
+
+  @override
+  String get memoryToolSearchFuzzy => '模糊搜索';
+
+  @override
+  String get memoryToolSearchFuzzyUnknown => '未知初值';
+
+  @override
+  String get memoryToolSearchFuzzyUnchanged => '无变化';
+
+  @override
+  String get memoryToolSearchFuzzyChanged => '有变化';
+
+  @override
+  String get memoryToolSearchFuzzyIncreased => '增加了';
+
+  @override
+  String get memoryToolSearchFuzzyDecreased => '减少了';
+
+  @override
+  String get memoryToolSearchFuzzyHint => '模糊首次扫描可不填数值，继续筛选时再输入当前值。';
+
+  @override
+  String get memoryToolSearchFuzzyUnsupportedHint => '模糊搜索目前只支持固定长度数值类型。';
 
   @override
   String get memoryToolSearchBytesHint => '例如 12 34 AB CD';

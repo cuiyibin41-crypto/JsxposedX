@@ -1,4 +1,6 @@
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_fuzzy_mode_enum.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_match_mode_enum.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_range_preset_enum.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_range_section_enum.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/enums/memory_search_value_category_enum.dart';
@@ -41,6 +43,32 @@ String mapMemorySearchValueTypeOptionLabel(
       context.l10n.memoryToolValueTypeAuto,
     MemorySearchValueTypeOptionEnum.text =>
       context.l10n.memoryToolValueTypeText,
+  };
+}
+
+String mapMemorySearchMatchModeLabel(
+  BuildContext context,
+  MemorySearchMatchModeEnum mode,
+) {
+  return switch (mode) {
+    MemorySearchMatchModeEnum.exact => context.l10n.memoryToolSearchExact,
+    MemorySearchMatchModeEnum.fuzzy => context.l10n.memoryToolSearchFuzzy,
+  };
+}
+
+String mapMemorySearchFuzzyModeLabel(
+  BuildContext context,
+  MemorySearchFuzzyModeEnum mode,
+) {
+  final isZh = Localizations.localeOf(context).languageCode.toLowerCase().startsWith(
+    'zh',
+  );
+  return switch (mode) {
+    MemorySearchFuzzyModeEnum.unknown => isZh ? '未知初值' : 'Unknown Initial',
+    MemorySearchFuzzyModeEnum.unchanged => isZh ? '无变化' : 'Unchanged',
+    MemorySearchFuzzyModeEnum.changed => isZh ? '有变化' : 'Changed',
+    MemorySearchFuzzyModeEnum.increased => isZh ? '增加了' : 'Increased',
+    MemorySearchFuzzyModeEnum.decreased => isZh ? '减少了' : 'Decreased',
   };
 }
 
