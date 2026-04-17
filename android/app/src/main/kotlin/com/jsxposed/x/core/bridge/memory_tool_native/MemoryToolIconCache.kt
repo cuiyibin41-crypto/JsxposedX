@@ -8,17 +8,24 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import java.io.ByteArrayOutputStream
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class MemoryToolIconCache(context: Context) {
     private val packageManager = context.packageManager
     private val inMemoryCache = mutableMapOf<String, ByteArray?>()
     private val memoryCacheLock = Any()
+    private val prefetchingPackages = mutableSetOf<String>()
+    private val prefetchLock = Any()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cacheDirectory = File(context.cacheDir, "memory_tool/process_icons").apply {
         mkdirs()
     }
 
     @RequiresApi(Build.VERSION_CODES.P)
-    fun getIconBytes(packageName: String): ByteArray? {
+    fun getCachedIconBytes(packageName: String): ByteArray? {
         synchronized(memoryCacheLock) {
             if (inMemoryCache.containsKey(packageName)) {
                 return inMemoryCache[packageName]
@@ -33,6 +40,38 @@ class MemoryToolIconCache(context: Context) {
             }
             return cachedBytes
         }
+
+        return null
+    }
+
+    @RequiresApi(Build.VERSION_CODES.P)
+    fun prefetchIcon(packageName: String) {
+        synchronized(prefetchLock) {
+            if (prefetchingPackages.contains(packageName)) {
+                return
+            }
+            prefetchingPackages.add(packageName)
+        }
+
+        scope.launch {
+            try {
+                warmIconBytes(packageName)
+            } finally {
+                synchronized(prefetchLock) {
+                    prefetchingPackages.remove(packageName)
+                }
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.P)
+    private fun warmIconBytes(packageName: String): ByteArray? {
+        val cachedBytes = getCachedIconBytes(packageName)
+        if (cachedBytes != null) {
+            return cachedBytes
+        }
+
+        val cacheFile = resolveCacheFile(packageName) ?: return null
 
         val iconBytes = try {
             drawableToByteArray(packageManager.getApplicationIcon(packageName))

@@ -18,16 +18,16 @@ class ProcessInfoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final icon = process.icon;
     final effectiveScale = scale.clamp(0.5, 1.0);
-    final tileHeight = 76.0 * effectiveScale;
+    final tileHeight = 82.0 * effectiveScale;
     final borderRadius = 12.0 * effectiveScale;
-    final iconSize = 28.0 * effectiveScale;
-    final iconRadius = 8.0 * effectiveScale;
+    final iconSize = 38.0 * effectiveScale;
+    final iconRadius = 10.0 * effectiveScale;
     final horizontalPadding = 10.0 * effectiveScale;
     final titleFontSize = 14.0 * effectiveScale;
     final packageFontSize = 11.5 * effectiveScale;
     final pidFontSize = 10.0 * effectiveScale;
-    final gap = 8.0 * effectiveScale;
-    final fallbackIconSize = 16.0 * effectiveScale;
+    final gap = 10.0 * effectiveScale;
+    final fallbackIconSize = 20.0 * effectiveScale;
 
     return Material(
       color: context.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),

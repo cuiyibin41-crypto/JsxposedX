@@ -33,7 +33,6 @@ class MemoryToolOverlay extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     useAutomaticKeepAlive();
-    ref.watch(getProcessInfoProvider(offset: 0, limit: 20));
     final isPickerVisible = useState(false);
     final isProcessTerminatedDialogVisible = useState(false);
     final hasPendingProcessTerminatedDialog = useState(false);
@@ -48,6 +47,16 @@ class MemoryToolOverlay extends HookConsumerWidget {
     final isPortrait = mediaQuery.orientation == Orientation.portrait;
     final portraitTopInset = isPortrait ? mediaQuery.padding.top : 0.0;
 
+    void openProcessPicker() {
+      ref.invalidate(
+        getProcessInfoProvider(
+          offset: 0,
+          limit: MemoryToolProcessPickerDialog.initialPageSize,
+        ),
+      );
+      isPickerVisible.value = true;
+    }
+
     Future<void> handleProcessTerminated() async {
       if (isHandlingProcessTerminated.value) {
         return;
@@ -60,7 +69,9 @@ class MemoryToolOverlay extends HookConsumerWidget {
         } catch (_) {}
 
         try {
-          await ref.read(memorySearchActionProvider.notifier).resetSearchSession();
+          await ref
+              .read(memorySearchActionProvider.notifier)
+              .resetSearchSession();
         } catch (_) {}
 
         ref.read(memoryToolSelectedProcessProvider.notifier).clear();
@@ -192,14 +203,16 @@ class MemoryToolOverlay extends HookConsumerWidget {
           OverlayWindowScaffold(
             overlayConfig: overlayConfig,
             overlayBar: OverlayWindowBar(
-              backgroundColor: context.colorScheme.surface.withValues(alpha: 0.3),
+              backgroundColor: context.colorScheme.surface.withValues(
+                alpha: 0.3,
+              ),
               toolbarHeight: 52.r,
               titleSpacing: 0,
               leadingWidth: 48.r,
               leading: IconButton(
                 padding: EdgeInsets.zero,
                 onPressed: () {
-                  isPickerVisible.value = true;
+                  openProcessPicker();
                 },
                 icon: ProcessAvatar(process: selectedProcess),
               ),
@@ -261,7 +274,12 @@ class MemoryToolOverlay extends HookConsumerWidget {
                   isPickerVisible.value = false;
                 },
                 onRetry: () {
-                  ref.invalidate(getProcessInfoProvider(offset: 0, limit: 20));
+                  ref.invalidate(
+                    getProcessInfoProvider(
+                      offset: 0,
+                      limit: MemoryToolProcessPickerDialog.initialPageSize,
+                    ),
+                  );
                 },
               ),
             ),
@@ -282,5 +300,7 @@ class MemoryToolOverlay extends HookConsumerWidget {
 bool _isProcessUnavailableError(Object error) {
   final normalized = error.toString().toLowerCase();
   return normalized.contains('target process is no longer available') ||
-      normalized.contains('search session target process is no longer available');
+      normalized.contains(
+        'search session target process is no longer available',
+      );
 }

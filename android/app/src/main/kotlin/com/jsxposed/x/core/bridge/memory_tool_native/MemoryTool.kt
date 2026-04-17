@@ -23,7 +23,7 @@ object MemoryToolJni {
 class MemoryTool(private val context: Context) {
     companion object {
         private const val TAG = "MemoryTool"
-        private const val PROCESS_INFO_CACHE_TTL_MS = 2500L
+        private const val PROCESS_INFO_CACHE_TTL_MS = 500L
         private const val FOREGROUND_PACKAGE_CACHE_TTL_MS = 2000L
         private const val ROOT_ACCESS_CACHE_TTL_MS = 15000L
         private const val INSTALLED_PACKAGE_CACHE_TTL_MS = 5 * 60 * 1000L
@@ -38,6 +38,7 @@ class MemoryTool(private val context: Context) {
     private val helperManager = MemoryToolHelperManager(context)
     private val daemonClient = MemoryToolDaemonClient(helperManager)
     private val processCacheLock = Any()
+    private val processCommandLock = Any()
     private val rootAccessCacheLock = Any()
     private val foregroundPackageCacheLock = Any()
     private val installedPackageCacheLock = Any()
@@ -48,6 +49,8 @@ class MemoryTool(private val context: Context) {
     private var installedPackageCache: InstalledPackageCache? = null
     @Volatile
     private var processListCache: ProcessListCache? = null
+    @Volatile
+    private var processListCommand: String? = null
     @Volatile
     private var rootAccessCache: TimedBooleanCache? = null
     @Volatile
@@ -75,11 +78,16 @@ class MemoryTool(private val context: Context) {
         )
 
         return pagedProcesses.map { process ->
+            val cachedIcon = iconCache.getCachedIconBytes(process.packageName)
+            if (cachedIcon == null) {
+                iconCache.prefetchIcon(process.packageName)
+            }
+
             ProcessInfo(
                 pid = process.pid.toLong(),
                 name = process.name,
                 packageName = process.packageName,
-                icon = iconCache.getIconBytes(process.packageName)
+                icon = cachedIcon
             )
         }
     }
@@ -107,21 +115,25 @@ class MemoryTool(private val context: Context) {
             val runningProcessMap = activityManager.runningAppProcesses
                 ?.associateBy { it.pid }
                 .orEmpty()
-            val foregroundPackageName = resolveForegroundPackageName()
             val resolvedProcesses = readProcessEntries()
+                .asSequence()
                 .mapNotNull { rawProcess ->
                     resolveProcess(rawProcess, runningProcessMap[rawProcess.pid])
+                }
+                .filterNot { process ->
+                    process.packageName == context.packageName ||
+                        process.pid == android.os.Process.myPid()
                 }
                 .distinctBy { it.pid }
                 .sortedWith(
                     compareBy<ResolvedProcess>(
-                        { if (it.packageName == foregroundPackageName) 0 else 1 },
                         { if (it.isThirdPartyApp) 0 else 1 },
                         { importanceRank(it.importance) },
                         { it.name.lowercase(Locale.ROOT) },
                         { it.pid }
                     )
                 )
+                .toList()
             processListCache = ProcessListCache(
                 generatedAtMs = synchronizedNow,
                 processes = resolvedProcesses
@@ -214,20 +226,41 @@ class MemoryTool(private val context: Context) {
             return emptyList()
         }
 
-        val commands = listOf(
-            Shell(su = true).execute("ps -A"),
-            Shell(su = true).execute("ps")
-        )
-
-        for (output in commands) {
-            val parsed = parsePsOutput(output)
-            if (parsed.isNotEmpty()) {
-                return parsed
-            }
+        val command = resolveProcessListCommand() ?: return emptyList()
+        val output = Shell(su = true).execute(command)
+        val parsed = parsePsOutput(output)
+        if (parsed.isNotEmpty()) {
+            return parsed
         }
 
         LogX.w(TAG, "getProcessInfo root ps returned empty result")
         return emptyList()
+    }
+
+    private fun resolveProcessListCommand(): String? {
+        val cachedCommand = processListCommand
+        if (cachedCommand != null) {
+            return cachedCommand
+        }
+
+        synchronized(processCommandLock) {
+            val refreshedCommand = processListCommand
+            if (refreshedCommand != null) {
+                return refreshedCommand
+            }
+
+            for (candidate in listOf("ps -A", "ps")) {
+                val output = Shell(su = true).execute(candidate)
+                val parsed = parsePsOutput(output)
+                if (parsed.isNotEmpty()) {
+                    processListCommand = candidate
+                    return candidate
+                }
+            }
+
+            LogX.w(TAG, "failed to resolve supported ps command")
+            return null
+        }
     }
 
     private fun parsePsOutput(output: String): List<RawProcessEntry> {
@@ -294,6 +327,24 @@ class MemoryTool(private val context: Context) {
         )
     }
 
+    private fun resolveRunningProcess(
+        runningProcessInfo: ActivityManager.RunningAppProcessInfo
+    ): ResolvedProcess? {
+        val processName = runningProcessInfo.processName.orEmpty()
+        if (processName.isBlank()) {
+            return null
+        }
+
+        val packageName = resolvePackageName(processName, runningProcessInfo) ?: return null
+        return ResolvedProcess(
+            pid = runningProcessInfo.pid,
+            name = processName,
+            packageName = packageName,
+            importance = runningProcessInfo.importance,
+            isThirdPartyApp = isThirdPartyApp(packageName)
+        )
+    }
+
     private fun resolvePackageName(
         processName: String,
         runningProcessInfo: ActivityManager.RunningAppProcessInfo?
@@ -304,12 +355,16 @@ class MemoryTool(private val context: Context) {
         candidates += baseProcessName
         candidates += processName
         runningProcessInfo?.pkgList?.let { candidates.addAll(it) }
-        runningProcessInfo?.uid?.let { uid ->
-            packageManager.getPackagesForUid(uid)?.let { candidates.addAll(it) }
+        val directMatch = candidates.firstOrNull { candidate ->
+            candidate.isNotBlank() && installedPackages.contains(candidate)
+        }
+        if (directMatch != null) {
+            return directMatch
         }
 
-        return candidates.firstOrNull { candidate ->
-            candidate.isNotBlank() && installedPackages.contains(candidate)
+        val uid = runningProcessInfo?.uid ?: return null
+        return packageManager.getPackagesForUid(uid)?.firstOrNull { packageName ->
+            packageName.isNotBlank() && installedPackages.contains(packageName)
         }
     }
 
@@ -448,12 +503,8 @@ class MemoryTool(private val context: Context) {
                 return refreshedCache.value
             }
 
-            val outputs = listOf(
-                Shell(su = true).execute("dumpsys window windows"),
-                Shell(su = true).execute("dumpsys activity top")
-            )
-
-            for (output in outputs) {
+            for (command in listOf("dumpsys window windows", "dumpsys activity top")) {
+                val output = Shell(su = true).execute(command)
                 val packageName = parseForegroundPackageName(output)
                 if (packageName != null) {
                     foregroundPackageCache = TimedStringCache(
