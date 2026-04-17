@@ -211,6 +211,18 @@ String formatMemoryToolSearchResultAddress(int value) {
   return value.toRadixString(16).toUpperCase();
 }
 
+String formatMemoryToolSearchResultHex(Uint8List rawBytes) {
+  return rawBytes
+      .map((byte) => byte.toRadixString(16).padLeft(2, '0').toUpperCase())
+      .join(' ');
+}
+
+String formatMemoryToolSearchResultReverseHex(Uint8List rawBytes) {
+  return rawBytes.reversed
+      .map((byte) => byte.toRadixString(16).padLeft(2, '0').toUpperCase())
+      .join(' ');
+}
+
 String mapMemoryToolSearchResultTypeLabel({
   required SearchValueType type,
   required String displayValue,
@@ -338,9 +350,7 @@ String _formatBytesDisplayValue(Uint8List rawBytes) {
     return utf16Value;
   }
 
-  return rawBytes
-      .map((byte) => byte.toRadixString(16).padLeft(2, '0').toUpperCase())
-      .join(' ');
+  return formatMemoryToolSearchResultHex(rawBytes);
 }
 
 String? _tryDecodeUtf8(Uint8List rawBytes) {

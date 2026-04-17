@@ -2099,6 +2099,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryToolResultDetailActionCopyValue => 'Copy Value';
 
   @override
+  String get memoryToolResultActionCopyHex => 'Copy Hexadecimal';
+
+  @override
+  String get memoryToolResultActionCopyReverseHex => 'Copy Reverse Hexadecimal';
+
+  @override
   String get memoryToolResultActionTitle => 'More Actions';
 
   @override

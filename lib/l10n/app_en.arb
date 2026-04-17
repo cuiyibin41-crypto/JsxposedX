@@ -974,6 +974,8 @@
   "memoryToolResultDetailActionWatch": "Add to Watch",
   "memoryToolResultDetailActionCopyAddress": "Copy Address",
   "memoryToolResultDetailActionCopyValue": "Copy Value",
+  "memoryToolResultActionCopyHex": "Copy Hexadecimal",
+  "memoryToolResultActionCopyReverseHex": "Copy Reverse Hexadecimal",
   "memoryToolResultActionTitle": "More Actions",
   "memoryToolResultActionSelectCurrent": "Select Current",
   "memoryToolResultActionSelectCurrentHint": "Add the current result to the selection set for later unified actions.",

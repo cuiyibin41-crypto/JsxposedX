@@ -3,13 +3,16 @@ import 'package:JsxposedX/common/pages/toast.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_items_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_search_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_copy_value_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_action_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/states/memory_tool_result_selection_state.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_search_result_presenter.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_tile.dart';
+import 'package:JsxposedX/features/overlay_window/presentation/providers/overlay_window_host_runtime_provider.dart';
 import 'package:JsxposedX/generated/memory_tool.g.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -42,10 +45,19 @@ class MemoryToolSearchResultList extends HookConsumerWidget {
         useState<({SearchResult result, String displayValue})?>(null);
     final activeResultActionDialog =
         useState<({SearchResult result, String displayValue})?>(null);
+    final activeCopyValueDialog =
+        useState<({SearchResult result, String displayValue})?>(null);
     final removedResultNotifier = ref.read(
       memoryToolRemovedResultProvider.notifier,
     );
     final savedItemsNotifier = ref.read(memoryToolSavedItemsProvider.notifier);
+
+    Future<void> copyText(String value) async {
+      final copied = await FlutterOverlayWindow.setClipboardData(value);
+      ref.read(overlayWindowHostRuntimeProvider.notifier).showToast(
+        copied ? context.l10n.codeCopied : context.l10n.error,
+      );
+    }
 
     Future<void> saveResultToSaved(SearchResult result) async {
       final selectedPid = ref.read(memoryToolSelectedProcessProvider)?.pid;
@@ -63,6 +75,10 @@ class MemoryToolSearchResultList extends HookConsumerWidget {
         context.l10n.memoryToolSavedToSavedMessage(1),
         duration: const Duration(milliseconds: 1200),
       );
+    }
+
+    MemoryValuePreview? resolvePreview(SearchResult result) {
+      return livePreviewsAsync.asData?.value[result.address];
     }
 
     return Stack(
@@ -135,9 +151,70 @@ class MemoryToolSearchResultList extends HookConsumerWidget {
                     activeResultActionDialog.value = null;
                   },
                 ),
+                MemoryToolSearchResultActionItemData(
+                  icon: Icons.copy_all_rounded,
+                  title:
+                      '${context.l10n.memoryToolResultDetailActionCopyAddress}: ${formatMemoryToolSearchResultAddress(dialog.result.address)}',
+                  onTap: () async {
+                    await copyText(
+                      formatMemoryToolSearchResultAddress(dialog.result.address),
+                    );
+                    activeResultActionDialog.value = null;
+                  },
+                ),
+                MemoryToolSearchResultActionItemData(
+                  icon: Icons.tune_rounded,
+                  title: context.l10n.memoryToolResultDetailActionCopyValue,
+                  onTap: () async {
+                    activeResultActionDialog.value = null;
+                    activeCopyValueDialog.value = (
+                      result: dialog.result,
+                      displayValue: dialog.displayValue,
+                    );
+                  },
+                ),
+                MemoryToolSearchResultActionItemData(
+                  icon: Icons.data_array_rounded,
+                  title:
+                      '${context.l10n.memoryToolResultActionCopyHex}: ${formatMemoryToolSearchResultHex(resolvePreview(dialog.result)?.rawBytes ?? dialog.result.rawBytes)}',
+                  onTap: () async {
+                    final preview = resolvePreview(dialog.result);
+                    await copyText(
+                      formatMemoryToolSearchResultHex(
+                        preview?.rawBytes ?? dialog.result.rawBytes,
+                      ),
+                    );
+                    activeResultActionDialog.value = null;
+                  },
+                ),
+                MemoryToolSearchResultActionItemData(
+                  icon: Icons.swap_horiz_rounded,
+                  title:
+                      '${context.l10n.memoryToolResultActionCopyReverseHex}: ${formatMemoryToolSearchResultReverseHex(resolvePreview(dialog.result)?.rawBytes ?? dialog.result.rawBytes)}',
+                  onTap: () async {
+                    final preview = resolvePreview(dialog.result);
+                    await copyText(
+                      formatMemoryToolSearchResultReverseHex(
+                        preview?.rawBytes ?? dialog.result.rawBytes,
+                      ),
+                    );
+                    activeResultActionDialog.value = null;
+                  },
+                ),
               ],
               onClose: () {
                 activeResultActionDialog.value = null;
+              },
+            ),
+          ),
+        if (activeCopyValueDialog.value case final dialog?)
+          Positioned.fill(
+            child: MemoryToolCopyValueDialog(
+              result: dialog.result,
+              displayValue: dialog.displayValue,
+              livePreviewsAsync: livePreviewsAsync,
+              onClose: () {
+                activeCopyValueDialog.value = null;
               },
             ),
           ),

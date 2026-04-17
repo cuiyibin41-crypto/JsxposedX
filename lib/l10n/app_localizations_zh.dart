@@ -2057,6 +2057,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryToolResultDetailActionCopyValue => '复制数值';
 
   @override
+  String get memoryToolResultActionCopyHex => '复制十六进制';
+
+  @override
+  String get memoryToolResultActionCopyReverseHex => '复制反十六进制';
+
+  @override
   String get memoryToolResultActionTitle => '更多操作';
 
   @override

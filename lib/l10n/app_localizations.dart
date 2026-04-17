@@ -4070,6 +4070,18 @@ abstract class AppLocalizations {
   /// **'复制数值'**
   String get memoryToolResultDetailActionCopyValue;
 
+  /// No description provided for @memoryToolResultActionCopyHex.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制十六进制'**
+  String get memoryToolResultActionCopyHex;
+
+  /// No description provided for @memoryToolResultActionCopyReverseHex.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制反十六进制'**
+  String get memoryToolResultActionCopyReverseHex;
+
   /// No description provided for @memoryToolResultActionTitle.
   ///
   /// In zh, this message translates to:
