@@ -106,7 +106,6 @@ class MemoryToolPointerTab extends HookConsumerWidget {
     final availableRegionTypeSignature = availableRegionTypeKeys.join(',');
     final selectedRegionTypeSignature = selectedRegionTypeKeys.value.toList()
       ..sort();
-
     useEffect(() {
       final nextSelected = selectedRegionTypeKeys.value
           .where(availableRegionTypeKeys.contains)
@@ -211,16 +210,14 @@ class MemoryToolPointerTab extends HookConsumerWidget {
         Padding(
           padding: EdgeInsets.all(12.r),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              _PointerBreadcrumbRow(
-                state: pointerState,
-                onTapLayer: pointerController.selectLayer,
-              ),
               if (currentLayer != null) ...<Widget>[
-                SizedBox(height: 10.r),
-                _PointerFilterPanel(
-                  selectedRegionTypeKeys: selectedRegionTypeKeys.value,
+                _PointerHeaderPanel(
+                  state: pointerState,
                   availableRegionTypeKeys: availableRegionTypeKeys,
+                  selectedRegionTypeKeys: selectedRegionTypeKeys.value,
+                  onTapLayer: pointerController.selectLayer,
                   onToggleRegionTypeKey: (regionTypeKey) {
                     final nextSelected = Set<String>.from(
                       selectedRegionTypeKeys.value,
@@ -237,7 +234,7 @@ class MemoryToolPointerTab extends HookConsumerWidget {
                   },
                 ),
               ],
-              SizedBox(height: 10.r),
+              SizedBox(height: currentLayer == null ? 0 : 6.r),
               Expanded(
                 child: currentLayer == null
                     ? const SizedBox.shrink()
@@ -349,6 +346,61 @@ class MemoryToolPointerTab extends HookConsumerWidget {
   }
 }
 
+class _PointerHeaderPanel extends StatelessWidget {
+  const _PointerHeaderPanel({
+    required this.state,
+    required this.availableRegionTypeKeys,
+    required this.selectedRegionTypeKeys,
+    required this.onTapLayer,
+    required this.onToggleRegionTypeKey,
+    required this.onClearRegionFilters,
+  });
+
+  final MemoryToolPointerState state;
+  final List<String> availableRegionTypeKeys;
+  final Set<String> selectedRegionTypeKeys;
+  final ValueChanged<int> onTapLayer;
+  final ValueChanged<String> onToggleRegionTypeKey;
+  final VoidCallback onClearRegionFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: context.colorScheme.surface.withValues(alpha: 0.86),
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(
+            color: context.colorScheme.outlineVariant.withValues(alpha: 0.38),
+          ),
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(10.r, 10.r, 10.r, 10.r),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              _PointerBreadcrumbRow(
+                state: state,
+                onTapLayer: onTapLayer,
+              ),
+              if (availableRegionTypeKeys.isNotEmpty) ...<Widget>[
+                SizedBox(height: 8.r),
+                _PointerFilterPanel(
+                  selectedRegionTypeKeys: selectedRegionTypeKeys,
+                  availableRegionTypeKeys: availableRegionTypeKeys,
+                  onToggleRegionTypeKey: onToggleRegionTypeKey,
+                  onClearRegionFilters: onClearRegionFilters,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PointerBreadcrumbRow extends StatelessWidget {
   const _PointerBreadcrumbRow({
     required this.state,
@@ -367,12 +419,13 @@ class _PointerBreadcrumbRow extends StatelessWidget {
           final layer = state.layers[index];
           final selected = index == state.currentLayerIndex;
           return Padding(
-            padding: EdgeInsets.only(right: 8.r),
+            padding: EdgeInsets.only(right: 6.r),
             child: ChoiceChip(
               label: Text(
                 'L$index ${formatMemoryToolSearchResultAddress(layer.request.targetAddress)}',
               ),
               selected: selected,
+              visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
               onSelected: (_) {
                 onTapLayer(index);
               },
@@ -478,29 +531,30 @@ class _PointerFilterPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: context.colorScheme.surface.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(
-          color: context.colorScheme.outlineVariant.withValues(alpha: 0.38),
-        ),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(10.r),
-        child: Wrap(
-          spacing: 8.r,
-          runSpacing: 8.r,
-          children: <Widget>[
-            ChoiceChip(
+    if (availableRegionTypeKeys.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: <Widget>[
+          Padding(
+            padding: EdgeInsets.only(right: 6.r),
+            child: ChoiceChip(
+              visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
               label: Text(context.l10n.memoryToolRangePresetAll),
               selected: selectedRegionTypeKeys.isEmpty,
               onSelected: (_) {
                 onClearRegionFilters();
               },
             ),
-            ...availableRegionTypeKeys.map((regionTypeKey) {
-              return FilterChip(
+          ),
+          ...availableRegionTypeKeys.map((regionTypeKey) {
+            return Padding(
+              padding: EdgeInsets.only(right: 6.r),
+              child: FilterChip(
+                visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
                 label: Text(
                   mapMemoryToolSearchResultRegionTypeLabel(
                     context,
@@ -511,10 +565,10 @@ class _PointerFilterPanel extends StatelessWidget {
                 onSelected: (_) {
                   onToggleRegionTypeKey(regionTypeKey);
                 },
-              );
-            }),
-          ],
-        ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
