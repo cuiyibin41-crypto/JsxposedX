@@ -12,6 +12,7 @@ class MemoryToolSearchResultTile extends StatelessWidget {
     required this.displayValue,
     this.previousDisplayValue,
     this.isFrozen = false,
+    this.isAnchor = false,
     required this.isSelected,
     required this.onToggleSelection,
     required this.onDeleteRecord,
@@ -23,6 +24,7 @@ class MemoryToolSearchResultTile extends StatelessWidget {
   final String displayValue;
   final String? previousDisplayValue;
   final bool isFrozen;
+  final bool isAnchor;
   final bool isSelected;
   final VoidCallback onToggleSelection;
   final VoidCallback onDeleteRecord;
@@ -51,9 +53,12 @@ class MemoryToolSearchResultTile extends StatelessWidget {
                 : context.colorScheme.surface.withValues(alpha: 0.72),
             borderRadius: BorderRadius.circular(14.r),
             border: Border.all(
-              color: isSelected
+              color: isAnchor
+                  ? const Color(0xFFF08C2B)
+                  : isSelected
                   ? context.colorScheme.primary
                   : context.colorScheme.outlineVariant.withValues(alpha: 0.42),
+              width: isAnchor ? 1.6 : 1,
             ),
           ),
           padding: EdgeInsets.all(12.r),

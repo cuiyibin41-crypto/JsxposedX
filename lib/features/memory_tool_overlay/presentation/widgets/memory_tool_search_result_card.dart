@@ -3,6 +3,7 @@ import 'package:JsxposedX/common/widgets/loading.dart';
 import 'package:JsxposedX/common/widgets/ref_error.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_action_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_browse_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_items_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_search_provider.dart';
@@ -25,12 +26,14 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
     required this.sessionStateAsync,
     required this.onRetry,
     required this.onOpenSearch,
+    required this.onOpenBrowseTab,
   });
 
   final bool hasMatchingSession;
   final AsyncValue<SearchSessionState> sessionStateAsync;
   final VoidCallback onRetry;
   final VoidCallback onOpenSearch;
+  final VoidCallback onOpenBrowseTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -283,14 +286,34 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
                           return MemoryToolSearchResultList(
                             listStorageKey: listStorageKey,
                             results: visibleResults,
-                            selectionState: selectionState,
-                            selectionNotifier: selectionNotifier,
+                            isSelected: selectionState.contains,
+                            onToggleSelection: selectionNotifier.toggle,
+                            onDeleteResult: (result) {
+                              selectionNotifier.removeAddress(result.address);
+                              removedResultNotifier.remove(result.address);
+                            },
                             livePreviewsAsync: livePreviewsAsync,
                             previousValueByAddress: previousValueByAddress,
                             processPid: selectedPid,
                             initialFrozenStateByAddress: <int, bool>{
                               for (final address in frozenAddresses)
                                 address: true,
+                            },
+                            onPreviewMemoryBlock: (
+                              result,
+                              preview,
+                              displayValue,
+                            ) async {
+                              onOpenBrowseTab();
+                              await ref
+                                  .read(
+                                    memoryToolBrowseControllerProvider.notifier,
+                                  )
+                                  .previewFromSearchResult(
+                                    result: result,
+                                    preview: preview,
+                                    displayValue: displayValue,
+                                  );
                             },
                           );
                         },
@@ -301,14 +324,35 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
                             return MemoryToolSearchResultList(
                               listStorageKey: listStorageKey,
                               results: visibleResults,
-                              selectionState: selectionState,
-                              selectionNotifier: selectionNotifier,
+                              isSelected: selectionState.contains,
+                              onToggleSelection: selectionNotifier.toggle,
+                              onDeleteResult: (result) {
+                                selectionNotifier.removeAddress(result.address);
+                                removedResultNotifier.remove(result.address);
+                              },
                               livePreviewsAsync: livePreviewsAsync,
                               previousValueByAddress: previousValueByAddress,
                               processPid: selectedPid,
                               initialFrozenStateByAddress: <int, bool>{
                                 for (final address in frozenAddresses)
                                   address: true,
+                              },
+                              onPreviewMemoryBlock: (
+                                result,
+                                preview,
+                                displayValue,
+                              ) async {
+                                onOpenBrowseTab();
+                                await ref
+                                    .read(
+                                      memoryToolBrowseControllerProvider
+                                          .notifier,
+                                    )
+                                    .previewFromSearchResult(
+                                      result: result,
+                                      preview: preview,
+                                      displayValue: displayValue,
+                                    );
                               },
                             );
                           }

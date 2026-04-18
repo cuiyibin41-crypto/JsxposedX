@@ -1,6 +1,7 @@
 import 'package:JsxposedX/features/memory_tool_overlay/data/datasources/memory_action_datasource.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/data/repositories/memory_action_repository_impl.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/domain/repositories/memory_action_repository.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_browse_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_items_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/states/memory_tool_value_history_state.dart';
@@ -308,6 +309,7 @@ class MemoryValueAction extends _$MemoryValueAction {
   void _invalidateValueQueries() {
     ref.invalidate(readMemoryValuesProvider);
     ref.invalidate(currentSearchResultLivePreviewsProvider);
+    ref.invalidate(currentBrowseResultLivePreviewsProvider);
     ref.invalidate(currentSavedItemLivePreviewsProvider);
     ref.invalidate(currentFrozenMemoryValuesProvider);
   }

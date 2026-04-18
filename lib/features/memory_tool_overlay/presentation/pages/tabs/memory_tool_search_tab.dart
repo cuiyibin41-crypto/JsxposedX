@@ -15,7 +15,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class MemoryToolSearchTab extends HookConsumerWidget {
-  const MemoryToolSearchTab({super.key});
+  const MemoryToolSearchTab({
+    super.key,
+    required this.onOpenBrowseTab,
+  });
+
+  final VoidCallback onOpenBrowseTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -116,6 +121,7 @@ class MemoryToolSearchTab extends HookConsumerWidget {
       onOpenSearch: () {
         isSearchDialogVisible.value = true;
       },
+      onOpenBrowseTab: onOpenBrowseTab,
     );
 
     return LayoutBuilder(

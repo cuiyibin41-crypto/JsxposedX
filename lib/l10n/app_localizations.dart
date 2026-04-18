@@ -3332,6 +3332,12 @@ abstract class AppLocalizations {
   /// **'搜索'**
   String get memoryToolTabSearch;
 
+  /// No description provided for @memoryToolTabBrowse.
+  ///
+  /// In zh, this message translates to:
+  /// **'浏览'**
+  String get memoryToolTabBrowse;
+
   /// No description provided for @memoryToolTabEdit.
   ///
   /// In zh, this message translates to:
@@ -4070,6 +4076,12 @@ abstract class AppLocalizations {
   /// **'复制数值'**
   String get memoryToolResultDetailActionCopyValue;
 
+  /// No description provided for @memoryToolResultActionPreviewMemoryBlock.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览内存块'**
+  String get memoryToolResultActionPreviewMemoryBlock;
+
   /// No description provided for @memoryToolResultActionCopyHex.
   ///
   /// In zh, this message translates to:
@@ -4081,6 +4093,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'复制反十六进制'**
   String get memoryToolResultActionCopyReverseHex;
+
+  /// No description provided for @memoryToolBrowseEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'从搜索结果长按并选择预览内存块'**
+  String get memoryToolBrowseEmpty;
 
   /// No description provided for @memoryToolResultActionTitle.
   ///

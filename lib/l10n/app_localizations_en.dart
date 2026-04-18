@@ -1713,6 +1713,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryToolTabSearch => 'Search';
 
   @override
+  String get memoryToolTabBrowse => 'Browse';
+
+  @override
   String get memoryToolTabEdit => 'Edit';
 
   @override
@@ -2099,10 +2102,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryToolResultDetailActionCopyValue => 'Copy Value';
 
   @override
+  String get memoryToolResultActionPreviewMemoryBlock => 'Preview Memory Block';
+
+  @override
   String get memoryToolResultActionCopyHex => 'Copy Hexadecimal';
 
   @override
   String get memoryToolResultActionCopyReverseHex => 'Copy Reverse Hexadecimal';
+
+  @override
+  String get memoryToolBrowseEmpty =>
+      'Long press a search result and choose Preview Memory Block.';
 
   @override
   String get memoryToolResultActionTitle => 'More Actions';

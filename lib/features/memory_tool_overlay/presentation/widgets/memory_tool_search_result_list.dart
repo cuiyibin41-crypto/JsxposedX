@@ -1,12 +1,10 @@
-import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/common/pages/toast.dart';
+import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_items_provider.dart';
-import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_search_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_search_result_presenter.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_copy_value_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_action_dialog.dart';
-import 'package:JsxposedX/features/memory_tool_overlay/presentation/states/memory_tool_result_selection_state.dart';
-import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_search_result_presenter.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_tile.dart';
 import 'package:JsxposedX/features/overlay_window/presentation/providers/overlay_window_host_runtime_provider.dart';
@@ -22,22 +20,36 @@ class MemoryToolSearchResultList extends HookConsumerWidget {
     super.key,
     required this.listStorageKey,
     required this.results,
-    required this.selectionState,
-    required this.selectionNotifier,
+    required this.isSelected,
+    required this.onToggleSelection,
+    required this.onDeleteResult,
     required this.livePreviewsAsync,
     required this.previousValueByAddress,
     this.processPid,
     this.initialFrozenStateByAddress = const <int, bool>{},
+    this.highlightedAddress,
+    this.scrollController,
+    this.onPreviewMemoryBlock,
+    this.itemKeyBuilder,
   });
 
   final PageStorageKey<String> listStorageKey;
   final List<SearchResult> results;
-  final MemoryToolResultSelectionState selectionState;
-  final MemoryToolResultSelection selectionNotifier;
+  final bool Function(int address) isSelected;
+  final void Function(SearchResult result) onToggleSelection;
+  final void Function(SearchResult result) onDeleteResult;
   final AsyncValue<Map<int, MemoryValuePreview>> livePreviewsAsync;
   final Map<int, String> previousValueByAddress;
   final int? processPid;
   final Map<int, bool> initialFrozenStateByAddress;
+  final int? highlightedAddress;
+  final ScrollController? scrollController;
+  final Key? Function(SearchResult result)? itemKeyBuilder;
+  final Future<void> Function(
+    SearchResult result,
+    MemoryValuePreview? preview,
+    String displayValue,
+  )? onPreviewMemoryBlock;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -47,9 +59,6 @@ class MemoryToolSearchResultList extends HookConsumerWidget {
         useState<({SearchResult result, String displayValue})?>(null);
     final activeCopyValueDialog =
         useState<({SearchResult result, String displayValue})?>(null);
-    final removedResultNotifier = ref.read(
-      memoryToolRemovedResultProvider.notifier,
-    );
     final savedItemsNotifier = ref.read(memoryToolSavedItemsProvider.notifier);
 
     Future<void> copyText(String value) async {
@@ -85,6 +94,7 @@ class MemoryToolSearchResultList extends HookConsumerWidget {
       children: <Widget>[
         ListView.separated(
           key: listStorageKey,
+          controller: scrollController,
           padding: EdgeInsets.zero,
           itemCount: results.length,
           separatorBuilder: (_, index) =>
@@ -96,17 +106,18 @@ class MemoryToolSearchResultList extends HookConsumerWidget {
               livePreviewsAsync: livePreviewsAsync,
             );
             return MemoryToolSearchResultTile(
+              key: itemKeyBuilder?.call(result),
               result: result,
               displayValue: displayValue,
               previousDisplayValue: previousValueByAddress[result.address],
               isFrozen: initialFrozenStateByAddress[result.address] ?? false,
-              isSelected: selectionState.contains(result.address),
+              isAnchor: highlightedAddress == result.address,
+              isSelected: isSelected(result.address),
               onToggleSelection: () {
-                selectionNotifier.toggle(result);
+                onToggleSelection(result);
               },
               onDeleteRecord: () {
-                selectionNotifier.removeAddress(result.address);
-                removedResultNotifier.remove(result.address);
+                onDeleteResult(result);
               },
               onTap: () {
                 activeResultActionDialog.value = null;
@@ -173,6 +184,19 @@ class MemoryToolSearchResultList extends HookConsumerWidget {
                     );
                   },
                 ),
+                if (onPreviewMemoryBlock != null)
+                  MemoryToolSearchResultActionItemData(
+                    icon: Icons.preview_rounded,
+                    title: context.l10n.memoryToolResultActionPreviewMemoryBlock,
+                    onTap: () async {
+                      await onPreviewMemoryBlock!(
+                        dialog.result,
+                        resolvePreview(dialog.result),
+                        dialog.displayValue,
+                      );
+                      activeResultActionDialog.value = null;
+                    },
+                  ),
                 MemoryToolSearchResultActionItemData(
                   icon: Icons.data_array_rounded,
                   title:

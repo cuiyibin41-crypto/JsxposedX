@@ -1688,6 +1688,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryToolTabSearch => '搜索';
 
   @override
+  String get memoryToolTabBrowse => '浏览';
+
+  @override
   String get memoryToolTabEdit => '修改';
 
   @override
@@ -2057,10 +2060,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryToolResultDetailActionCopyValue => '复制数值';
 
   @override
+  String get memoryToolResultActionPreviewMemoryBlock => '预览内存块';
+
+  @override
   String get memoryToolResultActionCopyHex => '复制十六进制';
 
   @override
   String get memoryToolResultActionCopyReverseHex => '复制反十六进制';
+
+  @override
+  String get memoryToolBrowseEmpty => '从搜索结果长按并选择预览内存块';
 
   @override
   String get memoryToolResultActionTitle => '更多操作';

@@ -2,6 +2,7 @@ import 'package:JsxposedX/common/widgets/overlay_window/overlay_window.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_action_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/tabs/memory_tool_browse_tab.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_browse_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_search_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_process_terminated_dialog.dart';
@@ -34,6 +35,7 @@ class MemoryToolOverlay extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     useAutomaticKeepAlive();
+    final tabController = useTabController(initialLength: 4);
     final isPickerVisible = useState(false);
     final isProcessTerminatedDialogVisible = useState(false);
     final hasPendingProcessTerminatedDialog = useState(false);
@@ -83,6 +85,9 @@ class MemoryToolOverlay extends HookConsumerWidget {
         ref.invalidate(getSearchResultsProvider);
         ref.invalidate(currentSearchResultsProvider);
         ref.invalidate(currentSearchResultLivePreviewsProvider);
+        ref.read(memoryToolBrowseControllerProvider.notifier).clear();
+        ref.invalidate(currentBrowseResultsProvider);
+        ref.invalidate(currentBrowseResultLivePreviewsProvider);
         ref.invalidate(hasMatchingSearchSessionProvider);
         ref.invalidate(hasRunningSearchTaskProvider);
 
@@ -197,11 +202,9 @@ class MemoryToolOverlay extends HookConsumerWidget {
       };
     }, [isPanelVisible, selectedProcess?.packageName, selectedProcess?.pid]);
 
-    return DefaultTabController(
-      length: 4,
-      child: Stack(
-        children: [
-          OverlayWindowScaffold(
+    return Stack(
+      children: [
+        OverlayWindowScaffold(
             overlayConfig: overlayConfig,
             overlayBar: OverlayWindowBar(
               backgroundColor: context.colorScheme.surface.withValues(
@@ -218,6 +221,7 @@ class MemoryToolOverlay extends HookConsumerWidget {
                 icon: ProcessAvatar(process: selectedProcess),
               ),
               title: TabBar(
+                controller: tabController,
                 dividerColor: Colors.transparent,
                 indicatorSize: TabBarIndicatorSize.tab,
                 indicator: BoxDecoration(
@@ -231,7 +235,7 @@ class MemoryToolOverlay extends HookConsumerWidget {
                 ),
                 tabs: <Widget>[
                   Tab(text: context.l10n.memoryToolTabSearch),
-                  const Tab(text: '浏览'),
+                  Tab(text: context.l10n.memoryToolTabBrowse),
                   Tab(text: context.l10n.memoryToolTabEdit),
                   Tab(text: context.l10n.memoryToolTabSaved),
                 ],
@@ -254,12 +258,17 @@ class MemoryToolOverlay extends HookConsumerWidget {
                         ),
                       ),
                     )
-                  : const TabBarView(
+                  : TabBarView(
+                      controller: tabController,
                       children: <Widget>[
-                        MemoryToolSearchTab(),
-                        MemoryToolBrowseTab(),
-                        MemoryToolEditTab(),
-                        MemoryToolSavedTab(),
+                        MemoryToolSearchTab(
+                          onOpenBrowseTab: () {
+                            tabController.animateTo(1);
+                          },
+                        ),
+                        const MemoryToolBrowseTab(),
+                        const MemoryToolEditTab(),
+                        const MemoryToolSavedTab(),
                       ],
                     ),
             ),
@@ -271,6 +280,7 @@ class MemoryToolOverlay extends HookConsumerWidget {
                   isPickerVisible.value = false;
                 },
                 onSelected: (process) {
+                  ref.read(memoryToolBrowseControllerProvider.notifier).clear();
                   ref
                       .read(memoryToolSelectedProcessProvider.notifier)
                       .select(process);
@@ -294,8 +304,7 @@ class MemoryToolOverlay extends HookConsumerWidget {
                 },
               ),
             ),
-        ],
-      ),
+      ],
     );
   }
 }
