@@ -20,4 +20,15 @@ void SearchSession::Clear() {
     results.clear();
 }
 
+void PointerScanSession::Clear() {
+    has_active_session = false;
+    pid = 0;
+    target_address = 0;
+    pointer_width = 0;
+    max_offset = 0;
+    alignment = 0;
+    regions.clear();
+    results.clear();
+}
+
 }  // namespace memory_tool

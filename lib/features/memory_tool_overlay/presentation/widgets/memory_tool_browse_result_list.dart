@@ -2,14 +2,17 @@ import 'package:JsxposedX/common/pages/toast.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_items_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_pointer_utils.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_search_result_presenter.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_copy_value_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_offset_preview_dialog.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_pointer_scan_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_action_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_tile.dart';
 import 'package:JsxposedX/features/overlay_window/presentation/providers/overlay_window_host_runtime_provider.dart';
-import 'package:JsxposedX/generated/memory_tool.g.dart';
+import 'package:JsxposedX/generated/memory_tool.g.dart'
+    show MemoryValuePreview, PointerScanRequest, SearchResult;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
@@ -32,6 +35,7 @@ class MemoryToolBrowseResultList extends HookConsumerWidget {
     this.processPid,
     this.initialFrozenStateByAddress = const <int, bool>{},
     this.onPreviewMemoryAddress,
+    this.onStartPointerScan,
   });
 
   final PageStorageKey<String> listStorageKey;
@@ -51,6 +55,7 @@ class MemoryToolBrowseResultList extends HookConsumerWidget {
     String displayValue,
     int targetAddress,
   )? onPreviewMemoryAddress;
+  final Future<void> Function(PointerScanRequest request)? onStartPointerScan;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -62,6 +67,7 @@ class MemoryToolBrowseResultList extends HookConsumerWidget {
         useState<({SearchResult result, String displayValue})?>(null);
     final activeOffsetPreviewDialog =
         useState<({SearchResult result, String displayValue})?>(null);
+    final activePointerScanDialog = useState<SearchResult?>(null);
     final anchorExtent = useState<double>(94.r);
     final centerSliverKey = useMemoized(
       () => GlobalKey(debugLabel: 'memory_tool_browse_center_$focusRequestId'),
@@ -222,6 +228,40 @@ class MemoryToolBrowseResultList extends HookConsumerWidget {
           Positioned.fill(
             child: MemoryToolSearchResultActionDialog(
               actions: <MemoryToolSearchResultActionItemData>[
+                if (onStartPointerScan != null && processPid != null)
+                  MemoryToolSearchResultActionItemData(
+                    icon: Icons.account_tree_rounded,
+                    title: context.l10n.memoryToolResultActionPointerScan,
+                    onTap: () async {
+                      activeResultActionDialog.value = null;
+                      activePointerScanDialog.value = dialog.result;
+                    },
+                  ),
+                if (onPreviewMemoryAddress != null &&
+                    canInterpretMemoryToolPointer(
+                      resolvePreview(dialog.result)?.rawBytes ??
+                          dialog.result.rawBytes,
+                    ))
+                  MemoryToolSearchResultActionItemData(
+                    icon: Icons.subdirectory_arrow_right_rounded,
+                    title: context.l10n.memoryToolResultActionJumpToPointer,
+                    onTap: () async {
+                      final targetAddress = decodeMemoryToolPointerAddress(
+                        resolvePreview(dialog.result)?.rawBytes ??
+                            dialog.result.rawBytes,
+                      );
+                      if (targetAddress == null) {
+                        return;
+                      }
+                      await onPreviewMemoryAddress!(
+                        dialog.result,
+                        resolvePreview(dialog.result),
+                        dialog.displayValue,
+                        targetAddress,
+                      );
+                      activeResultActionDialog.value = null;
+                    },
+                  ),
                 if (onPreviewMemoryAddress != null)
                   MemoryToolSearchResultActionItemData(
                     icon: Icons.calculate_rounded,
@@ -295,6 +335,19 @@ class MemoryToolBrowseResultList extends HookConsumerWidget {
               ],
               onClose: () {
                 activeResultActionDialog.value = null;
+              },
+            ),
+          ),
+        if (activePointerScanDialog.value case final result?)
+          Positioned.fill(
+            child: MemoryToolPointerScanDialog(
+              pid: processPid!,
+              targetAddress: result.address,
+              onConfirm: (request) async {
+                await onStartPointerScan!(request);
+              },
+              onClose: () {
+                activePointerScanDialog.value = null;
               },
             ),
           ),

@@ -2,11 +2,14 @@ import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/models/memory_tool_saved_item.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_action_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_browse_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_pointer_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_items_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_pointer_utils.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_batch_edit_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_copy_value_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_offset_preview_dialog.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_pointer_scan_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_calculator_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_selection_bar.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_stats_bar.dart';
@@ -15,7 +18,8 @@ import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memo
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_tile.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_search_result_presenter.dart';
 import 'package:JsxposedX/features/overlay_window/presentation/providers/overlay_window_host_runtime_provider.dart';
-import 'package:JsxposedX/generated/memory_tool.g.dart';
+import 'package:JsxposedX/generated/memory_tool.g.dart'
+    show MemoryValuePreview, PointerScanRequest, SearchResult;
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -26,9 +30,11 @@ class MemoryToolSavedTab extends HookConsumerWidget {
   const MemoryToolSavedTab({
     super.key,
     required this.onOpenBrowseTab,
+    required this.onOpenPointerTab,
   });
 
   final VoidCallback onOpenBrowseTab;
+  final VoidCallback onOpenPointerTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -41,6 +47,7 @@ class MemoryToolSavedTab extends HookConsumerWidget {
     );
     final savedItemsNotifier = ref.read(memoryToolSavedItemsProvider.notifier);
     final browseNotifier = ref.read(memoryToolBrowseControllerProvider.notifier);
+    final pointerNotifier = ref.read(memoryToolPointerControllerProvider.notifier);
     final livePreviewsAsync = ref.watch(currentSavedItemLivePreviewsProvider);
     final frozenValuesAsync = ref.watch(currentFrozenMemoryValuesProvider);
     final valueHistoryState = ref.watch(memoryValueHistoryProvider);
@@ -55,6 +62,7 @@ class MemoryToolSavedTab extends HookConsumerWidget {
         useState<({MemoryToolSavedItem item, String displayValue})?>(null);
     final activeOffsetPreviewDialog =
         useState<({MemoryToolSavedItem item, String displayValue})?>(null);
+    final activePointerScanDialog = useState<MemoryToolSavedItem?>(null);
 
     useEffect(() {
       selectionNotifier.retainVisible(
@@ -292,6 +300,38 @@ class MemoryToolSavedTab extends HookConsumerWidget {
             child: MemoryToolSearchResultActionDialog(
               actions: <MemoryToolSearchResultActionItemData>[
                 MemoryToolSearchResultActionItemData(
+                  icon: Icons.account_tree_rounded,
+                  title: context.l10n.memoryToolResultActionPointerScan,
+                  onTap: () async {
+                    activeActionDialog.value = null;
+                    activePointerScanDialog.value = dialog.item;
+                  },
+                ),
+                if (canInterpretMemoryToolPointer(
+                  previewMap[dialog.item.address]?.rawBytes ?? dialog.item.rawBytes,
+                ))
+                  MemoryToolSearchResultActionItemData(
+                    icon: Icons.subdirectory_arrow_right_rounded,
+                    title: context.l10n.memoryToolResultActionJumpToPointer,
+                    onTap: () async {
+                      final targetAddress = decodeMemoryToolPointerAddress(
+                        previewMap[dialog.item.address]?.rawBytes ??
+                            dialog.item.rawBytes,
+                      );
+                      if (targetAddress == null) {
+                        return;
+                      }
+                      onOpenBrowseTab();
+                      await browseNotifier.previewFromAddress(
+                        sourceResult: dialog.item.toSearchResult(),
+                        sourcePreview: previewMap[dialog.item.address],
+                        sourceDisplayValue: dialog.displayValue,
+                        targetAddress: targetAddress,
+                      );
+                      activeActionDialog.value = null;
+                    },
+                  ),
+                MemoryToolSearchResultActionItemData(
                   icon: Icons.preview_rounded,
                   title: context.l10n.memoryToolResultActionPreviewMemoryBlock,
                   onTap: () async {
@@ -368,6 +408,20 @@ class MemoryToolSavedTab extends HookConsumerWidget {
               ],
               onClose: () {
                 activeActionDialog.value = null;
+              },
+            ),
+          ),
+        if (activePointerScanDialog.value case final item?)
+          Positioned.fill(
+            child: MemoryToolPointerScanDialog(
+              pid: item.pid,
+              targetAddress: item.address,
+              onConfirm: (request) async {
+                onOpenPointerTab();
+                await pointerNotifier.startRootScan(request: request);
+              },
+              onClose: () {
+                activePointerScanDialog.value = null;
               },
             ),
           ),

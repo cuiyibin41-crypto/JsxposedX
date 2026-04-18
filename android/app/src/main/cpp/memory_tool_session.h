@@ -83,6 +83,15 @@ struct SearchResultView {
     std::string display_value;
 };
 
+struct PointerScanResultEntry {
+    uint64_t pointer_address = 0;
+    uint64_t base_address = 0;
+    uint64_t target_address = 0;
+    uint64_t offset = 0;
+    uint64_t region_start = 0;
+    std::string region_type_key;
+};
+
 struct MemoryReadRequest {
     uint64_t address = 0;
     SearchValueType type = SearchValueType::kI32;
@@ -141,6 +150,32 @@ struct SearchTaskStateView {
     std::string message;
 };
 
+struct PointerScanSessionStateView {
+    bool has_active_session = false;
+    int pid = 0;
+    uint64_t target_address = 0;
+    size_t pointer_width = 0;
+    uint64_t max_offset = 0;
+    size_t alignment = 0;
+    size_t region_count = 0;
+    size_t result_count = 0;
+};
+
+struct PointerScanTaskStateView {
+    SearchTaskStatus status = SearchTaskStatus::kIdle;
+    int pid = 0;
+    size_t processed_region_count = 0;
+    size_t total_region_count = 0;
+    size_t processed_entry_count = 0;
+    size_t total_entry_count = 0;
+    uint64_t processed_byte_count = 0;
+    uint64_t total_byte_count = 0;
+    size_t result_count = 0;
+    uint64_t elapsed_milliseconds = 0;
+    bool can_cancel = false;
+    std::string message;
+};
+
 struct FuzzyCandidate {
     uint64_t address = 0;
     uint64_t region_start = 0;
@@ -169,6 +204,19 @@ struct SearchSession {
     std::shared_ptr<std::vector<FuzzyInitialRegion>> fuzzy_initial_regions;
     std::shared_ptr<std::vector<FuzzyCandidate>> fuzzy_candidates;
     std::vector<SearchResultEntry> results;
+
+    void Clear();
+};
+
+struct PointerScanSession {
+    bool has_active_session = false;
+    int pid = 0;
+    uint64_t target_address = 0;
+    size_t pointer_width = 0;
+    uint64_t max_offset = 0;
+    size_t alignment = 0;
+    std::vector<MemoryRegion> regions;
+    std::vector<PointerScanResultEntry> results;
 
     void Clear();
 };

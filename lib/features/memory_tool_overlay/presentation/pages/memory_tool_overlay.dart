@@ -2,7 +2,11 @@ import 'package:JsxposedX/common/widgets/overlay_window/overlay_window.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_action_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/tabs/memory_tool_browse_tab.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/tabs/memory_tool_pointer_tab.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_browse_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_pointer_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_pointer_action_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_pointer_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_search_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_process_terminated_dialog.dart';
@@ -35,7 +39,7 @@ class MemoryToolOverlay extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     useAutomaticKeepAlive();
-    final tabController = useTabController(initialLength: 4);
+    final tabController = useTabController(initialLength: 5);
     final isPickerVisible = useState(false);
     final isProcessTerminatedDialogVisible = useState(false);
     final hasPendingProcessTerminatedDialog = useState(false);
@@ -76,6 +80,12 @@ class MemoryToolOverlay extends HookConsumerWidget {
               .resetSearchSession();
         } catch (_) {}
 
+        try {
+          await ref
+              .read(memoryPointerActionProvider.notifier)
+              .resetPointerScanSession();
+        } catch (_) {}
+
         ref.read(memoryToolSelectedProcessProvider.notifier).clear();
         ref.read(memoryToolResultSelectionProvider.notifier).clear();
         ref.invalidate(memorySearchActionProvider);
@@ -85,10 +95,15 @@ class MemoryToolOverlay extends HookConsumerWidget {
         ref.invalidate(currentSearchResultsProvider);
         ref.invalidate(currentSearchResultLivePreviewsProvider);
         ref.read(memoryToolBrowseControllerProvider.notifier).clear();
+        await ref.read(memoryToolPointerControllerProvider.notifier).clear();
         ref.invalidate(currentBrowseResultsProvider);
         ref.invalidate(currentBrowseResultLivePreviewsProvider);
+        ref.invalidate(getPointerScanSessionStateProvider);
+        ref.invalidate(getPointerScanTaskStateProvider);
+        ref.invalidate(getPointerScanResultsProvider);
         ref.invalidate(hasMatchingSearchSessionProvider);
         ref.invalidate(hasRunningSearchTaskProvider);
+        ref.invalidate(hasRunningPointerTaskProvider);
 
         if (!context.mounted) {
           return;
@@ -235,6 +250,7 @@ class MemoryToolOverlay extends HookConsumerWidget {
                 tabs: <Widget>[
                   Tab(text: context.l10n.memoryToolTabSearch),
                   Tab(text: context.l10n.memoryToolTabBrowse),
+                  Tab(text: context.l10n.memoryToolTabPointer),
                   Tab(text: context.l10n.memoryToolTabEdit),
                   Tab(text: context.l10n.memoryToolTabSaved),
                 ],
@@ -264,12 +280,27 @@ class MemoryToolOverlay extends HookConsumerWidget {
                           onOpenBrowseTab: () {
                             tabController.animateTo(1);
                           },
+                          onOpenPointerTab: () {
+                            tabController.animateTo(2);
+                          },
                         ),
-                        const MemoryToolBrowseTab(),
+                        MemoryToolBrowseTab(
+                          onOpenPointerTab: () {
+                            tabController.animateTo(2);
+                          },
+                        ),
+                        MemoryToolPointerTab(
+                          onOpenBrowseTab: () {
+                            tabController.animateTo(1);
+                          },
+                        ),
                         const MemoryToolEditTab(),
                         MemoryToolSavedTab(
                           onOpenBrowseTab: () {
                             tabController.animateTo(1);
+                          },
+                          onOpenPointerTab: () {
+                            tabController.animateTo(2);
                           },
                         ),
                       ],
@@ -284,6 +315,10 @@ class MemoryToolOverlay extends HookConsumerWidget {
                 },
                 onSelected: (process) {
                   ref.read(memoryToolBrowseControllerProvider.notifier).clear();
+                  ref.read(memoryToolPointerControllerProvider.notifier).clear();
+                  ref
+                      .read(memoryPointerActionProvider.notifier)
+                      .resetPointerScanSession();
                   ref
                       .read(memoryToolSelectedProcessProvider.notifier)
                       .select(process);

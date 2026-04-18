@@ -29,6 +29,12 @@ public:
 
     static jstring GetSearchResultsJson(JNIEnv* env, jint offset, jint limit);
 
+    static jstring GetPointerScanSessionStateJson(JNIEnv* env);
+
+    static jstring GetPointerScanTaskStateJson(JNIEnv* env);
+
+    static jstring GetPointerScanResultsJson(JNIEnv* env, jint offset, jint limit);
+
     static jstring ReadMemoryValuesJson(JNIEnv* env,
                                         jlongArray addresses,
                                         jintArray types,
@@ -71,6 +77,19 @@ public:
     static void CancelSearch();
 
     static void ResetSearchSession();
+
+    static void StartPointerScan(JNIEnv* env,
+                                 jlong pid,
+                                 jlong target_address,
+                                 jint pointer_width,
+                                 jlong max_offset,
+                                 jint alignment,
+                                 jobjectArray range_section_keys,
+                                 jboolean scan_all_readable_regions);
+
+    static void CancelPointerScan();
+
+    static void ResetPointerScanSession();
 
 private:
     static SearchValue BuildSearchValue(JNIEnv* env,

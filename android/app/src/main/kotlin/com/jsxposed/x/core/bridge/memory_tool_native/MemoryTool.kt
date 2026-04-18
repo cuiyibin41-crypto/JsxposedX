@@ -158,6 +158,18 @@ class MemoryTool(private val context: Context) {
         return daemonClient.getSearchResults(offset, limit)
     }
 
+    fun getPointerScanSessionState(): PointerScanSessionState {
+        return daemonClient.getPointerScanSessionState()
+    }
+
+    fun getPointerScanTaskState(): PointerScanTaskState {
+        return daemonClient.getPointerScanTaskState()
+    }
+
+    fun getPointerScanResults(offset: Int, limit: Int): List<PointerScanResult> {
+        return daemonClient.getPointerScanResults(offset, limit)
+    }
+
     fun readMemoryValues(requests: List<MemoryReadRequest>): List<MemoryValuePreview> {
         return daemonClient.readMemoryValues(requests)
     }
@@ -218,6 +230,18 @@ class MemoryTool(private val context: Context) {
 
     fun resetSearchSession() {
         daemonClient.resetSearchSession()
+    }
+
+    fun startPointerScan(request: PointerScanRequest) {
+        daemonClient.startPointerScan(request)
+    }
+
+    fun cancelPointerScan() {
+        daemonClient.cancelPointerScan()
+    }
+
+    fun resetPointerScanSession() {
+        daemonClient.resetPointerScanSession()
     }
 
     private fun readProcessEntries(): List<RawProcessEntry> {

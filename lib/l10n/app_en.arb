@@ -852,6 +852,7 @@
   "overlayConnected": "Overlay connected",
   "memoryToolTabSearch": "Search",
   "memoryToolTabBrowse": "Browse",
+  "memoryToolTabPointer": "Pointer",
   "memoryToolTabEdit": "Edit",
   "memoryToolTabSaved": "Saved",
   "memoryToolTabWatch": "Watch",
@@ -975,10 +976,37 @@
   "memoryToolResultDetailActionWatch": "Add to Watch",
   "memoryToolResultDetailActionCopyAddress": "Copy Address",
   "memoryToolResultDetailActionCopyValue": "Copy Value",
+  "memoryToolResultActionPointerScan": "Pointer Scan",
+  "memoryToolResultActionJumpToPointer": "Jump to Pointer",
   "memoryToolResultActionPreviewMemoryBlock": "Preview Memory Block",
   "memoryToolResultActionOffsetPreview": "Calculate Offset",
   "memoryToolResultActionCopyHex": "Copy Hexadecimal",
   "memoryToolResultActionCopyReverseHex": "Copy Reverse Hexadecimal",
+  "memoryToolPointerScanTitle": "Pointer Scan",
+  "memoryToolPointerTargetAddressLabel": "Target Address",
+  "memoryToolPointerWidthLabel": "Pointer Width",
+  "memoryToolPointerMaxOffsetLabel": "Max Offset",
+  "memoryToolPointerAlignmentLabel": "Alignment",
+  "memoryToolPointerAlignmentPointerWidth": "Use Pointer Width",
+  "memoryToolPointerInvalidMaxOffset": "Enter a valid offset.",
+  "memoryToolPointerActionContinueSearch": "Continue Searching Upper Pointer",
+  "memoryToolPointerActionJumpToTarget": "Jump to Pointer Target",
+  "memoryToolPointerOffsetLabel": "Offset",
+  "memoryToolPointerBaseAddressLabel": "Base Address",
+  "memoryToolPointerPointerAddressLabel": "Pointer Address",
+  "memoryToolPointerEmpty": "Long press a search, browse, or saved result and choose Pointer Scan.",
+  "memoryToolPointerLoadedCount": "Loaded {loaded} / Total {total}",
+  "@memoryToolPointerLoadedCount": {
+    "placeholders": {
+      "loaded": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryToolPointerTaskRunningTitle": "Pointer Scan Running",
   "memoryToolOffsetPreviewTitle": "Offset Preview",
   "memoryToolOffsetPreviewOffsetLabel": "Offset",
   "memoryToolOffsetPreviewHexLabel": "HEX",

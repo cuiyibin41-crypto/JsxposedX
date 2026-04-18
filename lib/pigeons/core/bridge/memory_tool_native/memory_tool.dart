@@ -111,6 +111,44 @@ class SearchResult {
   });
 }
 
+class PointerScanRequest {
+  final int pid;
+  final int targetAddress;
+  final int pointerWidth;
+  final int maxOffset;
+  final int alignment;
+  final List<String> rangeSectionKeys;
+  final bool scanAllReadableRegions;
+
+  const PointerScanRequest({
+    required this.pid,
+    required this.targetAddress,
+    required this.pointerWidth,
+    required this.maxOffset,
+    required this.alignment,
+    required this.rangeSectionKeys,
+    required this.scanAllReadableRegions,
+  });
+}
+
+class PointerScanResult {
+  final int pointerAddress;
+  final int baseAddress;
+  final int targetAddress;
+  final int offset;
+  final int regionStart;
+  final String regionTypeKey;
+
+  const PointerScanResult({
+    required this.pointerAddress,
+    required this.baseAddress,
+    required this.targetAddress,
+    required this.offset,
+    required this.regionStart,
+    required this.regionTypeKey,
+  });
+}
+
 class MemoryReadRequest {
   final int address;
   final SearchValueType type;
@@ -224,6 +262,58 @@ class SearchTaskState {
   });
 }
 
+class PointerScanSessionState {
+  final bool hasActiveSession;
+  final int pid;
+  final int targetAddress;
+  final int pointerWidth;
+  final int maxOffset;
+  final int alignment;
+  final int regionCount;
+  final int resultCount;
+
+  const PointerScanSessionState({
+    required this.hasActiveSession,
+    required this.pid,
+    required this.targetAddress,
+    required this.pointerWidth,
+    required this.maxOffset,
+    required this.alignment,
+    required this.regionCount,
+    required this.resultCount,
+  });
+}
+
+class PointerScanTaskState {
+  final SearchTaskStatus status;
+  final int pid;
+  final int processedRegions;
+  final int totalRegions;
+  final int processedEntries;
+  final int totalEntries;
+  final int processedBytes;
+  final int totalBytes;
+  final int resultCount;
+  final int elapsedMilliseconds;
+  final bool canCancel;
+  final String message;
+
+  const PointerScanTaskState({
+    required this.status,
+    required this.pid,
+    required this.processedRegions,
+    required this.totalRegions,
+    required this.processedEntries,
+    required this.totalEntries,
+    required this.processedBytes,
+    required this.totalBytes,
+    required this.resultCount,
+    required this.elapsedMilliseconds,
+    required this.canCancel,
+    required this.message,
+  });
+}
+
 @HostApi()
 abstract class MemoryToolNative {
   @async
@@ -243,6 +333,15 @@ abstract class MemoryToolNative {
 
   @async
   List<SearchResult> getSearchResults(int offset, int limit);
+
+  @async
+  PointerScanSessionState getPointerScanSessionState();
+
+  @async
+  PointerScanTaskState getPointerScanTaskState();
+
+  @async
+  List<PointerScanResult> getPointerScanResults(int offset, int limit);
 
   @async
   List<MemoryValuePreview> readMemoryValues(List<MemoryReadRequest> requests);
@@ -273,4 +372,13 @@ abstract class MemoryToolNative {
 
   @async
   void resetSearchSession();
+
+  @async
+  void startPointerScan(PointerScanRequest request);
+
+  @async
+  void cancelPointerScan();
+
+  @async
+  void resetPointerScanSession();
 }

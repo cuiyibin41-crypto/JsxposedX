@@ -1716,6 +1716,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryToolTabBrowse => 'Browse';
 
   @override
+  String get memoryToolTabPointer => 'Pointer';
+
+  @override
   String get memoryToolTabEdit => 'Edit';
 
   @override
@@ -2102,6 +2105,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryToolResultDetailActionCopyValue => 'Copy Value';
 
   @override
+  String get memoryToolResultActionPointerScan => 'Pointer Scan';
+
+  @override
+  String get memoryToolResultActionJumpToPointer => 'Jump to Pointer';
+
+  @override
   String get memoryToolResultActionPreviewMemoryBlock => 'Preview Memory Block';
 
   @override
@@ -2112,6 +2121,55 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get memoryToolResultActionCopyReverseHex => 'Copy Reverse Hexadecimal';
+
+  @override
+  String get memoryToolPointerScanTitle => 'Pointer Scan';
+
+  @override
+  String get memoryToolPointerTargetAddressLabel => 'Target Address';
+
+  @override
+  String get memoryToolPointerWidthLabel => 'Pointer Width';
+
+  @override
+  String get memoryToolPointerMaxOffsetLabel => 'Max Offset';
+
+  @override
+  String get memoryToolPointerAlignmentLabel => 'Alignment';
+
+  @override
+  String get memoryToolPointerAlignmentPointerWidth => 'Use Pointer Width';
+
+  @override
+  String get memoryToolPointerInvalidMaxOffset => 'Enter a valid offset.';
+
+  @override
+  String get memoryToolPointerActionContinueSearch =>
+      'Continue Searching Upper Pointer';
+
+  @override
+  String get memoryToolPointerActionJumpToTarget => 'Jump to Pointer Target';
+
+  @override
+  String get memoryToolPointerOffsetLabel => 'Offset';
+
+  @override
+  String get memoryToolPointerBaseAddressLabel => 'Base Address';
+
+  @override
+  String get memoryToolPointerPointerAddressLabel => 'Pointer Address';
+
+  @override
+  String get memoryToolPointerEmpty =>
+      'Long press a search, browse, or saved result and choose Pointer Scan.';
+
+  @override
+  String memoryToolPointerLoadedCount(int loaded, int total) {
+    return 'Loaded $loaded / Total $total';
+  }
+
+  @override
+  String get memoryToolPointerTaskRunningTitle => 'Pointer Scan Running';
 
   @override
   String get memoryToolOffsetPreviewTitle => 'Offset Preview';

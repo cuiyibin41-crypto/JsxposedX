@@ -92,6 +92,21 @@ private class MemoryToolDaemonServer(
                 )
             )
 
+            "getPointerScanSessionState" -> JSONObject(
+                MemoryToolHelperNativeBridge.getPointerScanSessionStateJson()
+            )
+
+            "getPointerScanTaskState" -> JSONObject(
+                MemoryToolHelperNativeBridge.getPointerScanTaskStateJson()
+            )
+
+            "getPointerScanResults" -> JSONArray(
+                MemoryToolHelperNativeBridge.getPointerScanResultsJson(
+                    offset = params.getInt("offset"),
+                    limit = params.getInt("limit")
+                )
+            )
+
             "readMemoryValues" -> JSONArray(
                 MemoryToolHelperNativeBridge.readMemoryValuesJson(
                     addresses = extractLongArray(params.getJSONArray("requests"), "address"),
@@ -163,6 +178,29 @@ private class MemoryToolDaemonServer(
 
             "cancelSearch" -> {
                 MemoryToolHelperNativeBridge.cancelSearch()
+                JSONObject.NULL
+            }
+
+            "startPointerScan" -> {
+                MemoryToolHelperNativeBridge.startPointerScan(
+                    pid = params.getLong("pid"),
+                    targetAddress = params.getLong("targetAddress"),
+                    pointerWidth = params.getInt("pointerWidth"),
+                    maxOffset = params.getLong("maxOffset"),
+                    alignment = params.getInt("alignment"),
+                    rangeSectionKeys = extractStringArray(params.optJSONArray("rangeSectionKeys")),
+                    scanAllReadableRegions = params.optBoolean("scanAllReadableRegions", true)
+                )
+                JSONObject.NULL
+            }
+
+            "cancelPointerScan" -> {
+                MemoryToolHelperNativeBridge.cancelPointerScan()
+                JSONObject.NULL
+            }
+
+            "resetPointerScanSession" -> {
+                MemoryToolHelperNativeBridge.resetPointerScanSession()
                 JSONObject.NULL
             }
 

@@ -857,6 +857,7 @@
   "overlayConnected": "悬浮窗已连接",
   "memoryToolTabSearch": "搜索",
   "memoryToolTabBrowse": "浏览",
+  "memoryToolTabPointer": "指针",
   "memoryToolTabEdit": "修改",
   "memoryToolTabSaved": "暂存",
   "memoryToolTabWatch": "监视",
@@ -980,10 +981,37 @@
   "memoryToolResultDetailActionWatch": "加入监视",
   "memoryToolResultDetailActionCopyAddress": "复制地址",
   "memoryToolResultDetailActionCopyValue": "复制数值",
+  "memoryToolResultActionPointerScan": "指针搜索",
+  "memoryToolResultActionJumpToPointer": "跳转到指针",
   "memoryToolResultActionPreviewMemoryBlock": "预览内存块",
   "memoryToolResultActionOffsetPreview": "偏移量计算",
   "memoryToolResultActionCopyHex": "复制十六进制",
   "memoryToolResultActionCopyReverseHex": "复制反十六进制",
+  "memoryToolPointerScanTitle": "指针搜索",
+  "memoryToolPointerTargetAddressLabel": "目标地址",
+  "memoryToolPointerWidthLabel": "指针宽度",
+  "memoryToolPointerMaxOffsetLabel": "最大偏移",
+  "memoryToolPointerAlignmentLabel": "对齐步长",
+  "memoryToolPointerAlignmentPointerWidth": "按指针宽度",
+  "memoryToolPointerInvalidMaxOffset": "请输入有效偏移量",
+  "memoryToolPointerActionContinueSearch": "继续搜索上一层指针",
+  "memoryToolPointerActionJumpToTarget": "跳转到指针目标",
+  "memoryToolPointerOffsetLabel": "偏移",
+  "memoryToolPointerBaseAddressLabel": "基址",
+  "memoryToolPointerPointerAddressLabel": "指针地址",
+  "memoryToolPointerEmpty": "从搜索、浏览或暂存结果长按并选择指针搜索",
+  "memoryToolPointerLoadedCount": "已加载 {loaded} / 总计 {total}",
+  "@memoryToolPointerLoadedCount": {
+    "placeholders": {
+      "loaded": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryToolPointerTaskRunningTitle": "指针搜索进行中",
   "memoryToolOffsetPreviewTitle": "偏移量计算",
   "memoryToolOffsetPreviewOffsetLabel": "偏移量",
   "memoryToolOffsetPreviewHexLabel": "HEX",

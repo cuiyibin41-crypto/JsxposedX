@@ -4,6 +4,7 @@ import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_action_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_browse_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_pointer_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_items_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_browse_result_list.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_batch_edit_dialog.dart';
@@ -11,14 +12,20 @@ import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memo
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_selection_bar.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_selection_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_stats_bar.dart';
-import 'package:JsxposedX/generated/memory_tool.g.dart';
+import 'package:JsxposedX/generated/memory_tool.g.dart'
+    show MemoryValuePreview, PointerScanRequest, SearchResult;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class MemoryToolBrowseTab extends HookConsumerWidget {
-  const MemoryToolBrowseTab({super.key});
+  const MemoryToolBrowseTab({
+    super.key,
+    required this.onOpenPointerTab,
+  });
+
+  final VoidCallback onOpenPointerTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -201,10 +208,16 @@ class MemoryToolBrowseTab extends HookConsumerWidget {
                   await browseNotifier.previewFromAddress(
                     sourceResult: result,
                     sourcePreview: preview,
-                    sourceDisplayValue: displayValue,
-                    targetAddress: targetAddress,
-                  );
-                },
+                  sourceDisplayValue: displayValue,
+                  targetAddress: targetAddress,
+                );
+              },
+            onStartPointerScan: (PointerScanRequest request) async {
+              onOpenPointerTab();
+              await ref
+                  .read(memoryToolPointerControllerProvider.notifier)
+                  .startRootScan(request: request);
+            },
           )
         : _MemoryToolBrowseEmptyState(
             message: context.l10n.memoryToolBrowseEmpty,

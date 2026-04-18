@@ -1691,6 +1691,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryToolTabBrowse => '浏览';
 
   @override
+  String get memoryToolTabPointer => '指针';
+
+  @override
   String get memoryToolTabEdit => '修改';
 
   @override
@@ -2060,6 +2063,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryToolResultDetailActionCopyValue => '复制数值';
 
   @override
+  String get memoryToolResultActionPointerScan => '指针搜索';
+
+  @override
+  String get memoryToolResultActionJumpToPointer => '跳转到指针';
+
+  @override
   String get memoryToolResultActionPreviewMemoryBlock => '预览内存块';
 
   @override
@@ -2070,6 +2079,53 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get memoryToolResultActionCopyReverseHex => '复制反十六进制';
+
+  @override
+  String get memoryToolPointerScanTitle => '指针搜索';
+
+  @override
+  String get memoryToolPointerTargetAddressLabel => '目标地址';
+
+  @override
+  String get memoryToolPointerWidthLabel => '指针宽度';
+
+  @override
+  String get memoryToolPointerMaxOffsetLabel => '最大偏移';
+
+  @override
+  String get memoryToolPointerAlignmentLabel => '对齐步长';
+
+  @override
+  String get memoryToolPointerAlignmentPointerWidth => '按指针宽度';
+
+  @override
+  String get memoryToolPointerInvalidMaxOffset => '请输入有效偏移量';
+
+  @override
+  String get memoryToolPointerActionContinueSearch => '继续搜索上一层指针';
+
+  @override
+  String get memoryToolPointerActionJumpToTarget => '跳转到指针目标';
+
+  @override
+  String get memoryToolPointerOffsetLabel => '偏移';
+
+  @override
+  String get memoryToolPointerBaseAddressLabel => '基址';
+
+  @override
+  String get memoryToolPointerPointerAddressLabel => '指针地址';
+
+  @override
+  String get memoryToolPointerEmpty => '从搜索、浏览或暂存结果长按并选择指针搜索';
+
+  @override
+  String memoryToolPointerLoadedCount(int loaded, int total) {
+    return '已加载 $loaded / 总计 $total';
+  }
+
+  @override
+  String get memoryToolPointerTaskRunningTitle => '指针搜索进行中';
 
   @override
   String get memoryToolOffsetPreviewTitle => '偏移量计算';

@@ -98,6 +98,61 @@ std::string SerializeSearchResults(const std::vector<SearchResultView>& results)
     return stream.str();
 }
 
+std::string SerializePointerScanSessionState(const PointerScanSessionStateView& state) {
+    std::ostringstream stream;
+    stream << '{'
+           << "\"hasActiveSession\":" << ToJsonBool(state.has_active_session) << ','
+           << "\"pid\":" << state.pid << ','
+           << "\"targetAddress\":" << state.target_address << ','
+           << "\"pointerWidth\":" << state.pointer_width << ','
+           << "\"maxOffset\":" << state.max_offset << ','
+           << "\"alignment\":" << state.alignment << ','
+           << "\"regionCount\":" << state.region_count << ','
+           << "\"resultCount\":" << state.result_count
+           << '}';
+    return stream.str();
+}
+
+std::string SerializePointerScanTaskState(const PointerScanTaskStateView& state) {
+    std::ostringstream stream;
+    stream << '{'
+           << "\"status\":" << ToRawTaskStatus(state.status) << ','
+           << "\"pid\":" << state.pid << ','
+           << "\"processedRegions\":" << state.processed_region_count << ','
+           << "\"totalRegions\":" << state.total_region_count << ','
+           << "\"processedEntries\":" << state.processed_entry_count << ','
+           << "\"totalEntries\":" << state.total_entry_count << ','
+           << "\"processedBytes\":" << state.processed_byte_count << ','
+           << "\"totalBytes\":" << state.total_byte_count << ','
+           << "\"resultCount\":" << state.result_count << ','
+           << "\"elapsedMilliseconds\":" << state.elapsed_milliseconds << ','
+           << "\"canCancel\":" << ToJsonBool(state.can_cancel) << ','
+           << "\"message\":\"" << utils::JsonEscape(state.message) << "\""
+           << '}';
+    return stream.str();
+}
+
+std::string SerializePointerScanResults(const std::vector<PointerScanResultEntry>& results) {
+    std::ostringstream stream;
+    stream << '[';
+    for (size_t index = 0; index < results.size(); ++index) {
+        const PointerScanResultEntry& result = results[index];
+        if (index > 0) {
+            stream << ',';
+        }
+        stream << '{'
+               << "\"pointerAddress\":" << result.pointer_address << ','
+               << "\"baseAddress\":" << result.base_address << ','
+               << "\"targetAddress\":" << result.target_address << ','
+               << "\"offset\":" << result.offset << ','
+               << "\"regionStart\":" << result.region_start << ','
+               << "\"regionTypeKey\":\"" << utils::JsonEscape(result.region_type_key) << "\""
+               << '}';
+    }
+    stream << ']';
+    return stream.str();
+}
+
 std::string SerializeMemoryValuePreviews(const std::vector<MemoryValuePreview>& previews) {
     std::ostringstream stream;
     stream << '[';

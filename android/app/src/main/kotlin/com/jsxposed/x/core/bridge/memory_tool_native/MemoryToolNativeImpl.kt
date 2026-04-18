@@ -104,6 +104,51 @@ class MemoryToolNativeImpl(val context: Context) : MemoryToolNative {
         }
     }
 
+    override fun getPointerScanSessionState(callback: (Result<PointerScanSessionState>) -> Unit) {
+        scope.launch {
+            try {
+                val result = memoryTool.getPointerScanSessionState()
+                withContext(Dispatchers.Main) {
+                    callback(Result.success(result))
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback(Result.failure(e))
+                }
+            }
+        }
+    }
+
+    override fun getPointerScanTaskState(callback: (Result<PointerScanTaskState>) -> Unit) {
+        scope.launch {
+            try {
+                val result = memoryTool.getPointerScanTaskState()
+                withContext(Dispatchers.Main) {
+                    callback(Result.success(result))
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback(Result.failure(e))
+                }
+            }
+        }
+    }
+
+    override fun getPointerScanResults(offset: Long, limit: Long, callback: (Result<List<PointerScanResult>>) -> Unit) {
+        scope.launch {
+            try {
+                val result = memoryTool.getPointerScanResults(offset.toInt(), limit.toInt())
+                withContext(Dispatchers.Main) {
+                    callback(Result.success(result))
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback(Result.failure(e))
+                }
+            }
+        }
+    }
+
     override fun readMemoryValues(requests: List<MemoryReadRequest>, callback: (Result<List<MemoryValuePreview>>) -> Unit) {
         scope.launch {
             try {
@@ -243,6 +288,51 @@ class MemoryToolNativeImpl(val context: Context) : MemoryToolNative {
         scope.launch {
             try {
                 memoryTool.resetSearchSession()
+                withContext(Dispatchers.Main) {
+                    callback(Result.success(Unit))
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback(Result.failure(e))
+                }
+            }
+        }
+    }
+
+    override fun startPointerScan(request: PointerScanRequest, callback: (Result<Unit>) -> Unit) {
+        scope.launch {
+            try {
+                memoryTool.startPointerScan(request)
+                withContext(Dispatchers.Main) {
+                    callback(Result.success(Unit))
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback(Result.failure(e))
+                }
+            }
+        }
+    }
+
+    override fun cancelPointerScan(callback: (Result<Unit>) -> Unit) {
+        scope.launch {
+            try {
+                memoryTool.cancelPointerScan()
+                withContext(Dispatchers.Main) {
+                    callback(Result.success(Unit))
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback(Result.failure(e))
+                }
+            }
+        }
+    }
+
+    override fun resetPointerScanSession(callback: (Result<Unit>) -> Unit) {
+        scope.launch {
+            try {
+                memoryTool.resetPointerScanSession()
                 withContext(Dispatchers.Main) {
                     callback(Result.success(Unit))
                 }

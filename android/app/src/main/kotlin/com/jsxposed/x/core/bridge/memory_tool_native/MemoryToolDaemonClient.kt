@@ -14,6 +14,9 @@ class MemoryToolDaemonClient(
         private const val METHOD_GET_SEARCH_SESSION_STATE = "getSearchSessionState"
         private const val METHOD_GET_SEARCH_TASK_STATE = "getSearchTaskState"
         private const val METHOD_GET_SEARCH_RESULTS = "getSearchResults"
+        private const val METHOD_GET_POINTER_SCAN_SESSION_STATE = "getPointerScanSessionState"
+        private const val METHOD_GET_POINTER_SCAN_TASK_STATE = "getPointerScanTaskState"
+        private const val METHOD_GET_POINTER_SCAN_RESULTS = "getPointerScanResults"
         private const val METHOD_READ_MEMORY_VALUES = "readMemoryValues"
         private const val METHOD_WRITE_MEMORY_VALUE = "writeMemoryValue"
         private const val METHOD_SET_MEMORY_FREEZE = "setMemoryFreeze"
@@ -22,6 +25,9 @@ class MemoryToolDaemonClient(
         private const val METHOD_NEXT_SCAN = "nextScan"
         private const val METHOD_CANCEL_SEARCH = "cancelSearch"
         private const val METHOD_RESET_SEARCH_SESSION = "resetSearchSession"
+        private const val METHOD_START_POINTER_SCAN = "startPointerScan"
+        private const val METHOD_CANCEL_POINTER_SCAN = "cancelPointerScan"
+        private const val METHOD_RESET_POINTER_SCAN_SESSION = "resetPointerScanSession"
 
         fun ping(socketName: String): Boolean {
             return try {
@@ -196,6 +202,94 @@ class MemoryToolDaemonClient(
         }
     }
 
+    fun getPointerScanSessionState(): PointerScanSessionState {
+        if (!helperManager.isDaemonAlive()) {
+            return PointerScanSessionState(
+                hasActiveSession = false,
+                pid = 0,
+                targetAddress = 0,
+                pointerWidth = 8,
+                maxOffset = 0,
+                alignment = 8,
+                regionCount = 0,
+                resultCount = 0
+            )
+        }
+
+        val item = sendOrThrow(METHOD_GET_POINTER_SCAN_SESSION_STATE, null).getJSONObject("result")
+        return PointerScanSessionState(
+            hasActiveSession = item.getBoolean("hasActiveSession"),
+            pid = item.getLong("pid"),
+            targetAddress = item.getLong("targetAddress"),
+            pointerWidth = item.getLong("pointerWidth"),
+            maxOffset = item.getLong("maxOffset"),
+            alignment = item.getLong("alignment"),
+            regionCount = item.getLong("regionCount"),
+            resultCount = item.getLong("resultCount")
+        )
+    }
+
+    fun getPointerScanTaskState(): PointerScanTaskState {
+        if (!helperManager.isDaemonAlive()) {
+            return PointerScanTaskState(
+                status = SearchTaskStatus.IDLE,
+                pid = 0,
+                processedRegions = 0,
+                totalRegions = 0,
+                processedEntries = 0,
+                totalEntries = 0,
+                processedBytes = 0,
+                totalBytes = 0,
+                resultCount = 0,
+                elapsedMilliseconds = 0,
+                canCancel = false,
+                message = ""
+            )
+        }
+
+        val item = sendOrThrow(METHOD_GET_POINTER_SCAN_TASK_STATE, null).getJSONObject("result")
+        return PointerScanTaskState(
+            status = SearchTaskStatus.entries[item.getInt("status")],
+            pid = item.getLong("pid"),
+            processedRegions = item.getLong("processedRegions"),
+            totalRegions = item.getLong("totalRegions"),
+            processedEntries = item.getLong("processedEntries"),
+            totalEntries = item.getLong("totalEntries"),
+            processedBytes = item.getLong("processedBytes"),
+            totalBytes = item.getLong("totalBytes"),
+            resultCount = item.getLong("resultCount"),
+            elapsedMilliseconds = item.getLong("elapsedMilliseconds"),
+            canCancel = item.getBoolean("canCancel"),
+            message = item.optString("message")
+        )
+    }
+
+    fun getPointerScanResults(offset: Int, limit: Int): List<PointerScanResult> {
+        if (!helperManager.isDaemonAlive()) {
+            return emptyList()
+        }
+
+        val result = sendOrThrow(
+            METHOD_GET_POINTER_SCAN_RESULTS,
+            JSONObject().apply {
+                put("offset", offset)
+                put("limit", limit)
+            }
+        ).optJSONArray("result") ?: JSONArray()
+
+        return List(result.length()) { index ->
+            val item = result.getJSONObject(index)
+            PointerScanResult(
+                pointerAddress = item.getLong("pointerAddress"),
+                baseAddress = item.getLong("baseAddress"),
+                targetAddress = item.getLong("targetAddress"),
+                offset = item.getLong("offset"),
+                regionStart = item.getLong("regionStart"),
+                regionTypeKey = item.optString("regionTypeKey", "other")
+            )
+        }
+    }
+
     fun readMemoryValues(requests: List<MemoryReadRequest>): List<MemoryValuePreview> {
         if (requests.isEmpty()) {
             return emptyList()
@@ -319,6 +413,43 @@ class MemoryToolDaemonClient(
         }
 
         sendOrThrow(METHOD_RESET_SEARCH_SESSION, null)
+    }
+
+    fun startPointerScan(request: PointerScanRequest) {
+        helperManager.ensureDaemon()
+        sendOrThrow(
+            METHOD_START_POINTER_SCAN,
+            JSONObject().apply {
+                put("pid", request.pid)
+                put("targetAddress", request.targetAddress)
+                put("pointerWidth", request.pointerWidth)
+                put("maxOffset", request.maxOffset)
+                put("alignment", request.alignment)
+                put(
+                    "rangeSectionKeys",
+                    JSONArray().apply {
+                        request.rangeSectionKeys.forEach(::put)
+                    }
+                )
+                put("scanAllReadableRegions", request.scanAllReadableRegions)
+            }
+        )
+    }
+
+    fun cancelPointerScan() {
+        if (!helperManager.isDaemonAlive()) {
+            return
+        }
+
+        sendOrThrow(METHOD_CANCEL_POINTER_SCAN, null)
+    }
+
+    fun resetPointerScanSession() {
+        if (!helperManager.isDaemonAlive()) {
+            return
+        }
+
+        sendOrThrow(METHOD_RESET_POINTER_SCAN_SESSION, null)
     }
 
     private fun sendOrThrow(method: String, params: JSONObject?): JSONObject {

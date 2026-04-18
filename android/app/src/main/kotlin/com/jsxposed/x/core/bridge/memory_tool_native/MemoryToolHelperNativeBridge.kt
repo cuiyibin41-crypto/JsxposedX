@@ -16,6 +16,12 @@ object MemoryToolHelperNativeBridge {
 
     external fun getSearchResultsJson(offset: Int, limit: Int): String
 
+    external fun getPointerScanSessionStateJson(): String
+
+    external fun getPointerScanTaskStateJson(): String
+
+    external fun getPointerScanResultsJson(offset: Int, limit: Int): String
+
     external fun readMemoryValuesJson(
         addresses: LongArray,
         types: IntArray,
@@ -63,4 +69,18 @@ object MemoryToolHelperNativeBridge {
     external fun cancelSearch()
 
     external fun resetSearchSession()
+
+    external fun startPointerScan(
+        pid: Long,
+        targetAddress: Long,
+        pointerWidth: Int,
+        maxOffset: Long,
+        alignment: Int,
+        rangeSectionKeys: Array<String>,
+        scanAllReadableRegions: Boolean
+    )
+
+    external fun cancelPointerScan()
+
+    external fun resetPointerScanSession()
 }

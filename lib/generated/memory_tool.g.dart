@@ -468,6 +468,143 @@ class SearchResult {
 ;
 }
 
+class PointerScanRequest {
+  PointerScanRequest({
+    required this.pid,
+    required this.targetAddress,
+    required this.pointerWidth,
+    required this.maxOffset,
+    required this.alignment,
+    required this.rangeSectionKeys,
+    required this.scanAllReadableRegions,
+  });
+
+  int pid;
+
+  int targetAddress;
+
+  int pointerWidth;
+
+  int maxOffset;
+
+  int alignment;
+
+  List<String> rangeSectionKeys;
+
+  bool scanAllReadableRegions;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      pid,
+      targetAddress,
+      pointerWidth,
+      maxOffset,
+      alignment,
+      rangeSectionKeys,
+      scanAllReadableRegions,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static PointerScanRequest decode(Object result) {
+    result as List<Object?>;
+    return PointerScanRequest(
+      pid: result[0]! as int,
+      targetAddress: result[1]! as int,
+      pointerWidth: result[2]! as int,
+      maxOffset: result[3]! as int,
+      alignment: result[4]! as int,
+      rangeSectionKeys: (result[5] as List<Object?>?)!.cast<String>(),
+      scanAllReadableRegions: result[6]! as bool,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PointerScanRequest || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList())
+;
+}
+
+class PointerScanResult {
+  PointerScanResult({
+    required this.pointerAddress,
+    required this.baseAddress,
+    required this.targetAddress,
+    required this.offset,
+    required this.regionStart,
+    required this.regionTypeKey,
+  });
+
+  int pointerAddress;
+
+  int baseAddress;
+
+  int targetAddress;
+
+  int offset;
+
+  int regionStart;
+
+  String regionTypeKey;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      pointerAddress,
+      baseAddress,
+      targetAddress,
+      offset,
+      regionStart,
+      regionTypeKey,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static PointerScanResult decode(Object result) {
+    result as List<Object?>;
+    return PointerScanResult(
+      pointerAddress: result[0]! as int,
+      baseAddress: result[1]! as int,
+      targetAddress: result[2]! as int,
+      offset: result[3]! as int,
+      regionStart: result[4]! as int,
+      regionTypeKey: result[5]! as String,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PointerScanResult || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList())
+;
+}
+
 class MemoryReadRequest {
   MemoryReadRequest({
     required this.address,
@@ -905,6 +1042,178 @@ class SearchTaskState {
 ;
 }
 
+class PointerScanSessionState {
+  PointerScanSessionState({
+    required this.hasActiveSession,
+    required this.pid,
+    required this.targetAddress,
+    required this.pointerWidth,
+    required this.maxOffset,
+    required this.alignment,
+    required this.regionCount,
+    required this.resultCount,
+  });
+
+  bool hasActiveSession;
+
+  int pid;
+
+  int targetAddress;
+
+  int pointerWidth;
+
+  int maxOffset;
+
+  int alignment;
+
+  int regionCount;
+
+  int resultCount;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      hasActiveSession,
+      pid,
+      targetAddress,
+      pointerWidth,
+      maxOffset,
+      alignment,
+      regionCount,
+      resultCount,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static PointerScanSessionState decode(Object result) {
+    result as List<Object?>;
+    return PointerScanSessionState(
+      hasActiveSession: result[0]! as bool,
+      pid: result[1]! as int,
+      targetAddress: result[2]! as int,
+      pointerWidth: result[3]! as int,
+      maxOffset: result[4]! as int,
+      alignment: result[5]! as int,
+      regionCount: result[6]! as int,
+      resultCount: result[7]! as int,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PointerScanSessionState || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList())
+;
+}
+
+class PointerScanTaskState {
+  PointerScanTaskState({
+    required this.status,
+    required this.pid,
+    required this.processedRegions,
+    required this.totalRegions,
+    required this.processedEntries,
+    required this.totalEntries,
+    required this.processedBytes,
+    required this.totalBytes,
+    required this.resultCount,
+    required this.elapsedMilliseconds,
+    required this.canCancel,
+    required this.message,
+  });
+
+  SearchTaskStatus status;
+
+  int pid;
+
+  int processedRegions;
+
+  int totalRegions;
+
+  int processedEntries;
+
+  int totalEntries;
+
+  int processedBytes;
+
+  int totalBytes;
+
+  int resultCount;
+
+  int elapsedMilliseconds;
+
+  bool canCancel;
+
+  String message;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      status,
+      pid,
+      processedRegions,
+      totalRegions,
+      processedEntries,
+      totalEntries,
+      processedBytes,
+      totalBytes,
+      resultCount,
+      elapsedMilliseconds,
+      canCancel,
+      message,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static PointerScanTaskState decode(Object result) {
+    result as List<Object?>;
+    return PointerScanTaskState(
+      status: result[0]! as SearchTaskStatus,
+      pid: result[1]! as int,
+      processedRegions: result[2]! as int,
+      totalRegions: result[3]! as int,
+      processedEntries: result[4]! as int,
+      totalEntries: result[5]! as int,
+      processedBytes: result[6]! as int,
+      totalBytes: result[7]! as int,
+      resultCount: result[8]! as int,
+      elapsedMilliseconds: result[9]! as int,
+      canCancel: result[10]! as bool,
+      message: result[11]! as String,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PointerScanTaskState || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList())
+;
+}
+
 
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
@@ -943,26 +1252,38 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is SearchResult) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    }    else if (value is MemoryReadRequest) {
+    }    else if (value is PointerScanRequest) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    }    else if (value is MemoryValuePreview) {
+    }    else if (value is PointerScanResult) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
-    }    else if (value is MemoryWriteRequest) {
+    }    else if (value is MemoryReadRequest) {
       buffer.putUint8(141);
       writeValue(buffer, value.encode());
-    }    else if (value is MemoryFreezeRequest) {
+    }    else if (value is MemoryValuePreview) {
       buffer.putUint8(142);
       writeValue(buffer, value.encode());
-    }    else if (value is FrozenMemoryValue) {
+    }    else if (value is MemoryWriteRequest) {
       buffer.putUint8(143);
       writeValue(buffer, value.encode());
-    }    else if (value is SearchSessionState) {
+    }    else if (value is MemoryFreezeRequest) {
       buffer.putUint8(144);
       writeValue(buffer, value.encode());
-    }    else if (value is SearchTaskState) {
+    }    else if (value is FrozenMemoryValue) {
       buffer.putUint8(145);
+      writeValue(buffer, value.encode());
+    }    else if (value is SearchSessionState) {
+      buffer.putUint8(146);
+      writeValue(buffer, value.encode());
+    }    else if (value is SearchTaskState) {
+      buffer.putUint8(147);
+      writeValue(buffer, value.encode());
+    }    else if (value is PointerScanSessionState) {
+      buffer.putUint8(148);
+      writeValue(buffer, value.encode());
+    }    else if (value is PointerScanTaskState) {
+      buffer.putUint8(149);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -996,19 +1317,27 @@ class _PigeonCodec extends StandardMessageCodec {
       case 138: 
         return SearchResult.decode(readValue(buffer)!);
       case 139: 
-        return MemoryReadRequest.decode(readValue(buffer)!);
+        return PointerScanRequest.decode(readValue(buffer)!);
       case 140: 
-        return MemoryValuePreview.decode(readValue(buffer)!);
+        return PointerScanResult.decode(readValue(buffer)!);
       case 141: 
-        return MemoryWriteRequest.decode(readValue(buffer)!);
+        return MemoryReadRequest.decode(readValue(buffer)!);
       case 142: 
-        return MemoryFreezeRequest.decode(readValue(buffer)!);
+        return MemoryValuePreview.decode(readValue(buffer)!);
       case 143: 
+        return MemoryWriteRequest.decode(readValue(buffer)!);
+      case 144:
+        return MemoryFreezeRequest.decode(readValue(buffer)!);
+      case 145:
         return FrozenMemoryValue.decode(readValue(buffer)!);
-      case 144: 
+      case 146:
         return SearchSessionState.decode(readValue(buffer)!);
-      case 145: 
+      case 147:
         return SearchTaskState.decode(readValue(buffer)!);
+      case 148:
+        return PointerScanSessionState.decode(readValue(buffer)!);
+      case 149:
+        return PointerScanTaskState.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
@@ -1193,6 +1522,90 @@ class MemoryToolNative {
       );
     } else {
       return (pigeonVar_replyList[0] as List<Object?>?)!.cast<SearchResult>();
+    }
+  }
+
+  Future<PointerScanSessionState> getPointerScanSessionState() async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.JsxposedX.MemoryToolNative.getPointerScanSessionState$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as PointerScanSessionState?)!;
+    }
+  }
+
+  Future<PointerScanTaskState> getPointerScanTaskState() async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.JsxposedX.MemoryToolNative.getPointerScanTaskState$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as PointerScanTaskState?)!;
+    }
+  }
+
+  Future<List<PointerScanResult>> getPointerScanResults(int offset, int limit) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.JsxposedX.MemoryToolNative.getPointerScanResults$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[offset, limit]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<PointerScanResult>();
     }
   }
 
@@ -1420,6 +1833,75 @@ class MemoryToolNative {
 
   Future<void> resetSearchSession() async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.JsxposedX.MemoryToolNative.resetSearchSession$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else {
+      return;
+    }
+  }
+
+  Future<void> startPointerScan(PointerScanRequest request) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.JsxposedX.MemoryToolNative.startPointerScan$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[request]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else {
+      return;
+    }
+  }
+
+  Future<void> cancelPointerScan() async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.JsxposedX.MemoryToolNative.cancelPointerScan$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else {
+      return;
+    }
+  }
+
+  Future<void> resetPointerScanSession() async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.JsxposedX.MemoryToolNative.resetPointerScanSession$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,

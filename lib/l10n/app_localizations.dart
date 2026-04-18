@@ -3338,6 +3338,12 @@ abstract class AppLocalizations {
   /// **'浏览'**
   String get memoryToolTabBrowse;
 
+  /// No description provided for @memoryToolTabPointer.
+  ///
+  /// In zh, this message translates to:
+  /// **'指针'**
+  String get memoryToolTabPointer;
+
   /// No description provided for @memoryToolTabEdit.
   ///
   /// In zh, this message translates to:
@@ -4076,6 +4082,18 @@ abstract class AppLocalizations {
   /// **'复制数值'**
   String get memoryToolResultDetailActionCopyValue;
 
+  /// No description provided for @memoryToolResultActionPointerScan.
+  ///
+  /// In zh, this message translates to:
+  /// **'指针搜索'**
+  String get memoryToolResultActionPointerScan;
+
+  /// No description provided for @memoryToolResultActionJumpToPointer.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳转到指针'**
+  String get memoryToolResultActionJumpToPointer;
+
   /// No description provided for @memoryToolResultActionPreviewMemoryBlock.
   ///
   /// In zh, this message translates to:
@@ -4099,6 +4117,96 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'复制反十六进制'**
   String get memoryToolResultActionCopyReverseHex;
+
+  /// No description provided for @memoryToolPointerScanTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'指针搜索'**
+  String get memoryToolPointerScanTitle;
+
+  /// No description provided for @memoryToolPointerTargetAddressLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标地址'**
+  String get memoryToolPointerTargetAddressLabel;
+
+  /// No description provided for @memoryToolPointerWidthLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'指针宽度'**
+  String get memoryToolPointerWidthLabel;
+
+  /// No description provided for @memoryToolPointerMaxOffsetLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'最大偏移'**
+  String get memoryToolPointerMaxOffsetLabel;
+
+  /// No description provided for @memoryToolPointerAlignmentLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'对齐步长'**
+  String get memoryToolPointerAlignmentLabel;
+
+  /// No description provided for @memoryToolPointerAlignmentPointerWidth.
+  ///
+  /// In zh, this message translates to:
+  /// **'按指针宽度'**
+  String get memoryToolPointerAlignmentPointerWidth;
+
+  /// No description provided for @memoryToolPointerInvalidMaxOffset.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入有效偏移量'**
+  String get memoryToolPointerInvalidMaxOffset;
+
+  /// No description provided for @memoryToolPointerActionContinueSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续搜索上一层指针'**
+  String get memoryToolPointerActionContinueSearch;
+
+  /// No description provided for @memoryToolPointerActionJumpToTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳转到指针目标'**
+  String get memoryToolPointerActionJumpToTarget;
+
+  /// No description provided for @memoryToolPointerOffsetLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'偏移'**
+  String get memoryToolPointerOffsetLabel;
+
+  /// No description provided for @memoryToolPointerBaseAddressLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'基址'**
+  String get memoryToolPointerBaseAddressLabel;
+
+  /// No description provided for @memoryToolPointerPointerAddressLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'指针地址'**
+  String get memoryToolPointerPointerAddressLabel;
+
+  /// No description provided for @memoryToolPointerEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'从搜索、浏览或暂存结果长按并选择指针搜索'**
+  String get memoryToolPointerEmpty;
+
+  /// No description provided for @memoryToolPointerLoadedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加载 {loaded} / 总计 {total}'**
+  String memoryToolPointerLoadedCount(int loaded, int total);
+
+  /// No description provided for @memoryToolPointerTaskRunningTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'指针搜索进行中'**
+  String get memoryToolPointerTaskRunningTitle;
 
   /// No description provided for @memoryToolOffsetPreviewTitle.
   ///

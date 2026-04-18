@@ -105,6 +105,21 @@ jstring MemoryToolJniBridge::GetSearchResultsJson(JNIEnv* env, jint offset, jint
     return env->NewStringUTF(protocol::SerializeSearchResults(results).c_str());
 }
 
+jstring MemoryToolJniBridge::GetPointerScanSessionStateJson(JNIEnv* env) {
+    const auto state = MemoryToolEngine::Instance().GetPointerScanSessionState();
+    return env->NewStringUTF(protocol::SerializePointerScanSessionState(state).c_str());
+}
+
+jstring MemoryToolJniBridge::GetPointerScanTaskStateJson(JNIEnv* env) {
+    const auto state = MemoryToolEngine::Instance().GetPointerScanTaskState();
+    return env->NewStringUTF(protocol::SerializePointerScanTaskState(state).c_str());
+}
+
+jstring MemoryToolJniBridge::GetPointerScanResultsJson(JNIEnv* env, jint offset, jint limit) {
+    const auto results = MemoryToolEngine::Instance().GetPointerScanResults(offset, limit);
+    return env->NewStringUTF(protocol::SerializePointerScanResults(results).c_str());
+}
+
 jstring MemoryToolJniBridge::ReadMemoryValuesJson(JNIEnv* env,
                                                   jlongArray addresses,
                                                   jintArray types,
@@ -182,6 +197,34 @@ void MemoryToolJniBridge::CancelSearch() {
 
 void MemoryToolJniBridge::ResetSearchSession() {
     MemoryToolEngine::Instance().ResetSearchSession();
+}
+
+void MemoryToolJniBridge::StartPointerScan(JNIEnv* env,
+                                           jlong pid,
+                                           jlong target_address,
+                                           jint pointer_width,
+                                           jlong max_offset,
+                                           jint alignment,
+                                           jobjectArray range_section_keys,
+                                           jboolean scan_all_readable_regions) {
+    const std::vector<std::string> region_type_keys =
+        JObjectArrayToStringVector(env, range_section_keys);
+    MemoryToolEngine::Instance().StartPointerScan(
+        static_cast<int>(pid),
+        static_cast<uint64_t>(target_address),
+        static_cast<size_t>(pointer_width),
+        static_cast<uint64_t>(max_offset),
+        static_cast<size_t>(alignment),
+        region_type_keys,
+        scan_all_readable_regions == JNI_TRUE);
+}
+
+void MemoryToolJniBridge::CancelPointerScan() {
+    MemoryToolEngine::Instance().CancelPointerScan();
+}
+
+void MemoryToolJniBridge::ResetPointerScanSession() {
+    MemoryToolEngine::Instance().ResetPointerScanSession();
 }
 
 SearchValue MemoryToolJniBridge::BuildSearchValue(JNIEnv* env,
@@ -347,6 +390,44 @@ Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridg
 }
 
 extern "C" JNIEXPORT jstring JNICALL
+Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridge_getPointerScanSessionStateJson(
+        JNIEnv* env,
+        jobject /* thiz */) {
+    try {
+        return memory_tool::MemoryToolJniBridge::GetPointerScanSessionStateJson(env);
+    } catch (const std::exception& exception) {
+        memory_tool::ThrowRuntimeException(env, exception.what());
+        return nullptr;
+    }
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridge_getPointerScanTaskStateJson(
+        JNIEnv* env,
+        jobject /* thiz */) {
+    try {
+        return memory_tool::MemoryToolJniBridge::GetPointerScanTaskStateJson(env);
+    } catch (const std::exception& exception) {
+        memory_tool::ThrowRuntimeException(env, exception.what());
+        return nullptr;
+    }
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridge_getPointerScanResultsJson(
+        JNIEnv* env,
+        jobject /* thiz */,
+        jint offset,
+        jint limit) {
+    try {
+        return memory_tool::MemoryToolJniBridge::GetPointerScanResultsJson(env, offset, limit);
+    } catch (const std::exception& exception) {
+        memory_tool::ThrowRuntimeException(env, exception.what());
+        return nullptr;
+    }
+}
+
+extern "C" JNIEXPORT jstring JNICALL
 Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridge_readMemoryValuesJson(
         JNIEnv* env,
         jobject /* thiz */,
@@ -486,6 +567,54 @@ Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridg
         jobject /* thiz */) {
     try {
         memory_tool::MemoryToolJniBridge::ResetSearchSession();
+    } catch (const std::exception& exception) {
+        memory_tool::ThrowRuntimeException(env, exception.what());
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridge_startPointerScan(
+        JNIEnv* env,
+        jobject /* thiz */,
+        jlong pid,
+        jlong target_address,
+        jint pointer_width,
+        jlong max_offset,
+        jint alignment,
+        jobjectArray range_section_keys,
+        jboolean scan_all_readable_regions) {
+    try {
+        memory_tool::MemoryToolJniBridge::StartPointerScan(
+            env,
+            pid,
+            target_address,
+            pointer_width,
+            max_offset,
+            alignment,
+            range_section_keys,
+            scan_all_readable_regions);
+    } catch (const std::exception& exception) {
+        memory_tool::ThrowRuntimeException(env, exception.what());
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridge_cancelPointerScan(
+        JNIEnv* env,
+        jobject /* thiz */) {
+    try {
+        memory_tool::MemoryToolJniBridge::CancelPointerScan();
+    } catch (const std::exception& exception) {
+        memory_tool::ThrowRuntimeException(env, exception.what());
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_jsxposed_x_core_bridge_memory_1tool_1native_MemoryToolHelperNativeBridge_resetPointerScanSession(
+        JNIEnv* env,
+        jobject /* thiz */) {
+    try {
+        memory_tool::MemoryToolJniBridge::ResetPointerScanSession();
     } catch (const std::exception& exception) {
         memory_tool::ThrowRuntimeException(env, exception.what());
     }

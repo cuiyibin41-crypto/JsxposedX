@@ -16,6 +16,12 @@ std::string SerializeSearchTaskState(const SearchTaskStateView& state);
 
 std::string SerializeSearchResults(const std::vector<SearchResultView>& results);
 
+std::string SerializePointerScanSessionState(const PointerScanSessionStateView& state);
+
+std::string SerializePointerScanTaskState(const PointerScanTaskStateView& state);
+
+std::string SerializePointerScanResults(const std::vector<PointerScanResultEntry>& results);
+
 std::string SerializeMemoryValuePreviews(const std::vector<MemoryValuePreview>& previews);
 
 std::string SerializeFrozenMemoryValues(const std::vector<FrozenMemoryValueView>& values);

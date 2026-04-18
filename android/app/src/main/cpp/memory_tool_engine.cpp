@@ -17,6 +17,7 @@ namespace memory_tool {
 namespace {
 
 constexpr size_t kHardFreezeYieldEveryPasses = 64;
+constexpr size_t kPointerBatchEntryCount = 4096;
 
 uint64_t ElapsedMilliseconds(const std::chrono::steady_clock::time_point& started_at) {
     if (started_at == std::chrono::steady_clock::time_point{}) {
@@ -25,6 +26,21 @@ uint64_t ElapsedMilliseconds(const std::chrono::steady_clock::time_point& starte
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
                                      std::chrono::steady_clock::now() - started_at)
                                      .count());
+}
+
+uint64_t ReadUnsignedLittleEndian(const uint8_t* bytes, size_t size) {
+    uint64_t value = 0;
+    for (size_t index = 0; index < size; ++index) {
+        value |= static_cast<uint64_t>(bytes[index]) << (index * 8);
+    }
+    return value;
+}
+
+size_t ResolvePointerRegionEntryCount(const MemoryRegion& region, size_t pointer_width, size_t alignment) {
+    if (pointer_width == 0 || alignment == 0 || region.size < pointer_width) {
+        return 0;
+    }
+    return ((region.size - pointer_width) / alignment) + 1;
 }
 
 const MemoryRegion* FindRegionByStart(const std::vector<MemoryRegion>& regions,
@@ -326,16 +342,55 @@ std::vector<SearchResultView> MemoryToolEngine::GetSearchResults(int offset, int
     return views;
 }
 
+PointerScanSessionStateView MemoryToolEngine::GetPointerScanSessionState() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return BuildPointerSessionStateLocked();
+}
+
+PointerScanTaskStateView MemoryToolEngine::GetPointerScanTaskState() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return BuildPointerTaskStateLocked();
+}
+
+std::vector<PointerScanResultEntry> MemoryToolEngine::GetPointerScanResults(int offset, int limit) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    EnsureActivePointerSessionLocked();
+    if (!IsProcessAlive(pointer_session_.pid)) {
+        pointer_session_.Clear();
+        throw std::runtime_error("Pointer scan target process is no longer available.");
+    }
+
+    if (limit <= 0 || offset >= static_cast<int>(pointer_session_.results.size())) {
+        return {};
+    }
+
+    const size_t start = static_cast<size_t>(std::max(offset, 0));
+    const size_t end = std::min(pointer_session_.results.size(), start + static_cast<size_t>(limit));
+    return std::vector<PointerScanResultEntry>(
+        pointer_session_.results.begin() + static_cast<std::ptrdiff_t>(start),
+        pointer_session_.results.begin() + static_cast<std::ptrdiff_t>(end));
+}
+
 std::vector<MemoryValuePreview> MemoryToolEngine::ReadMemoryValues(
     const std::vector<MemoryReadRequest>& requests) {
     std::lock_guard<std::mutex> lock(mutex_);
-    EnsureActiveSessionLocked();
-    if (!IsProcessAlive(session_.pid)) {
-        session_.Clear();
-        throw std::runtime_error("Search session target process is no longer available.");
+    const int active_pid = session_.has_active_session
+                               ? session_.pid
+                               : pointer_session_.has_active_session ? pointer_session_.pid : 0;
+    if (active_pid <= 0) {
+        throw std::runtime_error("No active memory session.");
+    }
+    if (!IsProcessAlive(active_pid)) {
+        if (session_.pid == active_pid) {
+            session_.Clear();
+            throw std::runtime_error("Search session target process is no longer available.");
+        }
+        pointer_session_.Clear();
+        throw std::runtime_error("Pointer scan target process is no longer available.");
     }
 
-    ProcessMemoryReader reader(session_.pid);
+    const bool use_search_session = session_.pid == active_pid;
+    ProcessMemoryReader reader(active_pid);
     std::vector<MemoryValuePreview> previews;
     previews.reserve(requests.size());
     for (const MemoryReadRequest& request : requests) {
@@ -355,9 +410,13 @@ std::vector<MemoryValuePreview> MemoryToolEngine::ReadMemoryValues(
         preview.raw_bytes = buffer;
         preview.display_value = FormatDisplayValue(request.type,
                                                    buffer,
-                                                   session_.little_endian,
+                                                   use_search_session
+                                                       ? session_.little_endian
+                                                       : true,
                                                    request.type == SearchValueType::kBytes
-                                                       ? session_.bytes_display_encoding
+                                                       ? (use_search_session
+                                                              ? session_.bytes_display_encoding
+                                                              : BytesDisplayEncoding::kHex)
                                                        : BytesDisplayEncoding::kHex);
         previews.push_back(std::move(preview));
     }
@@ -380,12 +439,20 @@ void MemoryToolEngine::WriteMemoryValue(const MemoryWriteRequest& request) {
     int pid = 0;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        EnsureActiveSessionLocked();
-        if (!IsProcessAlive(session_.pid)) {
-            session_.Clear();
-            throw std::runtime_error("Search session target process is no longer available.");
+        pid = session_.has_active_session
+                  ? session_.pid
+                  : pointer_session_.has_active_session ? pointer_session_.pid : 0;
+        if (pid <= 0) {
+            throw std::runtime_error("No active memory session.");
         }
-        pid = session_.pid;
+        if (!IsProcessAlive(pid)) {
+            if (session_.pid == pid) {
+                session_.Clear();
+                throw std::runtime_error("Search session target process is no longer available.");
+            }
+            pointer_session_.Clear();
+            throw std::runtime_error("Pointer scan target process is no longer available.");
+        }
     }
 
     ProcessMemoryReader reader(pid);
@@ -409,15 +476,25 @@ void MemoryToolEngine::SetMemoryFreeze(const MemoryFreezeRequest& request) {
     }
 
     int pid = 0;
+    bool use_search_session = false;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        EnsureActiveSessionLocked();
-        if (!IsProcessAlive(session_.pid)) {
-            session_.Clear();
-            throw std::runtime_error("Search session target process is no longer available.");
+        pid = session_.has_active_session
+                  ? session_.pid
+                  : pointer_session_.has_active_session ? pointer_session_.pid : 0;
+        use_search_session = session_.has_active_session && session_.pid == pid;
+        if (pid <= 0) {
+            throw std::runtime_error("No active memory session.");
+        }
+        if (!IsProcessAlive(pid)) {
+            if (session_.pid == pid) {
+                session_.Clear();
+                throw std::runtime_error("Search session target process is no longer available.");
+            }
+            pointer_session_.Clear();
+            throw std::runtime_error("Pointer scan target process is no longer available.");
         }
 
-        pid = session_.pid;
         auto entry_iterator = std::find_if(
             frozen_entries_.begin(),
             frozen_entries_.end(),
@@ -439,7 +516,9 @@ void MemoryToolEngine::SetMemoryFreeze(const MemoryFreezeRequest& request) {
         next_entry.type = request.value.type;
         next_entry.value_bytes = value_bytes;
         next_entry.little_endian = request.value.little_endian;
-        next_entry.bytes_display_encoding = bytes_display_encoding;
+        next_entry.bytes_display_encoding = use_search_session
+                                               ? bytes_display_encoding
+                                               : BytesDisplayEncoding::kHex;
 
         if (entry_iterator == frozen_entries_.end()) {
             frozen_entries_.push_back(std::move(next_entry));
@@ -1109,6 +1188,190 @@ void MemoryToolEngine::ResetSearchSession() {
     session_.Clear();
 }
 
+void MemoryToolEngine::StartPointerScan(int pid,
+                                        uint64_t target_address,
+                                        size_t pointer_width,
+                                        uint64_t max_offset,
+                                        size_t alignment,
+                                        const std::vector<std::string>& range_section_keys,
+                                        bool scan_all_readable_regions) {
+    if (pid <= 0) {
+        throw std::runtime_error("Invalid target process.");
+    }
+    if (pointer_width != 4 && pointer_width != 8) {
+        throw std::runtime_error("Pointer width must be 4 or 8.");
+    }
+    if (alignment == 0) {
+        throw std::runtime_error("Alignment must be greater than 0.");
+    }
+    if (!IsProcessAlive(pid)) {
+        throw std::runtime_error("Target process is no longer available.");
+    }
+
+    std::vector<MemoryRegion> readable_regions =
+        ReadProcessRegions(pid, true, true, true);
+    if (!scan_all_readable_regions) {
+        readable_regions = FilterRegionsByTypeKeys(readable_regions, range_section_keys);
+    }
+    if (readable_regions.empty()) {
+        throw std::runtime_error("No readable memory region.");
+    }
+
+    uint64_t generation = 0;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        generation = StartPointerTaskLocked(pid);
+    }
+
+    std::thread([this,
+                 generation,
+                 pid,
+                 target_address,
+                 pointer_width,
+                 max_offset,
+                 alignment,
+                 readable_regions = std::move(readable_regions)]() mutable {
+        try {
+            ProcessMemoryReader reader(pid);
+            PointerScanSession next_session;
+            next_session.has_active_session = true;
+            next_session.pid = pid;
+            next_session.target_address = target_address;
+            next_session.pointer_width = pointer_width;
+            next_session.max_offset = max_offset;
+            next_session.alignment = alignment;
+            next_session.regions = readable_regions;
+
+            PointerScanTaskStateView progress_view;
+            progress_view.status = SearchTaskStatus::kRunning;
+            progress_view.pid = pid;
+            progress_view.total_region_count = readable_regions.size();
+            for (const MemoryRegion& region : readable_regions) {
+                const size_t entry_count =
+                    ResolvePointerRegionEntryCount(region, pointer_width, alignment);
+                progress_view.total_entry_count += entry_count;
+                progress_view.total_byte_count +=
+                    static_cast<uint64_t>(entry_count) * static_cast<uint64_t>(pointer_width);
+            }
+            progress_view.can_cancel = true;
+            progress_view.message = "Pointer scan is running.";
+            if (!UpdatePointerTaskProgress(generation, progress_view)) {
+                return;
+            }
+
+            FlatReadBatch read_batch;
+            std::vector<uint64_t> addresses;
+            addresses.reserve(kPointerBatchEntryCount);
+
+            for (size_t region_index = 0; region_index < readable_regions.size(); ++region_index) {
+                const MemoryRegion& region = readable_regions[region_index];
+                const size_t region_entry_count =
+                    ResolvePointerRegionEntryCount(region, pointer_width, alignment);
+                size_t scanned_in_region = 0;
+
+                while (scanned_in_region < region_entry_count) {
+                    addresses.clear();
+                    const size_t remaining = region_entry_count - scanned_in_region;
+                    const size_t batch_count = std::min(kPointerBatchEntryCount, remaining);
+                    for (size_t batch_index = 0; batch_index < batch_count; ++batch_index) {
+                        const uint64_t address =
+                            region.start_address +
+                            static_cast<uint64_t>((scanned_in_region + batch_index) * alignment);
+                        addresses.push_back(address);
+                    }
+
+                    reader.ReadManyFlat(addresses, pointer_width, &read_batch);
+                    for (size_t batch_index = 0; batch_index < addresses.size(); ++batch_index) {
+                        if (!read_batch.HasValue(batch_index)) {
+                            continue;
+                        }
+
+                        const uint8_t* raw_value = read_batch.ValueAt(batch_index);
+                        if (raw_value == nullptr) {
+                            continue;
+                        }
+                        const uint64_t base_address =
+                            ReadUnsignedLittleEndian(raw_value, pointer_width);
+                        if (target_address < base_address) {
+                            continue;
+                        }
+
+                        const uint64_t pointer_offset = target_address - base_address;
+                        if (pointer_offset > max_offset) {
+                            continue;
+                        }
+
+                        PointerScanResultEntry entry;
+                        entry.pointer_address = addresses[batch_index];
+                        entry.base_address = base_address;
+                        entry.target_address = target_address;
+                        entry.offset = pointer_offset;
+                        entry.region_start = region.start_address;
+                        entry.region_type_key = ClassifyMemoryRegion(region);
+                        next_session.results.push_back(std::move(entry));
+                    }
+
+                    scanned_in_region += addresses.size();
+                    progress_view.processed_region_count = region_index;
+                    progress_view.processed_entry_count += addresses.size();
+                    progress_view.processed_byte_count +=
+                        static_cast<uint64_t>(addresses.size()) *
+                        static_cast<uint64_t>(pointer_width);
+                    progress_view.result_count = next_session.results.size();
+                    if (!UpdatePointerTaskProgress(generation, progress_view)) {
+                        return;
+                    }
+                }
+
+                progress_view.processed_region_count = region_index + 1;
+                if (!UpdatePointerTaskProgress(generation, progress_view)) {
+                    return;
+                }
+            }
+
+            std::sort(
+                next_session.results.begin(),
+                next_session.results.end(),
+                [](const PointerScanResultEntry& left, const PointerScanResultEntry& right) {
+                    if (left.offset != right.offset) {
+                        return left.offset < right.offset;
+                    }
+                    return left.pointer_address < right.pointer_address;
+                });
+            FinishPointerTaskSuccess(generation, std::move(next_session));
+        } catch (const std::exception& exception) {
+            FinishPointerTaskFailure(generation, exception.what());
+        } catch (...) {
+            FinishPointerTaskFailure(generation, "Unexpected pointer scan failure.");
+        }
+    }).detach();
+}
+
+void MemoryToolEngine::CancelPointerScan() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (pointer_task_.view.status != SearchTaskStatus::kRunning) {
+        return;
+    }
+
+    if (pointer_task_.cancel_flag) {
+        pointer_task_.cancel_flag->store(true);
+    }
+    pointer_task_.view.status = SearchTaskStatus::kCancelled;
+    pointer_task_.view.can_cancel = false;
+    pointer_task_.view.elapsed_milliseconds = ElapsedMilliseconds(pointer_task_.started_at);
+    pointer_task_.view.message = "Pointer scan cancelled.";
+}
+
+void MemoryToolEngine::ResetPointerScanSession() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (pointer_task_.cancel_flag) {
+        pointer_task_.cancel_flag->store(true);
+    }
+    ++pointer_task_generation_counter_;
+    pointer_task_ = PointerTaskRuntime{};
+    pointer_session_.Clear();
+}
+
 void MemoryToolEngine::EnsureFreezeWorkerLocked() {
     if (freeze_worker_started_) {
         return;
@@ -1227,6 +1490,28 @@ SearchResultView MemoryToolEngine::BuildSearchResultViewLocked(const SearchResul
     return view;
 }
 
+PointerScanSessionStateView MemoryToolEngine::BuildPointerSessionStateLocked() const {
+    PointerScanSessionStateView state;
+    state.has_active_session = pointer_session_.has_active_session;
+    state.pid = pointer_session_.pid;
+    state.target_address = pointer_session_.target_address;
+    state.pointer_width = pointer_session_.pointer_width;
+    state.max_offset = pointer_session_.max_offset;
+    state.alignment = pointer_session_.alignment;
+    state.region_count = pointer_session_.regions.size();
+    state.result_count = pointer_session_.results.size();
+    return state;
+}
+
+PointerScanTaskStateView MemoryToolEngine::BuildPointerTaskStateLocked() const {
+    PointerScanTaskStateView state = pointer_task_.view;
+    if (state.status == SearchTaskStatus::kRunning ||
+        state.status == SearchTaskStatus::kCancelled) {
+        state.elapsed_milliseconds = ElapsedMilliseconds(pointer_task_.started_at);
+    }
+    return state;
+}
+
 void MemoryToolEngine::EnsureActiveSessionLocked() const {
     if (!session_.has_active_session) {
         throw std::runtime_error("No active search session.");
@@ -1236,6 +1521,18 @@ void MemoryToolEngine::EnsureActiveSessionLocked() const {
 void MemoryToolEngine::EnsureTaskNotRunningLocked() const {
     if (task_.view.status == SearchTaskStatus::kRunning) {
         throw std::runtime_error("A search task is already running.");
+    }
+}
+
+void MemoryToolEngine::EnsureActivePointerSessionLocked() const {
+    if (!pointer_session_.has_active_session) {
+        throw std::runtime_error("No active pointer scan session.");
+    }
+}
+
+void MemoryToolEngine::EnsurePointerTaskNotRunningLocked() const {
+    if (pointer_task_.view.status == SearchTaskStatus::kRunning) {
+        throw std::runtime_error("A pointer scan task is already running.");
     }
 }
 
@@ -1259,6 +1556,25 @@ uint64_t MemoryToolEngine::StartTaskLocked(bool is_first_scan, int pid) {
     return task_.generation;
 }
 
+uint64_t MemoryToolEngine::StartPointerTaskLocked(int pid) {
+    EnsurePointerTaskNotRunningLocked();
+
+    if (pointer_task_.cancel_flag) {
+        pointer_task_.cancel_flag->store(true);
+    }
+
+    ++pointer_task_generation_counter_;
+    pointer_task_ = PointerTaskRuntime{};
+    pointer_task_.generation = pointer_task_generation_counter_;
+    pointer_task_.started_at = std::chrono::steady_clock::now();
+    pointer_task_.cancel_flag = std::make_shared<std::atomic_bool>(false);
+    pointer_task_.view.status = SearchTaskStatus::kRunning;
+    pointer_task_.view.pid = pid;
+    pointer_task_.view.can_cancel = true;
+    pointer_task_.view.message = "Pointer scan is running.";
+    return pointer_task_.generation;
+}
+
 bool MemoryToolEngine::UpdateTaskProgress(uint64_t generation, const SearchScanProgress& progress) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (task_.generation != generation || task_.view.status != SearchTaskStatus::kRunning) {
@@ -1276,6 +1592,29 @@ bool MemoryToolEngine::UpdateTaskProgress(uint64_t generation, const SearchScanP
     task_.view.total_byte_count = progress.total_byte_count;
     task_.view.result_count = progress.result_count;
     task_.view.elapsed_milliseconds = ElapsedMilliseconds(task_.started_at);
+    return true;
+}
+
+bool MemoryToolEngine::UpdatePointerTaskProgress(
+    uint64_t generation,
+    const PointerScanTaskStateView& progress_view) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (pointer_task_.generation != generation ||
+        pointer_task_.view.status != SearchTaskStatus::kRunning) {
+        return false;
+    }
+    if (pointer_task_.cancel_flag && pointer_task_.cancel_flag->load()) {
+        return false;
+    }
+
+    pointer_task_.view.processed_region_count = progress_view.processed_region_count;
+    pointer_task_.view.total_region_count = progress_view.total_region_count;
+    pointer_task_.view.processed_entry_count = progress_view.processed_entry_count;
+    pointer_task_.view.total_entry_count = progress_view.total_entry_count;
+    pointer_task_.view.processed_byte_count = progress_view.processed_byte_count;
+    pointer_task_.view.total_byte_count = progress_view.total_byte_count;
+    pointer_task_.view.result_count = progress_view.result_count;
+    pointer_task_.view.elapsed_milliseconds = ElapsedMilliseconds(pointer_task_.started_at);
     return true;
 }
 
@@ -1301,6 +1640,27 @@ void MemoryToolEngine::FinishTaskSuccess(uint64_t generation,
     task_.view.message = "Search completed.";
 }
 
+void MemoryToolEngine::FinishPointerTaskSuccess(uint64_t generation, PointerScanSession&& next_session) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (pointer_task_.generation != generation ||
+        pointer_task_.view.status != SearchTaskStatus::kRunning) {
+        return;
+    }
+    if (pointer_task_.cancel_flag && pointer_task_.cancel_flag->load()) {
+        return;
+    }
+
+    pointer_session_ = std::move(next_session);
+    pointer_task_.view.status = SearchTaskStatus::kCompleted;
+    pointer_task_.view.can_cancel = false;
+    pointer_task_.view.result_count = pointer_session_.results.size();
+    pointer_task_.view.processed_region_count = pointer_task_.view.total_region_count;
+    pointer_task_.view.processed_entry_count = pointer_task_.view.total_entry_count;
+    pointer_task_.view.processed_byte_count = pointer_task_.view.total_byte_count;
+    pointer_task_.view.elapsed_milliseconds = ElapsedMilliseconds(pointer_task_.started_at);
+    pointer_task_.view.message = "Pointer scan completed.";
+}
+
 void MemoryToolEngine::FinishTaskFailure(uint64_t generation, const std::string& message) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (task_.generation != generation || task_.view.status != SearchTaskStatus::kRunning) {
@@ -1311,6 +1671,19 @@ void MemoryToolEngine::FinishTaskFailure(uint64_t generation, const std::string&
     task_.view.can_cancel = false;
     task_.view.elapsed_milliseconds = ElapsedMilliseconds(task_.started_at);
     task_.view.message = message;
+}
+
+void MemoryToolEngine::FinishPointerTaskFailure(uint64_t generation, const std::string& message) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (pointer_task_.generation != generation ||
+        pointer_task_.view.status != SearchTaskStatus::kRunning) {
+        return;
+    }
+
+    pointer_task_.view.status = SearchTaskStatus::kFailed;
+    pointer_task_.view.can_cancel = false;
+    pointer_task_.view.elapsed_milliseconds = ElapsedMilliseconds(pointer_task_.started_at);
+    pointer_task_.view.message = message;
 }
 
 }  // namespace memory_tool
