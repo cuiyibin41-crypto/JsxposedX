@@ -1,22 +1,34 @@
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/models/memory_tool_saved_item.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_action_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_browse_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_items_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_batch_edit_dialog.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_copy_value_dialog.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_offset_preview_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_calculator_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_selection_bar.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_stats_bar.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_action_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_tile.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_search_result_presenter.dart';
+import 'package:JsxposedX/features/overlay_window/presentation/providers/overlay_window_host_runtime_provider.dart';
 import 'package:JsxposedX/generated/memory_tool.g.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class MemoryToolSavedTab extends HookConsumerWidget {
-  const MemoryToolSavedTab({super.key});
+  const MemoryToolSavedTab({
+    super.key,
+    required this.onOpenBrowseTab,
+  });
+
+  final VoidCallback onOpenBrowseTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,6 +40,7 @@ class MemoryToolSavedTab extends HookConsumerWidget {
       memoryToolSavedItemSelectionProvider.notifier,
     );
     final savedItemsNotifier = ref.read(memoryToolSavedItemsProvider.notifier);
+    final browseNotifier = ref.read(memoryToolBrowseControllerProvider.notifier);
     final livePreviewsAsync = ref.watch(currentSavedItemLivePreviewsProvider);
     final frozenValuesAsync = ref.watch(currentFrozenMemoryValuesProvider);
     final valueHistoryState = ref.watch(memoryValueHistoryProvider);
@@ -35,6 +48,12 @@ class MemoryToolSavedTab extends HookConsumerWidget {
     final isBatchEditVisible = useState(false);
     final isCalculatorVisible = useState(false);
     final activeDialog =
+        useState<({MemoryToolSavedItem item, String displayValue})?>(null);
+    final activeActionDialog =
+        useState<({MemoryToolSavedItem item, String displayValue})?>(null);
+    final activeCopyValueDialog =
+        useState<({MemoryToolSavedItem item, String displayValue})?>(null);
+    final activeOffsetPreviewDialog =
         useState<({MemoryToolSavedItem item, String displayValue})?>(null);
 
     useEffect(() {
@@ -82,6 +101,13 @@ class MemoryToolSavedTab extends HookConsumerWidget {
           context,
         ).showSnackBar(SnackBar(content: Text(error.toString())));
       }
+    }
+
+    Future<void> copyText(String value) async {
+      final copied = await FlutterOverlayWindow.setClipboardData(value);
+      ref.read(overlayWindowHostRuntimeProvider.notifier).showToast(
+        copied ? context.l10n.codeCopied : context.l10n.error,
+      );
     }
 
     if (selectedProcess == null) {
@@ -219,7 +245,15 @@ class MemoryToolSavedTab extends HookConsumerWidget {
                               );
                             },
                             onTap: () {
+                              activeActionDialog.value = null;
                               activeDialog.value = (
+                                item: item,
+                                displayValue: displayValue,
+                              );
+                            },
+                            onLongProcess: () {
+                              activeDialog.value = null;
+                              activeActionDialog.value = (
                                 item: item,
                                 displayValue: displayValue,
                               );
@@ -250,6 +284,122 @@ class MemoryToolSavedTab extends HookConsumerWidget {
                   dialog.item.isFrozen,
               onClose: () {
                 activeDialog.value = null;
+              },
+            ),
+          ),
+        if (activeActionDialog.value case final dialog?)
+          Positioned.fill(
+            child: MemoryToolSearchResultActionDialog(
+              actions: <MemoryToolSearchResultActionItemData>[
+                MemoryToolSearchResultActionItemData(
+                  icon: Icons.preview_rounded,
+                  title: context.l10n.memoryToolResultActionPreviewMemoryBlock,
+                  onTap: () async {
+                    onOpenBrowseTab();
+                    await browseNotifier.previewFromSearchResult(
+                      result: dialog.item.toSearchResult(),
+                      preview: previewMap[dialog.item.address],
+                      displayValue: dialog.displayValue,
+                    );
+                    activeActionDialog.value = null;
+                  },
+                ),
+                MemoryToolSearchResultActionItemData(
+                  icon: Icons.calculate_rounded,
+                  title: context.l10n.memoryToolResultActionOffsetPreview,
+                  onTap: () async {
+                    activeActionDialog.value = null;
+                    activeOffsetPreviewDialog.value = (
+                      item: dialog.item,
+                      displayValue: dialog.displayValue,
+                    );
+                  },
+                ),
+                MemoryToolSearchResultActionItemData(
+                  icon: Icons.tune_rounded,
+                  title: context.l10n.memoryToolResultDetailActionCopyValue,
+                  onTap: () async {
+                    activeActionDialog.value = null;
+                    activeCopyValueDialog.value = (
+                      item: dialog.item,
+                      displayValue: dialog.displayValue,
+                    );
+                  },
+                ),
+                MemoryToolSearchResultActionItemData(
+                  icon: Icons.copy_all_rounded,
+                  title:
+                      '${context.l10n.memoryToolResultDetailActionCopyAddress}: ${formatMemoryToolSearchResultAddress(dialog.item.address)}',
+                  onTap: () async {
+                    await copyText(
+                      formatMemoryToolSearchResultAddress(dialog.item.address),
+                    );
+                    activeActionDialog.value = null;
+                  },
+                ),
+                MemoryToolSearchResultActionItemData(
+                  icon: Icons.data_array_rounded,
+                  title:
+                      '${context.l10n.memoryToolResultActionCopyHex}: ${formatMemoryToolSearchResultHex(previewMap[dialog.item.address]?.rawBytes ?? dialog.item.rawBytes)}',
+                  onTap: () async {
+                    await copyText(
+                      formatMemoryToolSearchResultHex(
+                        previewMap[dialog.item.address]?.rawBytes ??
+                            dialog.item.rawBytes,
+                      ),
+                    );
+                    activeActionDialog.value = null;
+                  },
+                ),
+                MemoryToolSearchResultActionItemData(
+                  icon: Icons.swap_horiz_rounded,
+                  title:
+                      '${context.l10n.memoryToolResultActionCopyReverseHex}: ${formatMemoryToolSearchResultReverseHex(previewMap[dialog.item.address]?.rawBytes ?? dialog.item.rawBytes)}',
+                  onTap: () async {
+                    await copyText(
+                      formatMemoryToolSearchResultReverseHex(
+                        previewMap[dialog.item.address]?.rawBytes ??
+                            dialog.item.rawBytes,
+                      ),
+                    );
+                    activeActionDialog.value = null;
+                  },
+                ),
+              ],
+              onClose: () {
+                activeActionDialog.value = null;
+              },
+            ),
+          ),
+        if (activeOffsetPreviewDialog.value case final dialog?)
+          Positioned.fill(
+            child: MemoryToolOffsetPreviewDialog(
+              result: dialog.item.toSearchResult(),
+              displayValue: dialog.displayValue,
+              livePreviewsAsync: livePreviewsAsync,
+              onConfirm: (targetAddress) async {
+                activeOffsetPreviewDialog.value = null;
+                onOpenBrowseTab();
+                await browseNotifier.previewFromAddress(
+                  sourceResult: dialog.item.toSearchResult(),
+                  sourcePreview: previewMap[dialog.item.address],
+                  sourceDisplayValue: dialog.displayValue,
+                  targetAddress: targetAddress,
+                );
+              },
+              onClose: () {
+                activeOffsetPreviewDialog.value = null;
+              },
+            ),
+          ),
+        if (activeCopyValueDialog.value case final dialog?)
+          Positioned.fill(
+            child: MemoryToolCopyValueDialog(
+              result: dialog.item.toSearchResult(),
+              displayValue: dialog.displayValue,
+              livePreviewsAsync: livePreviewsAsync,
+              onClose: () {
+                activeCopyValueDialog.value = null;
               },
             ),
           ),

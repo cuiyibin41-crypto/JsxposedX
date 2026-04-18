@@ -267,7 +267,11 @@ class MemoryToolOverlay extends HookConsumerWidget {
                         ),
                         const MemoryToolBrowseTab(),
                         const MemoryToolEditTab(),
-                        const MemoryToolSavedTab(),
+                        MemoryToolSavedTab(
+                          onOpenBrowseTab: () {
+                            tabController.animateTo(1);
+                          },
+                        ),
                       ],
                     ),
             ),
