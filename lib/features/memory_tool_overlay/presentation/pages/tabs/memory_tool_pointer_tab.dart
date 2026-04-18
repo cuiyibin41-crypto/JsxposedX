@@ -150,18 +150,7 @@ class MemoryToolPointerTab extends HookConsumerWidget {
               SizedBox(height: 10.r),
               Expanded(
                 child: currentLayer == null
-                    ? Center(
-                        child: Text(
-                          context.l10n.memoryToolPointerEmpty,
-                          textAlign: TextAlign.center,
-                          style: context.textTheme.bodyMedium?.copyWith(
-                            color: context.colorScheme.onSurface.withValues(
-                              alpha: 0.66,
-                            ),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      )
+                    ? const SizedBox.shrink()
                     : currentLayer.results.isEmpty && currentLayer.errorText != null
                     ? Center(
                         child: Text(
@@ -174,18 +163,7 @@ class MemoryToolPointerTab extends HookConsumerWidget {
                         ),
                       )
                     : currentLayer.results.isEmpty && !isRunningTask
-                    ? Center(
-                        child: Text(
-                          context.l10n.noData,
-                          textAlign: TextAlign.center,
-                          style: context.textTheme.bodyMedium?.copyWith(
-                            color: context.colorScheme.onSurface.withValues(
-                              alpha: 0.66,
-                            ),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      )
+                    ? const SizedBox.shrink()
                     : MemoryToolPointerResultList(
                         results: currentLayer.results,
                         request: currentLayer.request,
@@ -323,6 +301,11 @@ class _PointerFooter extends StatelessWidget {
     final sessionCount = sessionStateAsync.asData?.value.resultCount ?? 0;
     final totalCount = currentLayer?.totalResultCount ?? 0;
     final resolvedTotalCount = totalCount > 0 ? totalCount : sessionCount;
+
+    if (currentLayer == null || (loadedCount <= 0 && resolvedTotalCount <= 0)) {
+      return const SizedBox.shrink();
+    }
+
     return Align(
       alignment: Alignment.centerRight,
       child: Text(
