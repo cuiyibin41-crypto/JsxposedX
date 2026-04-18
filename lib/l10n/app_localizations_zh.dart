@@ -2129,10 +2129,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get memoryToolPointerPointerAddressLabel => '指针地址';
 
   @override
-  String get memoryToolPointerBadgeAuto => 'AUTO';
+  String get memoryToolPointerBadgeAuto => '推荐';
 
   @override
-  String get memoryToolPointerBadgeStatic => 'STATIC';
+  String get memoryToolPointerBadgeStatic => '静态区';
 
   @override
   String get memoryToolPointerEmpty => '从搜索、浏览或暂存结果长按并选择指针搜索';

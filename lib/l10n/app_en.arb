@@ -998,8 +998,8 @@
   "memoryToolPointerOffsetLabel": "Offset",
   "memoryToolPointerBaseAddressLabel": "Base Address",
   "memoryToolPointerPointerAddressLabel": "Pointer Address",
-  "memoryToolPointerBadgeAuto": "AUTO",
-  "memoryToolPointerBadgeStatic": "STATIC",
+  "memoryToolPointerBadgeAuto": "Recommended",
+  "memoryToolPointerBadgeStatic": "Static",
   "memoryToolPointerEmpty": "Long press a search, browse, or saved result and choose Pointer Scan.",
   "memoryToolPointerLoadedCount": "Loaded {loaded} / Total {total}",
   "@memoryToolPointerLoadedCount": {

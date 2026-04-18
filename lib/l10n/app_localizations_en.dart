@@ -2172,10 +2172,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memoryToolPointerPointerAddressLabel => 'Pointer Address';
 
   @override
-  String get memoryToolPointerBadgeAuto => 'AUTO';
+  String get memoryToolPointerBadgeAuto => 'Recommended';
 
   @override
-  String get memoryToolPointerBadgeStatic => 'STATIC';
+  String get memoryToolPointerBadgeStatic => 'Static';
 
   @override
   String get memoryToolPointerEmpty =>

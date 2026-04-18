@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:JsxposedX/common/pages/toast.dart';
-import 'package:JsxposedX/common/widgets/overlay_window/overlay_text_input_context_menu.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_pointer_action_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_pointer_query_provider.dart';
@@ -36,10 +35,9 @@ class MemoryToolPointerTab extends HookConsumerWidget {
     final taskStateAsync = ref.watch(getPointerScanTaskStateProvider);
     final sessionStateAsync = ref.watch(getPointerScanSessionStateProvider);
     final currentLayer = pointerState.currentLayer;
+    final staticOnlyMode = currentLayer?.staticOnlyMode ?? false;
     final scrollController = useScrollController();
     final previousTaskStatus = useRef<SearchTaskStatus?>(null);
-    final filterController = useTextEditingController();
-    final filterQuery = useState('');
     final selectedRegionTypeKeys = useState<Set<String>>(<String>{});
 
     useEffect(() {
@@ -99,7 +97,10 @@ class MemoryToolPointerTab extends HookConsumerWidget {
     final availableRegionTypeKeys = <String>[
       if (currentLayer != null)
         ...{
-          for (final result in currentLayer.results) result.regionTypeKey,
+          for (final result in currentLayer.results)
+            if (!staticOnlyMode ||
+                pointerController.isStaticRegionType(result.regionTypeKey))
+              result.regionTypeKey,
         },
     ];
     final availableRegionTypeSignature = availableRegionTypeKeys.join(',');
@@ -153,34 +154,15 @@ class MemoryToolPointerTab extends HookConsumerWidget {
     }
 
     bool matchesPointerResult(PointerScanResult result) {
+      if (staticOnlyMode &&
+          !pointerController.isStaticRegionType(result.regionTypeKey)) {
+        return false;
+      }
       if (selectedRegionTypeKeys.value.isNotEmpty &&
           !selectedRegionTypeKeys.value.contains(result.regionTypeKey)) {
         return false;
       }
-
-      final normalizedQuery = filterQuery.value.trim().toUpperCase();
-      if (normalizedQuery.isEmpty) {
-        return true;
-      }
-
-      final pointerAddress =
-          formatMemoryToolSearchResultAddress(result.pointerAddress).toUpperCase();
-      final baseAddress =
-          formatMemoryToolSearchResultAddress(result.baseAddress).toUpperCase();
-      final targetAddress =
-          formatMemoryToolSearchResultAddress(result.targetAddress).toUpperCase();
-      final offsetHex = '0X${result.offset.toRadixString(16).toUpperCase()}';
-      final offsetDec = result.offset.toString();
-      final regionLabel = mapMemoryToolSearchResultRegionTypeLabel(
-        context,
-        result.regionTypeKey,
-      ).toUpperCase();
-      return pointerAddress.contains(normalizedQuery) ||
-          baseAddress.contains(normalizedQuery) ||
-          targetAddress.contains(normalizedQuery) ||
-          offsetHex.contains(normalizedQuery) ||
-          offsetDec.contains(normalizedQuery) ||
-          regionLabel.contains(normalizedQuery);
+      return true;
     }
 
     final filteredResults = currentLayer == null
@@ -195,8 +177,7 @@ class MemoryToolPointerTab extends HookConsumerWidget {
           currentLayer.isLoadingMore ||
           !currentLayer.hasMore ||
           filteredResults.length >= 12 ||
-          (filterQuery.value.trim().isEmpty &&
-              selectedRegionTypeKeys.value.isEmpty)) {
+          selectedRegionTypeKeys.value.isEmpty) {
         return null;
       }
 
@@ -210,7 +191,6 @@ class MemoryToolPointerTab extends HookConsumerWidget {
       currentLayer?.isLoadingInitial,
       currentLayer?.isLoadingMore,
       filteredResults.length,
-      filterQuery.value,
       selectedRegionTypeSignature.join(','),
     ]);
 
@@ -239,15 +219,6 @@ class MemoryToolPointerTab extends HookConsumerWidget {
               if (currentLayer != null) ...<Widget>[
                 SizedBox(height: 10.r),
                 _PointerFilterPanel(
-                  filterController: filterController,
-                  filterQuery: filterQuery.value,
-                  onFilterChanged: (value) {
-                    filterQuery.value = value;
-                  },
-                  onClearFilter: () {
-                    filterController.clear();
-                    filterQuery.value = '';
-                  },
                   selectedRegionTypeKeys: selectedRegionTypeKeys.value,
                   availableRegionTypeKeys: availableRegionTypeKeys,
                   onToggleRegionTypeKey: (regionTypeKey) {
@@ -419,15 +390,29 @@ class _PointerFooter extends StatelessWidget {
     required this.sessionStateAsync,
   });
 
+  static const Set<String> _staticRegionTypeKeys = <String>{'cData', 'cBss'};
+
   final PointerChainLayerState? currentLayer;
   final AsyncValue<PointerScanSessionState> sessionStateAsync;
 
   @override
   Widget build(BuildContext context) {
-    final loadedCount = currentLayer?.results.length ?? 0;
+    final loadedCount = currentLayer == null
+        ? 0
+        : currentLayer!.staticOnlyMode
+            ? currentLayer!.results
+                  .where(
+                    (result) => _staticRegionTypeKeys.contains(result.regionTypeKey),
+                  )
+                  .length
+            : currentLayer!.results.length;
     final sessionCount = sessionStateAsync.asData?.value.resultCount ?? 0;
     final totalCount = currentLayer?.totalResultCount ?? 0;
-    final resolvedTotalCount = totalCount > 0 ? totalCount : sessionCount;
+    final resolvedTotalCount = currentLayer?.staticOnlyMode ?? false
+        ? loadedCount
+        : totalCount > 0
+            ? totalCount
+            : sessionCount;
     final stopReasonText = switch (currentLayer?.autoStopReasonKey) {
       'staticReached' => context.l10n.memoryToolPointerStopReasonStaticReached,
       'noMorePointers' => context.l10n.memoryToolPointerStopReasonNoMorePointers,
@@ -480,20 +465,12 @@ class _PointerFooter extends StatelessWidget {
 
 class _PointerFilterPanel extends StatelessWidget {
   const _PointerFilterPanel({
-    required this.filterController,
-    required this.filterQuery,
-    required this.onFilterChanged,
-    required this.onClearFilter,
     required this.selectedRegionTypeKeys,
     required this.availableRegionTypeKeys,
     required this.onToggleRegionTypeKey,
     required this.onClearRegionFilters,
   });
 
-  final TextEditingController filterController;
-  final String filterQuery;
-  final ValueChanged<String> onFilterChanged;
-  final VoidCallback onClearFilter;
   final Set<String> selectedRegionTypeKeys;
   final List<String> availableRegionTypeKeys;
   final ValueChanged<String> onToggleRegionTypeKey;
@@ -511,63 +488,31 @@ class _PointerFilterPanel extends StatelessWidget {
       ),
       child: Padding(
         padding: EdgeInsets.all(10.r),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Wrap(
+          spacing: 8.r,
+          runSpacing: 8.r,
           children: <Widget>[
-            TextField(
-              controller: filterController,
-              onChanged: onFilterChanged,
-              enableInteractiveSelection: true,
-              contextMenuBuilder: buildOverlayTextInputContextMenu,
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: context.l10n.search,
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: filterQuery.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: onClearFilter,
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                filled: true,
-                fillColor: context.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.36),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+            ChoiceChip(
+              label: Text(context.l10n.memoryToolRangePresetAll),
+              selected: selectedRegionTypeKeys.isEmpty,
+              onSelected: (_) {
+                onClearRegionFilters();
+              },
             ),
-            if (availableRegionTypeKeys.isNotEmpty) ...<Widget>[
-              SizedBox(height: 10.r),
-              Wrap(
-                spacing: 8.r,
-                runSpacing: 8.r,
-                children: <Widget>[
-                  ChoiceChip(
-                    label: Text(context.l10n.memoryToolRangePresetAll),
-                    selected: selectedRegionTypeKeys.isEmpty,
-                    onSelected: (_) {
-                      onClearRegionFilters();
-                    },
+            ...availableRegionTypeKeys.map((regionTypeKey) {
+              return FilterChip(
+                label: Text(
+                  mapMemoryToolSearchResultRegionTypeLabel(
+                    context,
+                    regionTypeKey,
                   ),
-                  ...availableRegionTypeKeys.map((regionTypeKey) {
-                    return FilterChip(
-                      label: Text(
-                        mapMemoryToolSearchResultRegionTypeLabel(
-                          context,
-                          regionTypeKey,
-                        ),
-                      ),
-                      selected: selectedRegionTypeKeys.contains(regionTypeKey),
-                      onSelected: (_) {
-                        onToggleRegionTypeKey(regionTypeKey);
-                      },
-                    );
-                  }),
-                ],
-              ),
-            ],
+                ),
+                selected: selectedRegionTypeKeys.contains(regionTypeKey),
+                onSelected: (_) {
+                  onToggleRegionTypeKey(regionTypeKey);
+                },
+              );
+            }),
           ],
         ),
       ),

@@ -46,10 +46,7 @@ size_t ResolvePointerRegionEntryCount(const MemoryRegion& region, size_t pointer
 
 bool IsPointerStaticCandidateRegionKey(const std::string& region_type_key) {
     return region_type_key == "cData" ||
-           region_type_key == "cBss" ||
-           region_type_key == "codeApp" ||
-           region_type_key == "codeSys" ||
-           region_type_key == "other";
+           region_type_key == "cBss";
 }
 
 int ResolvePointerChaseRegionPriority(const std::string& region_type_key) {

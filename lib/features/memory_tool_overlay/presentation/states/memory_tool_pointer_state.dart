@@ -14,6 +14,7 @@ class PointerChainLayerState {
     this.isAutoSelectedLayer = false,
     this.isTerminalLayer = false,
     this.autoStopReasonKey,
+    this.staticOnlyMode = false,
   });
 
   final PointerScanRequest request;
@@ -27,6 +28,7 @@ class PointerChainLayerState {
   final bool isAutoSelectedLayer;
   final bool isTerminalLayer;
   final String? autoStopReasonKey;
+  final bool staticOnlyMode;
 
   PointerChainLayerState copyWith({
     PointerScanRequest? request,
@@ -40,6 +42,7 @@ class PointerChainLayerState {
     bool? isAutoSelectedLayer,
     bool? isTerminalLayer,
     String? autoStopReasonKey,
+    bool? staticOnlyMode,
     bool clearErrorText = false,
     bool clearSelectedPointerAddress = false,
     bool clearAutoStopReasonKey = false,
@@ -60,6 +63,7 @@ class PointerChainLayerState {
       autoStopReasonKey: clearAutoStopReasonKey
           ? null
           : autoStopReasonKey ?? this.autoStopReasonKey,
+      staticOnlyMode: staticOnlyMode ?? this.staticOnlyMode,
     );
   }
 }

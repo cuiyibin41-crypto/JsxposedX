@@ -152,6 +152,8 @@ class MemoryToolPointerSearchForm extends _$MemoryToolPointerSearchForm {
 
 @Riverpod(keepAlive: true)
 class MemoryToolPointerController extends _$MemoryToolPointerController {
+  static const Set<String> _staticRegionTypeKeys = <String>{'cData', 'cBss'};
+
   @override
   MemoryToolPointerState build() {
     return const MemoryToolPointerState();
@@ -186,7 +188,11 @@ class MemoryToolPointerController extends _$MemoryToolPointerController {
     );
     final nextLayers = <PointerChainLayerState>[
       ...state.layers,
-      PointerChainLayerState(request: request, isLoadingInitial: true),
+      PointerChainLayerState(
+        request: request,
+        isLoadingInitial: true,
+        staticOnlyMode: false,
+      ),
     ];
     state = state.copyWith(
       layers: nextLayers,
@@ -454,7 +460,11 @@ class MemoryToolPointerController extends _$MemoryToolPointerController {
   }) async {
     state = MemoryToolPointerState(
       layers: <PointerChainLayerState>[
-        PointerChainLayerState(request: request, isLoadingInitial: true),
+        PointerChainLayerState(
+          request: request,
+          isLoadingInitial: true,
+          staticOnlyMode: isAutoChasing,
+        ),
       ],
       currentLayerIndex: 0,
       isAutoChasing: isAutoChasing,
@@ -472,6 +482,7 @@ class MemoryToolPointerController extends _$MemoryToolPointerController {
             isLoadingInitial: false,
             errorText: error.toString(),
             autoStopReasonKey: isAutoChasing ? 'failed' : null,
+            staticOnlyMode: isAutoChasing,
           ),
         ],
         currentLayerIndex: 0,
@@ -517,7 +528,11 @@ class MemoryToolPointerController extends _$MemoryToolPointerController {
   }) async {
     final nextLayers = <PointerChainLayerState>[
       ...state.layers,
-      PointerChainLayerState(request: request, isLoadingInitial: true),
+      PointerChainLayerState(
+        request: request,
+        isLoadingInitial: true,
+        staticOnlyMode: true,
+      ),
     ];
     final autoChaseMaxDepth = state.autoChaseMaxDepth;
     state = state.copyWith(
@@ -538,10 +553,15 @@ class MemoryToolPointerController extends _$MemoryToolPointerController {
           isLoadingInitial: false,
           errorText: error.toString(),
           autoStopReasonKey: 'failed',
+          staticOnlyMode: true,
         ),
       );
       _stopAutoChaseState();
     }
+  }
+
+  bool isStaticRegionType(String regionTypeKey) {
+    return _staticRegionTypeKeys.contains(regionTypeKey);
   }
 
   String _normalizeAutoStopReason(String rawKey) {

@@ -4217,13 +4217,13 @@ abstract class AppLocalizations {
   /// No description provided for @memoryToolPointerBadgeAuto.
   ///
   /// In zh, this message translates to:
-  /// **'AUTO'**
+  /// **'推荐'**
   String get memoryToolPointerBadgeAuto;
 
   /// No description provided for @memoryToolPointerBadgeStatic.
   ///
   /// In zh, this message translates to:
-  /// **'STATIC'**
+  /// **'静态区'**
   String get memoryToolPointerBadgeStatic;
 
   /// No description provided for @memoryToolPointerEmpty.

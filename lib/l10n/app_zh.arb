@@ -1003,8 +1003,8 @@
   "memoryToolPointerOffsetLabel": "偏移",
   "memoryToolPointerBaseAddressLabel": "基址",
   "memoryToolPointerPointerAddressLabel": "指针地址",
-  "memoryToolPointerBadgeAuto": "AUTO",
-  "memoryToolPointerBadgeStatic": "STATIC",
+  "memoryToolPointerBadgeAuto": "推荐",
+  "memoryToolPointerBadgeStatic": "静态区",
   "memoryToolPointerEmpty": "从搜索、浏览或暂存结果长按并选择指针搜索",
   "memoryToolPointerLoadedCount": "已加载 {loaded} / 总计 {total}",
   "@memoryToolPointerLoadedCount": {
