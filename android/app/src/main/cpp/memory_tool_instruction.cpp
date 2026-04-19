@@ -1,6 +1,7 @@
 #include "memory_tool_instruction.h"
 
 #include <capstone/capstone.h>
+#include <keystone/keystone.h>
 
 #include <algorithm>
 #include <array>
@@ -359,6 +360,103 @@ std::vector<std::string> TokenizeInstructionText(const std::string& value) {
     return tokens;
 }
 
+uint64_t NormalizeAssemblyAddress(const MemoryInstructionInfo& current, uint64_t address) {
+    if (current.architecture == "arm" && current.is_thumb && (address & 1ULL) != 0) {
+        return address - 1ULL;
+    }
+    return address;
+}
+
+std::string BuildInstructionSizeError(const std::string& architecture,
+                                      size_t expected_size,
+                                      size_t actual_size) {
+    return "Assembled " + architecture + " instruction size is " +
+           std::to_string(actual_size) + " bytes, expected " +
+           std::to_string(expected_size) + ".";
+}
+
+bool TryAssembleWithKeystone(ks_arch arch,
+                             int mode,
+                             uint64_t address,
+                             const std::string& input_text,
+                             std::vector<uint8_t>* bytes,
+                             std::string* error) {
+    if (bytes == nullptr) {
+        return false;
+    }
+
+    ks_engine* engine = nullptr;
+    const ks_err open_error = ks_open(arch, mode, &engine);
+    if (open_error != KS_ERR_OK) {
+        if (error != nullptr) {
+            *error = std::string("Failed to initialize assembler: ") +
+                     ks_strerror(open_error);
+        }
+        return false;
+    }
+
+    unsigned char* encoding = nullptr;
+    size_t encoding_size = 0;
+    size_t statement_count = 0;
+    const int assemble_result = ks_asm(engine,
+                                       input_text.c_str(),
+                                       address,
+                                       &encoding,
+                                       &encoding_size,
+                                       &statement_count);
+    if (assemble_result != 0) {
+        if (error != nullptr) {
+            *error = ks_strerror(ks_errno(engine));
+        }
+        if (encoding != nullptr) {
+            ks_free(encoding);
+        }
+        ks_close(engine);
+        return false;
+    }
+
+    if (statement_count != 1) {
+        if (error != nullptr) {
+            *error = "Only a single instruction is supported.";
+        }
+        if (encoding != nullptr) {
+            ks_free(encoding);
+        }
+        ks_close(engine);
+        return false;
+    }
+
+    bytes->assign(encoding, encoding + encoding_size);
+    ks_free(encoding);
+    ks_close(engine);
+
+    if (bytes->empty()) {
+        if (error != nullptr) {
+            *error = "Assembler returned no bytes.";
+        }
+        return false;
+    }
+    return true;
+}
+
+std::string NormalizeArmAssemblyInput(const std::string& input_text) {
+    const std::vector<std::string> tokens = TokenizeInstructionText(input_text);
+    if (tokens.empty()) {
+        return input_text;
+    }
+
+    if (tokens[0] == "ret") {
+        if (tokens.size() == 1) {
+            return "bx lr";
+        }
+        if (tokens.size() == 2) {
+            return "bx " + tokens[1];
+        }
+    }
+
+    return input_text;
+}
+
 bool ParseSignedIntegerToken(const std::string& raw_token, int64_t* value) {
     if (value == nullptr) {
         return false;
@@ -568,6 +666,19 @@ bool TryAssembleArm64Instruction(uint64_t address,
         return false;
     };
 
+    std::string keystone_error;
+    if (TryAssembleWithKeystone(KS_ARCH_ARM64,
+                                KS_MODE_LITTLE_ENDIAN,
+                                address,
+                                input_text,
+                                bytes,
+                                &keystone_error)) {
+        if (bytes->size() == 4) {
+            return true;
+        }
+        keystone_error = BuildInstructionSizeError("ARM64", 4, bytes->size());
+    }
+
     if (tokens[0] == "nop" && tokens.size() == 1) {
         *bytes = EncodeArm64Word(0xD503201FU);
         return true;
@@ -640,10 +751,13 @@ bool TryAssembleArm64Instruction(uint64_t address,
         return true;
     }
 
-    return fail("Unsupported ARM64 instruction. Use raw hex or ARM64 nop/ret/b/bl/br/blr.");
+    return fail(keystone_error.empty()
+                    ? "Unsupported ARM64 instruction. Use raw hex or ARM64 nop/ret/b/bl/br/blr."
+                    : keystone_error);
 }
 
-bool TryAssembleArmInstruction(const MemoryInstructionInfo& current,
+bool TryAssembleArmInstruction(uint64_t address,
+                               const MemoryInstructionInfo& current,
                                const std::string& input_text,
                                std::vector<uint8_t>* bytes,
                                std::string* error) {
@@ -665,6 +779,25 @@ bool TryAssembleArmInstruction(const MemoryInstructionInfo& current,
         }
         return false;
     };
+
+    const std::string normalized_input = NormalizeArmAssemblyInput(input_text);
+    std::string keystone_error;
+    if (TryAssembleWithKeystone(KS_ARCH_ARM,
+                                current.is_thumb
+                                    ? (KS_MODE_THUMB | KS_MODE_LITTLE_ENDIAN)
+                                    : (KS_MODE_ARM | KS_MODE_LITTLE_ENDIAN),
+                                NormalizeAssemblyAddress(current, address),
+                                normalized_input,
+                                bytes,
+                                &keystone_error)) {
+        if (bytes->size() == current.size) {
+            return true;
+        }
+        keystone_error = BuildInstructionSizeError(
+            current.is_thumb ? "Thumb" : "ARM",
+            current.size,
+            bytes->size());
+    }
 
     if (tokens[0] == "nop" && tokens.size() == 1) {
         if (current.is_thumb) {
@@ -731,7 +864,9 @@ bool TryAssembleArmInstruction(const MemoryInstructionInfo& current,
         return true;
     }
 
-    return fail("Unsupported ARM/Thumb instruction. Use raw hex or ARM/Thumb nop/ret/bx/blx.");
+    return fail(keystone_error.empty()
+                    ? "Unsupported ARM/Thumb instruction. Use raw hex or ARM/Thumb nop/ret/bx/blx."
+                    : keystone_error);
 }
 
 }  // namespace
@@ -801,6 +936,7 @@ InstructionPatchResultView PatchMemoryInstructionAtAddress(int pid,
                                          &assembly_error)
                                    : current.architecture == "arm"
                                    ? TryAssembleArmInstruction(
+                                         address,
                                          current,
                                          trimmed_input,
                                          &patched_bytes,

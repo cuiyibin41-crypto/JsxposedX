@@ -10,7 +10,9 @@ import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/me
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_breakpoint_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_browse_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_instruction_history_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_pointer_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_instruction_patches_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_items_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_debug_presenter.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_search_result_presenter.dart';
@@ -53,6 +55,9 @@ class MemoryToolDebugTab extends HookConsumerWidget {
       memoryToolPointerControllerProvider.notifier,
     );
     final savedItemsNotifier = ref.read(memoryToolSavedItemsProvider.notifier);
+    final savedInstructionPatchesNotifier = ref.read(
+      memoryToolSavedInstructionPatchesProvider.notifier,
+    );
     final selectedWriterKey = useState<String?>(null);
     final selectedHitKey = useState<String?>(null);
     final breakpointEnabledOverrides = useState<Map<String, bool>>(
@@ -98,6 +103,14 @@ class MemoryToolDebugTab extends HookConsumerWidget {
     final breakpoints =
         breakpointsAsync.asData?.value ?? const <MemoryBreakpoint>[];
     final allHits = hitsAsync.asData?.value ?? const <MemoryBreakpointHit>[];
+    final savedInstructionPatches = ref.watch(
+      memoryToolSavedInstructionPatchesProvider.select(
+        (state) => pid == null
+            ? const <int, MemoryToolSavedInstructionPatch>{}
+            : (state.patchesByPid[pid] ??
+                  const <int, MemoryToolSavedInstructionPatch>{}),
+      ),
+    );
 
     useEffect(() {
       selectedWriterKey.value = null;
@@ -159,9 +172,15 @@ class MemoryToolDebugTab extends HookConsumerWidget {
               .where((hit) => hit.breakpointId == selectedBreakpoint.id)
               .toList(growable: false);
     final rawWriterGroups = buildMemoryToolDebugWriterGroups(hits);
+    final effectivePatchedInstructionTexts = <int, String>{
+      for (final entry in savedInstructionPatches.entries)
+        entry.key: entry.value.instructionText,
+      for (final entry in patchedInstructions.value.entries)
+        entry.key: entry.value.instructionText,
+    };
     final writerGroups = rawWriterGroups
         .map((group) {
-          final override = patchedInstructions.value[group.pc];
+          final override = effectivePatchedInstructionTexts[group.pc];
           if (override == null) {
             return group;
           }
@@ -170,7 +189,7 @@ class MemoryToolDebugTab extends HookConsumerWidget {
             pc: group.pc,
             moduleName: group.moduleName,
             moduleOffset: group.moduleOffset,
-            instructionText: override.instructionText,
+            instructionText: override,
             hitCount: group.hitCount,
             threadCount: group.threadCount,
             latestTimestamp: group.latestTimestamp,
@@ -574,6 +593,7 @@ class MemoryToolDebugTab extends HookConsumerWidget {
       required String currentValue,
     }) {
       final trimmedCurrent = currentValue.trim();
+      final savedPatch = savedInstructionPatches[address];
       return <MemoryToolSearchResultActionItemData>[
         if (trimmedCurrent.isNotEmpty)
           MemoryToolSearchResultActionItemData(
@@ -583,6 +603,41 @@ class MemoryToolDebugTab extends HookConsumerWidget {
             onTap: () async {
               await copyText(trimmedCurrent);
               activeDetailActions.value = null;
+            },
+          ),
+        if (trimmedCurrent.isNotEmpty)
+          MemoryToolSearchResultActionItemData(
+            icon: Icons.save_alt_rounded,
+            title: savedPatch == null
+                ? context.l10n.memoryToolResultActionSaveToSaved
+                : (context.isZh ? '更新暂存区' : 'Update Saved Patch'),
+            onTap: () async {
+              savedInstructionPatchesNotifier.saveOne(
+                pid: pid,
+                address: address,
+                instructionText: trimmedCurrent,
+              );
+              activeDetailActions.value = null;
+              await ToastOverlayMessage.show(
+                context.isZh ? '指令修改已保存到暂存区' : 'Instruction patch saved',
+                duration: const Duration(milliseconds: 1200),
+              );
+            },
+          ),
+        if (savedPatch != null)
+          MemoryToolSearchResultActionItemData(
+            icon: Icons.remove_circle_outline_rounded,
+            title: context.isZh ? '从暂存区移除' : 'Remove from Saved',
+            onTap: () async {
+              savedInstructionPatchesNotifier.removeOne(
+                pid: pid,
+                address: address,
+              );
+              activeDetailActions.value = null;
+              await ToastOverlayMessage.show(
+                context.isZh ? '已从暂存区移除' : 'Removed from saved patches',
+                duration: const Duration(milliseconds: 1200),
+              );
             },
           ),
         MemoryToolSearchResultActionItemData(
@@ -714,6 +769,11 @@ class MemoryToolDebugTab extends HookConsumerWidget {
           ...patchedInstructions.value,
           targetAddress: result,
         };
+        ref.read(memoryToolInstructionHistoryProvider.notifier).record(
+          pid: pid,
+          address: targetAddress,
+          previousBytes: result.beforeBytes,
+        );
         activeInstructionEditor.value = null;
         final nextPending = <int>{...pendingInstructionAddresses.value};
         nextPending.remove(targetAddress);
@@ -753,9 +813,6 @@ class MemoryToolDebugTab extends HookConsumerWidget {
             }
           }
 
-          await ref
-              .read(memoryBreakpointActionProvider.notifier)
-              .clearMemoryBreakpointHits(pid: pid);
           unawaited(
             ToastOverlayMessage.show(
               successMessage,
