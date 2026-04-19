@@ -135,7 +135,7 @@ final class MemoryToolBrowseControllerProvider
 }
 
 String _$memoryToolBrowseControllerHash() =>
-    r'5ed951fc6787d8a214cb53eb4edb7ef23303101f';
+    r'465d3cd0096af74bd500588c40aac003c6671e27';
 
 abstract class _$MemoryToolBrowseController
     extends $Notifier<MemoryToolBrowseState> {

@@ -193,6 +193,10 @@ class _ResolvedCalculatorItem {
     required SearchResult result,
     required MemoryValuePreview? preview,
   }) {
+    if (result.type == SearchValueType.bytes &&
+        isMemoryToolInstructionDisplayValue(result.displayValue)) {
+      return result.displayValue.trim();
+    }
     final previewDisplayValue = preview?.displayValue.trim();
     if (previewDisplayValue != null && previewDisplayValue.isNotEmpty) {
       return previewDisplayValue;
