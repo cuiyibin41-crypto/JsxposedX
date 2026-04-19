@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:JsxposedX/common/pages/toast.dart';
@@ -13,7 +14,6 @@ import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/me
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_items_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_pointer_utils.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_search_result_presenter.dart';
-import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_assembly_preview_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_browse_result_list.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_batch_edit_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_debug_instruction_editor_dialog.dart';
@@ -395,24 +395,28 @@ class MemoryToolBrowseTab extends HookConsumerWidget {
         return context.isZh ? '修改失败' : 'Patch failed';
       }
 
+      activeInstructionBatchEditor.value = null;
       ref.invalidate(
         getMemoryBreakpointStateProvider(pid: selectedProcess.pid),
       );
       ref.invalidate(getMemoryBreakpointsProvider(pid: selectedProcess.pid));
       ref.invalidate(getMemoryBreakpointHitsProvider(pid: selectedProcess.pid));
-      await browseNotifier.refreshVisibleInstructionResults(
-        addresses: selectedInstructionResults.map((result) => result.address),
+      unawaited(
+        browseNotifier.refreshVisibleInstructionResults(
+          addresses: selectedInstructionResults.map((result) => result.address),
+        ),
       );
-      activeInstructionBatchEditor.value = null;
-      await ToastOverlayMessage.show(
-        context.isZh
-            ? (failedCount == 0
-                  ? '已批量修改$patchedCount条指令'
-                  : '已修改$patchedCount条，失败$failedCount条')
-            : (failedCount == 0
-                  ? 'Patched $patchedCount instructions'
-                  : 'Patched $patchedCount, failed $failedCount'),
-        duration: const Duration(milliseconds: 1400),
+      unawaited(
+        ToastOverlayMessage.show(
+          context.isZh
+              ? (failedCount == 0
+                    ? '已批量修改$patchedCount条指令'
+                    : '已修改$patchedCount条，失败$failedCount条')
+              : (failedCount == 0
+                    ? 'Patched $patchedCount instructions'
+                    : 'Patched $patchedCount, failed $failedCount'),
+          duration: const Duration(milliseconds: 1400),
+        ),
       );
       return null;
     }

@@ -398,6 +398,7 @@ class MemoryToolSavedTab extends HookConsumerWidget {
       }
 
       var patchedCount = 0;
+      final patchedAddresses = <int>{};
       for (var index = 0; index < selectedInstructionItems.length; index += 1) {
         final item = selectedInstructionItems[index];
         final instruction = instructions[index];
@@ -435,10 +436,7 @@ class MemoryToolSavedTab extends HookConsumerWidget {
             isInstructionPatch: true,
             instructionText: result.instructionText,
           );
-          await browseNotifier.refreshInstructionBrowseWindowIfVisible(
-            sourceResult: patchedResult,
-            instructionText: result.instructionText,
-          );
+          patchedAddresses.add(item.address);
           patchedCount += 1;
         } catch (_) {
           continue;
@@ -449,10 +447,15 @@ class MemoryToolSavedTab extends HookConsumerWidget {
         return context.isZh ? '修改失败' : 'Patch failed';
       }
 
+      activeInstructionBatchEditor.value = null;
       ref.invalidate(getMemoryBreakpointStateProvider(pid: selectedPid));
       ref.invalidate(getMemoryBreakpointsProvider(pid: selectedPid));
       ref.invalidate(getMemoryBreakpointHitsProvider(pid: selectedPid));
-      activeInstructionBatchEditor.value = null;
+      unawaited(
+        browseNotifier.refreshVisibleInstructionResults(
+          addresses: patchedAddresses,
+        ),
+      );
       unawaited(
         ToastOverlayMessage.show(
           context.isZh ? '指令已修改' : 'Instruction patched',
