@@ -2312,6 +2312,144 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get memoryToolDebugAccessRead => 'Read';
+
+  @override
+  String get memoryToolDebugAccessWrite => 'Write';
+
+  @override
+  String get memoryToolDebugAccessReadWrite => 'Read/Write';
+
+  @override
+  String get memoryToolDebugBreakpointsTitle => 'Breakpoints';
+
+  @override
+  String get memoryToolDebugBreakpointsTab => 'Breakpoints';
+
+  @override
+  String get memoryToolDebugWritersTitle => 'Writers';
+
+  @override
+  String get memoryToolDebugDetailTitle => 'Detail';
+
+  @override
+  String get memoryToolDebugEmptyBreakpoints => 'No breakpoints yet';
+
+  @override
+  String get memoryToolDebugEnabled => 'Enabled';
+
+  @override
+  String get memoryToolDebugDisabled => 'Disabled';
+
+  @override
+  String get memoryToolDebugPauseOnHit => 'Pause On Hit';
+
+  @override
+  String get memoryToolDebugRecordOnly => 'Record Only';
+
+  @override
+  String get memoryToolDebugHitCountUnit => 'hits';
+
+  @override
+  String get memoryToolDebugLastHitPrefix => 'Last hit';
+
+  @override
+  String get memoryToolDebugEmptyWriters =>
+      'No writer groups for the selected breakpoint';
+
+  @override
+  String get memoryToolDebugThreadCountUnit => 'threads';
+
+  @override
+  String get memoryToolDebugEmptyDetail =>
+      'Select a writer group to inspect details';
+
+  @override
+  String get memoryToolDebugCurrentValue => 'Current Value';
+
+  @override
+  String get memoryToolDebugNoHitYet => 'No hit yet';
+
+  @override
+  String get memoryToolDebugBreakpointAddress => 'Breakpoint Address';
+
+  @override
+  String get memoryToolDebugPointer => 'Pointer';
+
+  @override
+  String get memoryToolDebugAnonymousModule => '[anonymous]';
+
+  @override
+  String get memoryToolDebugModuleOffset => 'Module Offset';
+
+  @override
+  String get memoryToolDebugInstruction => 'Instruction';
+
+  @override
+  String get memoryToolDebugCommonRewrite => 'Common Rewrite';
+
+  @override
+  String get memoryToolDebugRecentHits => 'Recent Hits';
+
+  @override
+  String get memoryToolDebugStatBreakpoints => 'Breakpoints';
+
+  @override
+  String get memoryToolDebugStatActive => 'Active';
+
+  @override
+  String get memoryToolDebugStatWriters => 'Writers';
+
+  @override
+  String get memoryToolDebugStatCurrentHits => 'Hits';
+
+  @override
+  String get memoryToolDebugStatPending => 'Pending';
+
+  @override
+  String get memoryToolDebugStatLength => 'Length';
+
+  @override
+  String get memoryToolDebugSelectProcessFirst => 'Select a process first';
+
+  @override
+  String get memoryToolDebugSelectProcessHint =>
+      'Create a watchpoint from a long-press result to inspect hit records here.';
+
+  @override
+  String get memoryToolDebugActionCopyValue => 'Copy Value';
+
+  @override
+  String get memoryToolDebugActionCopyHex => 'Copy Hex';
+
+  @override
+  String get memoryToolDebugActionCopyReverseHex => 'Copy Reverse Hex';
+
+  @override
+  String get memoryToolDebugActionBrowseAddress => 'Browse Address';
+
+  @override
+  String get memoryToolDebugActionPointerScan => 'Pointer Scan';
+
+  @override
+  String get memoryToolDebugActionAutoChase => 'Auto Chase';
+
+  @override
+  String get memoryToolDebugActionCopyAddress => 'Copy Address';
+
+  @override
+  String get memoryToolDebugActionBrowseHitPointer => 'Browse Hit Pointer';
+
+  @override
+  String get memoryToolDebugActionCopyModuleOffset => 'Copy Module Offset';
+
+  @override
+  String get memoryToolDebugActionCopyInstruction => 'Copy Instruction';
+
+  @override
+  String get memoryToolDebugActionCopyRewrite => 'Copy Rewrite';
+
+  @override
   String get memoryToolResultActionAddWatch => 'Add to Watch List';
 
   @override

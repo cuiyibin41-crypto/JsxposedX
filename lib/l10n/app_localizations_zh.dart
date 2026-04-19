@@ -2256,6 +2256,142 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get memoryToolDebugAccessRead => '读';
+
+  @override
+  String get memoryToolDebugAccessWrite => '写';
+
+  @override
+  String get memoryToolDebugAccessReadWrite => '读写';
+
+  @override
+  String get memoryToolDebugBreakpointsTitle => '断点列表';
+
+  @override
+  String get memoryToolDebugBreakpointsTab => '断点';
+
+  @override
+  String get memoryToolDebugWritersTitle => '写入源';
+
+  @override
+  String get memoryToolDebugDetailTitle => '详情';
+
+  @override
+  String get memoryToolDebugEmptyBreakpoints => '还没有断点';
+
+  @override
+  String get memoryToolDebugEnabled => '已启用';
+
+  @override
+  String get memoryToolDebugDisabled => '已禁用';
+
+  @override
+  String get memoryToolDebugPauseOnHit => '命中即暂停';
+
+  @override
+  String get memoryToolDebugRecordOnly => '仅记录';
+
+  @override
+  String get memoryToolDebugHitCountUnit => '次命中';
+
+  @override
+  String get memoryToolDebugLastHitPrefix => '最近命中';
+
+  @override
+  String get memoryToolDebugEmptyWriters => '这个断点还没有命中';
+
+  @override
+  String get memoryToolDebugThreadCountUnit => '线程';
+
+  @override
+  String get memoryToolDebugEmptyDetail => '选择一个写入源查看详情';
+
+  @override
+  String get memoryToolDebugCurrentValue => '当前值';
+
+  @override
+  String get memoryToolDebugNoHitYet => '暂无命中';
+
+  @override
+  String get memoryToolDebugBreakpointAddress => '断点地址';
+
+  @override
+  String get memoryToolDebugPointer => '指针';
+
+  @override
+  String get memoryToolDebugAnonymousModule => '[匿名模块]';
+
+  @override
+  String get memoryToolDebugModuleOffset => '模块偏移';
+
+  @override
+  String get memoryToolDebugInstruction => '指令';
+
+  @override
+  String get memoryToolDebugCommonRewrite => '常见改写';
+
+  @override
+  String get memoryToolDebugRecentHits => '最近命中';
+
+  @override
+  String get memoryToolDebugStatBreakpoints => '断点';
+
+  @override
+  String get memoryToolDebugStatActive => '活动';
+
+  @override
+  String get memoryToolDebugStatWriters => '写入源';
+
+  @override
+  String get memoryToolDebugStatCurrentHits => '当前命中';
+
+  @override
+  String get memoryToolDebugStatPending => '待处理';
+
+  @override
+  String get memoryToolDebugStatLength => '长度';
+
+  @override
+  String get memoryToolDebugSelectProcessFirst => '请先选择进程';
+
+  @override
+  String get memoryToolDebugSelectProcessHint =>
+      '长按搜索结果、预览结果或暂存结果创建断点后，这里会显示命中记录和写入指令。';
+
+  @override
+  String get memoryToolDebugActionCopyValue => '复制值';
+
+  @override
+  String get memoryToolDebugActionCopyHex => '复制 Hex';
+
+  @override
+  String get memoryToolDebugActionCopyReverseHex => '复制反序 Hex';
+
+  @override
+  String get memoryToolDebugActionBrowseAddress => '浏览地址';
+
+  @override
+  String get memoryToolDebugActionPointerScan => '指针扫描';
+
+  @override
+  String get memoryToolDebugActionAutoChase => '自动追踪';
+
+  @override
+  String get memoryToolDebugActionCopyAddress => '复制地址';
+
+  @override
+  String get memoryToolDebugActionBrowseHitPointer => '浏览该命中指针';
+
+  @override
+  String get memoryToolDebugActionCopyModuleOffset => '复制模块偏移';
+
+  @override
+  String get memoryToolDebugActionCopyInstruction => '复制指令';
+
+  @override
+  String get memoryToolDebugActionCopyRewrite => '复制改写文本';
+
+  @override
   String get memoryToolResultActionAddWatch => '加入监视列表';
 
   @override
