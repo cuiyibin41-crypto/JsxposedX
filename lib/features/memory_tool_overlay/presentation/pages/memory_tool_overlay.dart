@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:JsxposedX/common/widgets/overlay_window/overlay_window.dart';
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/ai_overlay/ai_overlay.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_action_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_breakpoint_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/tabs/memory_tool_browse_tab.dart';
@@ -58,6 +59,7 @@ class MemoryToolOverlay extends HookConsumerWidget {
     final mediaQuery = MediaQuery.of(context);
     final isPortrait = mediaQuery.orientation == Orientation.portrait;
     final portraitTopInset = isPortrait ? mediaQuery.padding.top : 0.0;
+
     void openProcessPicker() {
       ref.invalidate(
         getProcessInfoProvider(
@@ -388,6 +390,7 @@ class MemoryToolOverlay extends HookConsumerWidget {
                 },
               ),
             ),
+          const AiOverlay(),
       ],
     );
   }
