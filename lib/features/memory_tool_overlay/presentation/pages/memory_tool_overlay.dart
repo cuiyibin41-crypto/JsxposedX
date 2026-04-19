@@ -390,7 +390,7 @@ class MemoryToolOverlay extends HookConsumerWidget {
                 },
               ),
             ),
-          const AiOverlay(),
+          const Positioned.fill(child: AiOverlay()),
       ],
     );
   }
