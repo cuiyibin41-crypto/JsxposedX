@@ -164,6 +164,7 @@ bool TryDisassembleWithMode(const InstructionDecodeConfig& config,
         1,
         &instruction);
     if (count > 0 && instruction != nullptr) {
+        info->is_thumb = (mode & CS_MODE_THUMB) == CS_MODE_THUMB;
         info->size = instruction[0].size;
         info->raw_bytes.assign(raw_bytes.begin(), raw_bytes.begin() + info->size);
         info->text = instruction[0].mnemonic;
@@ -438,12 +439,60 @@ bool ParseArm64Register(const std::string& token, int* reg) {
     }
 }
 
+bool ParseArmRegister(const std::string& token, int* reg) {
+    if (reg == nullptr) {
+        return false;
+    }
+    if (token == "sp") {
+        *reg = 13;
+        return true;
+    }
+    if (token == "lr") {
+        *reg = 14;
+        return true;
+    }
+    if (token == "pc") {
+        *reg = 15;
+        return true;
+    }
+    if (token.size() < 2 || token.front() != 'r') {
+        return false;
+    }
+
+    try {
+        const int parsed = std::stoi(token.substr(1));
+        if (parsed < 0 || parsed > 15) {
+            return false;
+        }
+        *reg = parsed;
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
 std::vector<uint8_t> EncodeArm64Word(uint32_t instruction) {
     return std::vector<uint8_t>{
         static_cast<uint8_t>(instruction & 0xFFU),
         static_cast<uint8_t>((instruction >> 8U) & 0xFFU),
         static_cast<uint8_t>((instruction >> 16U) & 0xFFU),
         static_cast<uint8_t>((instruction >> 24U) & 0xFFU),
+    };
+}
+
+std::vector<uint8_t> EncodeArmWord(uint32_t instruction) {
+    return std::vector<uint8_t>{
+        static_cast<uint8_t>(instruction & 0xFFU),
+        static_cast<uint8_t>((instruction >> 8U) & 0xFFU),
+        static_cast<uint8_t>((instruction >> 16U) & 0xFFU),
+        static_cast<uint8_t>((instruction >> 24U) & 0xFFU),
+    };
+}
+
+std::vector<uint8_t> EncodeThumbHalfWord(uint16_t instruction) {
+    return std::vector<uint8_t>{
+        static_cast<uint8_t>(instruction & 0xFFU),
+        static_cast<uint8_t>((instruction >> 8U) & 0xFFU),
     };
 }
 
@@ -594,6 +643,97 @@ bool TryAssembleArm64Instruction(uint64_t address,
     return fail("Unsupported ARM64 instruction. Use raw hex or ARM64 nop/ret/b/bl/br/blr.");
 }
 
+bool TryAssembleArmInstruction(const MemoryInstructionInfo& current,
+                               const std::string& input_text,
+                               std::vector<uint8_t>* bytes,
+                               std::string* error) {
+    if (bytes == nullptr) {
+        return false;
+    }
+
+    const std::vector<std::string> tokens = TokenizeInstructionText(input_text);
+    if (tokens.empty()) {
+        if (error != nullptr) {
+            *error = "Instruction is empty.";
+        }
+        return false;
+    }
+
+    const auto fail = [error](const std::string& message) {
+        if (error != nullptr) {
+            *error = message;
+        }
+        return false;
+    };
+
+    if (tokens[0] == "nop" && tokens.size() == 1) {
+        if (current.is_thumb) {
+            if (current.size == 2) {
+                *bytes = EncodeThumbHalfWord(0xBF00U);
+                return true;
+            }
+            if (current.size == 4) {
+                *bytes = EncodeThumbHalfWord(0xBF00U);
+                const std::vector<uint8_t> suffix = EncodeThumbHalfWord(0xBF00U);
+                bytes->insert(bytes->end(), suffix.begin(), suffix.end());
+                return true;
+            }
+            return fail("Unsupported Thumb instruction size for NOP.");
+        }
+        if (current.size != 4) {
+            return fail("ARM instruction patch size must be 4 bytes.");
+        }
+        *bytes = EncodeArmWord(0xE320F000U);
+        return true;
+    }
+
+    if (tokens[0] == "ret" || tokens[0] == "bx" || tokens[0] == "blx") {
+        int reg = 14;
+        if (tokens[0] == "ret") {
+            if (tokens.size() == 2) {
+                if (!ParseArmRegister(tokens[1], &reg)) {
+                    return fail("Invalid ARM return register.");
+                }
+            } else if (tokens.size() != 1) {
+                return fail("Unsupported ARM return syntax.");
+            }
+        } else {
+            if (tokens.size() != 2) {
+                return fail("Unsupported ARM branch-register syntax.");
+            }
+            if (!ParseArmRegister(tokens[1], &reg)) {
+                return fail("Invalid ARM branch register.");
+            }
+        }
+
+        if (current.is_thumb) {
+            const uint16_t base = tokens[0] == "blx" ? 0x4780U : 0x4700U;
+            if (current.size == 2) {
+                *bytes = EncodeThumbHalfWord(
+                    static_cast<uint16_t>(base | (static_cast<uint16_t>(reg) << 3U)));
+                return true;
+            }
+            if (current.size == 4) {
+                *bytes = EncodeThumbHalfWord(
+                    static_cast<uint16_t>(base | (static_cast<uint16_t>(reg) << 3U)));
+                const std::vector<uint8_t> suffix = EncodeThumbHalfWord(0xBF00U);
+                bytes->insert(bytes->end(), suffix.begin(), suffix.end());
+                return true;
+            }
+            return fail("Unsupported Thumb instruction size for branch register patch.");
+        }
+
+        if (current.size != 4) {
+            return fail("ARM instruction patch size must be 4 bytes.");
+        }
+        const uint32_t base = tokens[0] == "blx" ? 0xE12FFF30U : 0xE12FFF10U;
+        *bytes = EncodeArmWord(base | static_cast<uint32_t>(reg));
+        return true;
+    }
+
+    return fail("Unsupported ARM/Thumb instruction. Use raw hex or ARM/Thumb nop/ret/bx/blx.");
+}
+
 }  // namespace
 
 MemoryInstructionInfo ReadMemoryInstruction(int pid, uint64_t address) {
@@ -652,19 +792,23 @@ InstructionPatchResultView PatchMemoryInstructionAtAddress(int pid,
 
     std::vector<uint8_t> patched_bytes;
     if (!TryParseHexBytes(trimmed_input, &patched_bytes)) {
-        if (current.architecture != "aarch64") {
-            throw std::runtime_error(
-                "Text assembly patching is only supported on ARM64. Use raw hex bytes.");
-        }
-
         std::string assembly_error;
-        if (!TryAssembleArm64Instruction(
-                address,
-                trimmed_input,
-                &patched_bytes,
-                &assembly_error)) {
+        const bool assembled = current.architecture == "aarch64"
+                                   ? TryAssembleArm64Instruction(
+                                         address,
+                                         trimmed_input,
+                                         &patched_bytes,
+                                         &assembly_error)
+                                   : current.architecture == "arm"
+                                   ? TryAssembleArmInstruction(
+                                         current,
+                                         trimmed_input,
+                                         &patched_bytes,
+                                         &assembly_error)
+                                   : false;
+        if (!assembled) {
             throw std::runtime_error(
-                assembly_error.empty() ? "Unsupported instruction patch input."
+                assembly_error.empty() ? "Unsupported instruction patch input for this architecture."
                                        : assembly_error);
         }
     }

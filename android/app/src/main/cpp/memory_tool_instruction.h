@@ -12,6 +12,7 @@ namespace memory_tool {
 
 struct MemoryInstructionInfo {
     bool is_valid = false;
+    bool is_thumb = false;
     std::string architecture;
     size_t size = 0;
     std::vector<uint8_t> raw_bytes;

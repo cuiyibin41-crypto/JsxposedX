@@ -15,7 +15,7 @@ class MemoryToolDebugInstructionEditorDialog extends HookWidget {
   });
 
   final String initialValue;
-  final Future<void> Function(String value) onSave;
+  final Future<String?> Function(String value) onSave;
   final VoidCallback onClose;
 
   @override
@@ -29,8 +29,14 @@ class MemoryToolDebugInstructionEditorDialog extends HookWidget {
     }, [controller, initialValue]);
     useListenable(controller);
     final isSaving = useState(false);
+    final errorText = useState<String?>(null);
     final trimmedValue = controller.text.trim();
     final canSave = !isSaving.value && trimmedValue != initialValue.trim();
+
+    useEffect(() {
+      errorText.value = null;
+      return null;
+    }, [trimmedValue]);
 
     return OverlayPanelDialog.card(
       onClose: onClose,
@@ -64,6 +70,16 @@ class MemoryToolDebugInstructionEditorDialog extends HookWidget {
                 enabledBorderColor: context.colorScheme.outlineVariant
                     .withValues(alpha: 0.34),
               ),
+              if (errorText.value case final message?) ...<Widget>[
+                SizedBox(height: 8.r),
+                Text(
+                  message,
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: context.colorScheme.error,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
               SizedBox(height: 14.r),
               Row(
                 children: <Widget>[
@@ -80,7 +96,7 @@ class MemoryToolDebugInstructionEditorDialog extends HookWidget {
                           ? () async {
                               isSaving.value = true;
                               try {
-                                await onSave(trimmedValue);
+                                errorText.value = await onSave(trimmedValue);
                               } finally {
                                 if (context.mounted) {
                                   isSaving.value = false;

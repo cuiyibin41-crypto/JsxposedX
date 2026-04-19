@@ -682,7 +682,7 @@ class MemoryToolDebugTab extends HookConsumerWidget {
       ];
     }
 
-    Future<void> saveInstructionEdit({
+    Future<String?> saveInstructionEdit({
       required _MemoryToolDebugInstructionEditorState editor,
       required String value,
     }) async {
@@ -718,58 +718,77 @@ class MemoryToolDebugTab extends HookConsumerWidget {
         final nextPending = <int>{...pendingInstructionAddresses.value};
         nextPending.remove(targetAddress);
         pendingInstructionAddresses.value = nextPending;
+        unawaited(refreshAll());
 
-        if (breakpointToDisable != null && breakpointToDisable.enabled) {
-          breakpointEnabledOverrides.value = <String, bool>{
-            ...breakpointEnabledOverrides.value,
-            breakpointToDisable.id: false,
-          };
-          pendingBreakpointIds.value = <String>{
-            ...pendingBreakpointIds.value,
-            breakpointToDisable.id,
-          };
-          try {
-            await ref
-                .read(memoryBreakpointActionProvider.notifier)
-                .setMemoryBreakpointEnabled(
-                  pid: pid,
-                  breakpointId: breakpointToDisable.id,
-                  enabled: false,
-                );
-          } catch (_) {
-            final nextOverrides = <String, bool>{
+        try {
+          if (breakpointToDisable != null && breakpointToDisable.enabled) {
+            breakpointEnabledOverrides.value = <String, bool>{
               ...breakpointEnabledOverrides.value,
+              breakpointToDisable.id: false,
             };
-            nextOverrides.remove(breakpointToDisable.id);
-            breakpointEnabledOverrides.value = nextOverrides;
-            final nextPendingBreakpointIds = <String>{
+            pendingBreakpointIds.value = <String>{
               ...pendingBreakpointIds.value,
+              breakpointToDisable.id,
             };
-            nextPendingBreakpointIds.remove(breakpointToDisable.id);
-            pendingBreakpointIds.value = nextPendingBreakpointIds;
-            rethrow;
+            try {
+              await ref
+                  .read(memoryBreakpointActionProvider.notifier)
+                  .setMemoryBreakpointEnabled(
+                    pid: pid,
+                    breakpointId: breakpointToDisable.id,
+                    enabled: false,
+                  );
+            } catch (_) {
+              final nextOverrides = <String, bool>{
+                ...breakpointEnabledOverrides.value,
+              };
+              nextOverrides.remove(breakpointToDisable.id);
+              breakpointEnabledOverrides.value = nextOverrides;
+              final nextPendingBreakpointIds = <String>{
+                ...pendingBreakpointIds.value,
+              };
+              nextPendingBreakpointIds.remove(breakpointToDisable.id);
+              pendingBreakpointIds.value = nextPendingBreakpointIds;
+              rethrow;
+            }
           }
-        }
 
-        await ref
-            .read(memoryBreakpointActionProvider.notifier)
-            .clearMemoryBreakpointHits(pid: pid);
-        await ToastOverlayMessage.show(
-          successMessage,
-          duration: const Duration(milliseconds: 1200),
-        );
+          await ref
+              .read(memoryBreakpointActionProvider.notifier)
+              .clearMemoryBreakpointHits(pid: pid);
+          unawaited(
+            ToastOverlayMessage.show(
+              successMessage,
+              duration: const Duration(milliseconds: 1200),
+            ),
+          );
+        } catch (error) {
+          final message = error.toString().replaceFirst('Exception: ', '').trim();
+          final resolvedMessage =
+              message.isEmpty ? fallbackErrorMessage : message;
+          unawaited(
+            ToastOverlayMessage.show(
+              '$failurePrefix: $resolvedMessage',
+              duration: const Duration(milliseconds: 1600),
+            ),
+          );
+        }
+        return null;
       } catch (error) {
         final message = error.toString().replaceFirst('Exception: ', '').trim();
-        await ToastOverlayMessage.show(
-          '$failurePrefix: ${message.isEmpty ? fallbackErrorMessage : message}',
-          duration: const Duration(milliseconds: 1600),
+        final resolvedMessage =
+            message.isEmpty ? fallbackErrorMessage : message;
+        unawaited(
+          ToastOverlayMessage.show(
+            '$failurePrefix: $resolvedMessage',
+            duration: const Duration(milliseconds: 1600),
+          ),
         );
-        rethrow;
+        return resolvedMessage;
       } finally {
         final nextPending = <int>{...pendingInstructionAddresses.value};
         nextPending.remove(targetAddress);
         pendingInstructionAddresses.value = nextPending;
-        await refreshAll();
       }
     }
 
@@ -1103,7 +1122,7 @@ class MemoryToolDebugTab extends HookConsumerWidget {
             child: MemoryToolDebugInstructionEditorDialog(
               initialValue: editor.currentValue,
               onSave: (value) async {
-                await saveInstructionEdit(editor: editor, value: value);
+                return await saveInstructionEdit(editor: editor, value: value);
               },
               onClose: () {
                 activeInstructionEditor.value = null;
