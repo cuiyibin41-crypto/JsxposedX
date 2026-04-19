@@ -309,6 +309,29 @@ class MemoryToolBrowseController extends _$MemoryToolBrowseController {
     );
   }
 
+  Future<void> refreshInstructionBrowseWindowIfVisible({
+    required SearchResult sourceResult,
+    required String instructionText,
+  }) async {
+    final currentState = state;
+    final anchorAddress = currentState.anchorAddress;
+    if (anchorAddress == null ||
+        !currentState.isInstructionMode ||
+        currentState.isInitializing ||
+        !currentState.results.any(
+          (result) => result.address == sourceResult.address,
+        )) {
+      return;
+    }
+
+    await previewFromAddress(
+      sourceResult: sourceResult,
+      targetAddress: anchorAddress,
+      anchorDisplayValue: instructionText,
+      preferInstructionMode: true,
+    );
+  }
+
   Future<void> recenter() async {
     final anchorItem = state.anchorItem;
     final selectedProcess = ref.read(memoryToolSelectedProcessProvider);

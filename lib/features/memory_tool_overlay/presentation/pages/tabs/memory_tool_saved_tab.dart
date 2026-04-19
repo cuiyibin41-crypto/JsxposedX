@@ -292,18 +292,26 @@ class MemoryToolSavedTab extends HookConsumerWidget {
               previousBytes: result.beforeBytes,
               previousDisplayValue: item.effectiveInstructionText,
             );
+        final patchedResult = SearchResult(
+          address: item.address,
+          regionStart: item.regionStart,
+          regionTypeKey: item.regionTypeKey,
+          type: SearchValueType.bytes,
+          rawBytes: result.afterBytes,
+          displayValue: result.instructionText,
+        );
         savedItemsNotifier.saveOne(
           pid: selectedPid,
-          result: SearchResult(
-            address: item.address,
-            regionStart: item.regionStart,
-            regionTypeKey: item.regionTypeKey,
-            type: SearchValueType.bytes,
-            rawBytes: result.afterBytes,
-            displayValue: result.instructionText,
-          ),
+          result: patchedResult,
           isFrozen: false,
           isInstructionPatch: true,
+          instructionText: result.instructionText,
+        );
+        ref.invalidate(getMemoryBreakpointStateProvider(pid: selectedPid));
+        ref.invalidate(getMemoryBreakpointsProvider(pid: selectedPid));
+        ref.invalidate(getMemoryBreakpointHitsProvider(pid: selectedPid));
+        await browseNotifier.refreshInstructionBrowseWindowIfVisible(
+          sourceResult: patchedResult,
           instructionText: result.instructionText,
         );
         activeInstructionEditor.value = null;
@@ -341,6 +349,7 @@ class MemoryToolSavedTab extends HookConsumerWidget {
       if (selectedPid == null) {
         return;
       }
+      var hasPatchedInstruction = false;
       for (final item in items) {
         final entry = instructionHistoryByAddress[item.address];
         if (entry == null) {
@@ -364,23 +373,34 @@ class MemoryToolSavedTab extends HookConsumerWidget {
                 previousBytes: result.beforeBytes,
                 previousDisplayValue: item.effectiveInstructionText,
               );
+          final patchedResult = SearchResult(
+            address: entry.address,
+            regionStart: item.regionStart,
+            regionTypeKey: item.regionTypeKey,
+            type: SearchValueType.bytes,
+            rawBytes: result.afterBytes,
+            displayValue: result.instructionText,
+          );
           savedItemsNotifier.saveOne(
             pid: selectedPid,
-            result: SearchResult(
-              address: entry.address,
-              regionStart: item.regionStart,
-              regionTypeKey: item.regionTypeKey,
-              type: SearchValueType.bytes,
-              rawBytes: result.afterBytes,
-              displayValue: result.instructionText,
-            ),
+            result: patchedResult,
             isFrozen: false,
             isInstructionPatch: true,
+            instructionText: result.instructionText,
+          );
+          hasPatchedInstruction = true;
+          await browseNotifier.refreshInstructionBrowseWindowIfVisible(
+            sourceResult: patchedResult,
             instructionText: result.instructionText,
           );
         } catch (_) {
           continue;
         }
+      }
+      if (hasPatchedInstruction) {
+        ref.invalidate(getMemoryBreakpointStateProvider(pid: selectedPid));
+        ref.invalidate(getMemoryBreakpointsProvider(pid: selectedPid));
+        ref.invalidate(getMemoryBreakpointHitsProvider(pid: selectedPid));
       }
     }
 

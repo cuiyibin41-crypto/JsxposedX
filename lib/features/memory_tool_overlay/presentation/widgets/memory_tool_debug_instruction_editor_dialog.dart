@@ -31,6 +31,8 @@ class MemoryToolDebugInstructionEditorDialog extends HookWidget {
     final isSaving = useState(false);
     final errorText = useState<String?>(null);
     final trimmedValue = controller.text.trim();
+    final lineCount = '\n'.allMatches(controller.text).length + 1;
+    final visibleMaxLines = lineCount.clamp(1, 4);
     final canSave = !isSaving.value && trimmedValue != initialValue.trim();
 
     useEffect(() {
@@ -42,8 +44,8 @@ class MemoryToolDebugInstructionEditorDialog extends HookWidget {
       onClose: onClose,
       maxWidthPortrait: 420.r,
       maxWidthLandscape: 520.r,
-      maxHeightPortrait: 320.r,
-      maxHeightLandscape: 320.r,
+      maxHeightPortrait: 232.r,
+      maxHeightLandscape: 232.r,
       cardBorderRadius: 18.r,
       childBuilder: (context, viewport, layout) {
         return SingleChildScrollView(
@@ -63,7 +65,7 @@ class MemoryToolDebugInstructionEditorDialog extends HookWidget {
                 controller: controller,
                 labelText: context.isZh ? '指令' : 'Instruction',
                 contextMenuBuilder: buildOverlayTextInputContextMenu,
-                maxLines: 6,
+                maxLines: visibleMaxLines,
                 fillColor: context.colorScheme.surfaceContainerHighest
                     .withValues(alpha: 0.22),
                 focusedBorderColor: context.colorScheme.primary,
