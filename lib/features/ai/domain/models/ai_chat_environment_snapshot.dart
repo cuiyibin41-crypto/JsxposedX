@@ -5,6 +5,7 @@ import 'package:JsxposedX/features/ai/domain/models/ai_session_init_state.dart';
 class AiChatEnvironmentSnapshot {
   const AiChatEnvironmentSnapshot({
     required this.scopeId,
+    required this.environmentVersion,
     required this.systemPrompt,
     required this.sessionInitState,
     this.error,
@@ -13,6 +14,7 @@ class AiChatEnvironmentSnapshot {
   });
 
   final String scopeId;
+  final String environmentVersion;
   final String systemPrompt;
   final AiSessionInitState sessionInitState;
   final String? error;
@@ -21,12 +23,14 @@ class AiChatEnvironmentSnapshot {
 
   factory AiChatEnvironmentSnapshot.ready({
     required String scopeId,
+    required String environmentVersion,
     required String systemPrompt,
     AiChatToolsSpec? toolsSpec,
     AiChatToolExecutorContract? toolExecutor,
   }) {
     return AiChatEnvironmentSnapshot(
       scopeId: scopeId,
+      environmentVersion: environmentVersion,
       systemPrompt: systemPrompt,
       sessionInitState: AiSessionInitState.ready,
       toolsSpec: toolsSpec,
@@ -36,10 +40,12 @@ class AiChatEnvironmentSnapshot {
 
   factory AiChatEnvironmentSnapshot.initializing({
     required String scopeId,
+    required String environmentVersion,
     String systemPrompt = '',
   }) {
     return AiChatEnvironmentSnapshot(
       scopeId: scopeId,
+      environmentVersion: environmentVersion,
       systemPrompt: systemPrompt,
       sessionInitState: AiSessionInitState.initializing,
     );
@@ -47,11 +53,13 @@ class AiChatEnvironmentSnapshot {
 
   factory AiChatEnvironmentSnapshot.failed({
     required String scopeId,
+    required String environmentVersion,
     required String error,
     String systemPrompt = '',
   }) {
     return AiChatEnvironmentSnapshot(
       scopeId: scopeId,
+      environmentVersion: environmentVersion,
       systemPrompt: systemPrompt,
       sessionInitState: AiSessionInitState.failed,
       error: error,

@@ -156,6 +156,7 @@ class AiChatAction extends _$AiChatAction {
     _clearStreamingThinking();
     state = state.copyWith(
       systemPrompt: snapshot.systemPrompt,
+      environmentVersion: snapshot.environmentVersion,
       sessionInitState: snapshot.sessionInitState,
       error: snapshot.error,
       lastResponseIssue: snapshot.sessionInitState == AiSessionInitState.failed

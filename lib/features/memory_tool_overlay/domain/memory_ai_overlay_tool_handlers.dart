@@ -10,6 +10,9 @@ import 'package:JsxposedX/features/memory_tool_overlay/domain/repositories/memor
 import 'package:JsxposedX/features/memory_tool_overlay/domain/repositories/memory_pointer_auto_chase_query_repository.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/domain/repositories/memory_pointer_query_repository.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/domain/repositories/memory_query_repository.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/models/memory_tool_saved_item.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_instruction_history_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/states/memory_tool_value_history_state.dart';
 import 'package:JsxposedX/generated/memory_tool.g.dart';
 
 class MemoryAiOverlayToolRuntimeContext {
@@ -22,6 +25,20 @@ class MemoryAiOverlayToolRuntimeContext {
     required this.memoryPointerActionRepository,
     required this.memoryPointerAutoChaseQueryRepository,
     required this.memoryPointerAutoChaseActionRepository,
+    required this.listSavedItems,
+    required this.saveSavedItem,
+    required this.saveSavedItems,
+    required this.removeSavedItems,
+    required this.clearSavedItems,
+    required this.listValueHistoryEntries,
+    required this.listInstructionHistoryEntries,
+    required this.writeMemoryValueAction,
+    required this.writeMemoryValuesAction,
+    required this.patchMemoryInstructionAction,
+    required this.setMemoryFreezeAction,
+    required this.setMemoryFreezesAction,
+    required this.restorePreviousValuesAction,
+    required this.recordInstructionHistory,
   });
 
   final ProcessInfo processInfo;
@@ -34,6 +51,67 @@ class MemoryAiOverlayToolRuntimeContext {
   memoryPointerAutoChaseQueryRepository;
   final MemoryPointerAutoChaseActionRepository
   memoryPointerAutoChaseActionRepository;
+  final List<MemoryToolSavedItem> Function() listSavedItems;
+  final void Function({
+    required int pid,
+    required SearchResult result,
+    MemoryValuePreview? preview,
+    required bool isFrozen,
+    bool isInstructionPatch,
+    String? instructionText,
+  })
+  saveSavedItem;
+  final void Function({
+    required int pid,
+    required List<SearchResult> results,
+    Map<int, MemoryValuePreview> previewsByAddress,
+    Set<int> frozenAddresses,
+  })
+  saveSavedItems;
+  final void Function({
+    required int pid,
+    required Iterable<int> addresses,
+  })
+  removeSavedItems;
+  final void Function(int pid) clearSavedItems;
+  final Map<int, MemoryToolValueHistoryEntryState> Function()
+  listValueHistoryEntries;
+  final Map<int, MemoryToolInstructionHistoryEntry> Function()
+  listInstructionHistoryEntries;
+  final Future<void> Function({
+    required MemoryWriteRequest request,
+    MemoryValuePreview? previousPreview,
+  })
+  writeMemoryValueAction;
+  final Future<void> Function({
+    required List<MemoryWriteRequest> requests,
+    required List<MemoryValuePreview> previousPreviews,
+  })
+  writeMemoryValuesAction;
+  final Future<MemoryInstructionPatchResult> Function({
+    required MemoryInstructionPatchRequest request,
+  })
+  patchMemoryInstructionAction;
+  final Future<void> Function({
+    required MemoryFreezeRequest request,
+  })
+  setMemoryFreezeAction;
+  final Future<void> Function({
+    required List<MemoryFreezeRequest> requests,
+  })
+  setMemoryFreezesAction;
+  final Future<int> Function({
+    required List<int> addresses,
+    required bool littleEndian,
+  })
+  restorePreviousValuesAction;
+  final void Function({
+    required int pid,
+    required int address,
+    required Uint8List previousBytes,
+    required String previousDisplayValue,
+  })
+  recordInstructionHistory;
 
   int get pid => processInfo.pid;
 }
@@ -172,6 +250,178 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
     },
   );
   yield _MemoryAiOverlayCallbackToolHandler(
+    toolName: 'list_saved_items',
+    onHandle: (call) async {
+      final items = context.listSavedItems()
+        ..sort((left, right) => left.address.compareTo(right.address));
+      final page = _slicePage(
+        items,
+        offset: _getOptionalInt(call, 'offset', 0),
+        limit: _getOptionalInt(call, 'limit', 50),
+      );
+      if (page.isEmpty) {
+        return items.isEmpty ? '当前进程暂存区为空。' : '该分页范围内没有暂存条目。';
+      }
+      final buffer = StringBuffer()
+        ..writeln('当前进程暂存区共 ${items.length} 条，本次返回 ${page.length} 条：');
+      for (final item in page) {
+        buffer.writeln(_formatSavedItem(item));
+      }
+      return buffer.toString().trim();
+    },
+  );
+  yield _MemoryAiOverlayCallbackToolHandler(
+    toolName: 'save_search_results_to_saved',
+    onHandle: (call) async {
+      final offset = _getOptionalInt(call, 'offset', 0);
+      final limit = _getOptionalInt(call, 'limit', 50);
+      final markFrozen = _getOptionalBool(call, 'markFrozen', false);
+      final results = await context.memoryQueryRepository.getSearchResults(
+        offset: offset,
+        limit: limit,
+      );
+      if (results.isEmpty) {
+        return '当前分页内没有可保存的搜索结果。';
+      }
+      final previews = await _readValuePreviewsForResults(context, results);
+      context.saveSavedItems(
+        pid: context.pid,
+        results: results,
+        previewsByAddress: previews,
+        frozenAddresses: markFrozen
+            ? results.map((result) => result.address).toSet()
+            : const <int>{},
+      );
+      return markFrozen
+          ? '已将 ${results.length} 条搜索结果保存到暂存区，并标记为冻结条目。'
+          : '已将 ${results.length} 条搜索结果保存到暂存区。';
+    },
+  );
+  yield _MemoryAiOverlayCallbackToolHandler(
+    toolName: 'save_memory_addresses_to_saved',
+    onHandle: (call) async {
+      final addresses = _parseAddressList(call, 'addresses');
+      if (addresses.isEmpty) {
+        throw ArgumentError('addresses 不能为空');
+      }
+      final markFrozen = _getOptionalBool(call, 'markFrozen', false);
+      final markInstructionPatch = _getOptionalBool(
+        call,
+        'markInstructionPatch',
+        false,
+      );
+      final existingSavedItems = <int, MemoryToolSavedItem>{
+        for (final item in context.listSavedItems()) item.address: item,
+      };
+
+      if (markInstructionPatch) {
+        final previews = await context.memoryQueryRepository.disassembleMemory(
+          pid: context.pid,
+          addresses: addresses,
+        );
+        if (previews.isEmpty) {
+          return '未读取到任何指令预览，暂存失败。';
+        }
+        final metadataByAddress = await _resolveAddressMetadataMap(
+          context,
+          previews.map((preview) => preview.address).toList(growable: false),
+          existingItemsByAddress: existingSavedItems,
+        );
+        for (final preview in previews) {
+          final metadata = metadataByAddress[preview.address] ??
+              _AddressMetadata(
+                regionStart: preview.address,
+                regionTypeKey: 'other',
+              );
+          context.saveSavedItem(
+            pid: context.pid,
+            result: SearchResult(
+              address: preview.address,
+              regionStart: metadata.regionStart,
+              regionTypeKey: metadata.regionTypeKey,
+              type: SearchValueType.bytes,
+              rawBytes: preview.rawBytes,
+              displayValue: preview.instructionText,
+            ),
+            isFrozen: markFrozen,
+            isInstructionPatch: true,
+            instructionText: preview.instructionText,
+          );
+        }
+        return '已将 ${previews.length} 个地址按指令补丁条目保存到暂存区。';
+      }
+
+      final valueType = _parseRawSearchValueType(
+        _getRequiredString(call, 'valueType'),
+      );
+      final length = _resolveReadLength(
+        valueType,
+        _getOptionalIntOrNull(call, 'length'),
+      );
+      final previews = await context.memoryQueryRepository.readMemoryValues(
+        requests: addresses
+            .map(
+              (address) => MemoryReadRequest(
+                pid: context.pid,
+                address: address,
+                type: valueType,
+                length: length,
+              ),
+            )
+            .toList(growable: false),
+      );
+      if (previews.isEmpty) {
+        return '未读取到任何内存值，暂存失败。';
+      }
+      final metadataByAddress = await _resolveAddressMetadataMap(
+        context,
+        previews.map((preview) => preview.address).toList(growable: false),
+        existingItemsByAddress: existingSavedItems,
+      );
+      for (final preview in previews) {
+        final metadata = metadataByAddress[preview.address] ??
+            _AddressMetadata(
+              regionStart: preview.address,
+              regionTypeKey: 'other',
+            );
+        context.saveSavedItem(
+          pid: context.pid,
+          result: SearchResult(
+            address: preview.address,
+            regionStart: metadata.regionStart,
+            regionTypeKey: metadata.regionTypeKey,
+            type: preview.type,
+            rawBytes: preview.rawBytes,
+            displayValue: preview.displayValue,
+          ),
+          preview: preview,
+          isFrozen: markFrozen,
+        );
+      }
+      return markFrozen
+          ? '已将 ${previews.length} 个地址保存到暂存区，并标记为冻结条目。'
+          : '已将 ${previews.length} 个地址保存到暂存区。';
+    },
+  );
+  yield _MemoryAiOverlayCallbackToolHandler(
+    toolName: 'remove_saved_items',
+    onHandle: (call) async {
+      final addresses = _parseAddressList(call, 'addresses');
+      if (addresses.isEmpty) {
+        throw ArgumentError('addresses 不能为空');
+      }
+      context.removeSavedItems(pid: context.pid, addresses: addresses);
+      return '已从暂存区移除 ${addresses.length} 个地址。';
+    },
+  );
+  yield _MemoryAiOverlayCallbackToolHandler(
+    toolName: 'clear_saved_items',
+    onHandle: (call) async {
+      context.clearSavedItems(context.pid);
+      return '当前进程暂存区已清空。';
+    },
+  );
+  yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'read_memory',
     onHandle: (call) async {
       final valueType = _parseRawSearchValueType(
@@ -233,10 +483,69 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
     onHandle: (call) async {
       final address = _parseRequiredAddress(call, 'address');
       final value = _buildWriteValueFromToolCall(call);
-      await context.memoryActionRepository.writeMemoryValue(
+      final preview = await _readValuePreviewOrNull(
+        context,
+        address: address,
+        type: value.type,
+        length: _resolveReadLength(
+          value.type,
+          _resolveWriteValueLength(value),
+        ),
+      );
+      await context.writeMemoryValueAction(
         request: MemoryWriteRequest(address: address, value: value),
+        previousPreview: preview,
       );
       return '已写入地址 ${_formatAddress(address)}。';
+    },
+  );
+  yield _MemoryAiOverlayCallbackToolHandler(
+    toolName: 'write_memory_values',
+    onHandle: (call) async {
+      final addresses = _parseAddressList(call, 'addresses');
+      if (addresses.isEmpty) {
+        throw ArgumentError('addresses 不能为空');
+      }
+      final rawValues = _getStringList(call, 'values');
+      if (rawValues.isEmpty) {
+        throw ArgumentError('values 不能为空');
+      }
+      final resolvedValues = _resolveParallelStringValues(
+        addresses: addresses,
+        rawValues: rawValues,
+        argumentName: 'values',
+      );
+      final requests = <MemoryWriteRequest>[];
+      final previewRequests = <MemoryReadRequest>[];
+      for (var index = 0; index < addresses.length; index += 1) {
+        final value = _buildWriteValue(
+          valueType: _normalizeLower(_getRequiredString(call, 'valueType')),
+          rawValue: resolvedValues[index],
+          littleEndian: _getOptionalBool(call, 'littleEndian', true),
+          bytesMode: _normalizeLower(_getOptionalString(call, 'bytesMode', 'auto')),
+        );
+        requests.add(
+          MemoryWriteRequest(address: addresses[index], value: value),
+        );
+        previewRequests.add(
+          MemoryReadRequest(
+            pid: context.pid,
+            address: addresses[index],
+            type: value.type,
+            length: _resolveReadLength(
+              value.type,
+              _resolveWriteValueLength(value),
+            ),
+          ),
+        );
+      }
+      final previousPreviews = await context.memoryQueryRepository
+          .readMemoryValues(requests: previewRequests);
+      await context.writeMemoryValuesAction(
+        requests: requests,
+        previousPreviews: previousPreviews,
+      );
+      return '已批量写入 ${requests.length} 个地址。';
     },
   );
   yield _MemoryAiOverlayCallbackToolHandler(
@@ -244,12 +553,25 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
     onHandle: (call) async {
       final address = _parseRequiredAddress(call, 'address');
       final instruction = _getRequiredString(call, 'instruction');
-      final result = await context.memoryActionRepository.patchMemoryInstruction(
+      final previousInstruction = await _readInstructionPreviewOrNull(
+        context,
+        address: address,
+      );
+      final result = await context.patchMemoryInstructionAction(
         request: MemoryInstructionPatchRequest(
           pid: context.pid,
           address: address,
           instruction: instruction,
         ),
+      );
+      context.recordInstructionHistory(
+        pid: context.pid,
+        address: address,
+        previousBytes: result.beforeBytes,
+        previousDisplayValue:
+            previousInstruction?.instructionText.isNotEmpty == true
+            ? previousInstruction!.instructionText
+            : _formatHex(result.beforeBytes),
       );
       return [
         '指令补丁已完成：',
@@ -263,12 +585,53 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
     },
   );
   yield _MemoryAiOverlayCallbackToolHandler(
+    toolName: 'list_value_history',
+    onHandle: (call) async {
+      final entries = context.listValueHistoryEntries().values.toList(growable: false)
+        ..sort((left, right) => left.address.compareTo(right.address));
+      final page = _slicePage(
+        entries,
+        offset: _getOptionalInt(call, 'offset', 0),
+        limit: _getOptionalInt(call, 'limit', 50),
+      );
+      if (page.isEmpty) {
+        return entries.isEmpty ? '当前没有旧值历史。' : '该分页范围内没有旧值历史。';
+      }
+      final buffer = StringBuffer()
+        ..writeln('当前共有 ${entries.length} 条旧值历史，本次返回 ${page.length} 条：');
+      for (final entry in page) {
+        buffer.writeln(_formatValueHistoryEntry(entry));
+      }
+      return buffer.toString().trim();
+    },
+  );
+  yield _MemoryAiOverlayCallbackToolHandler(
+    toolName: 'restore_previous_values',
+    onHandle: (call) async {
+      final addresses = _parseAddressList(call, 'addresses');
+      if (addresses.isEmpty) {
+        throw ArgumentError('addresses 不能为空');
+      }
+      final littleEndian =
+          _getOptionalBoolOrNull(call, 'littleEndian') ??
+          (await context.memoryQueryRepository.getSearchSessionState())
+              .littleEndian;
+      final restoredCount = await context.restorePreviousValuesAction(
+        addresses: addresses,
+        littleEndian: littleEndian,
+      );
+      return restoredCount > 0
+          ? '已恢复 $restoredCount 个地址的旧值。'
+          : '没有可恢复的旧值历史。';
+    },
+  );
+  yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'set_memory_freeze',
     onHandle: (call) async {
       final address = _parseRequiredAddress(call, 'address');
       final value = _buildWriteValueFromToolCall(call);
       final enabled = _getRequiredBool(call, 'enabled');
-      await context.memoryActionRepository.setMemoryFreeze(
+      await context.setMemoryFreezeAction(
         request: MemoryFreezeRequest(
           address: address,
           value: value,
@@ -278,6 +641,46 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
       return enabled
           ? '已对地址 ${_formatAddress(address)} 启用冻结。'
           : '已对地址 ${_formatAddress(address)} 关闭冻结。';
+    },
+  );
+  yield _MemoryAiOverlayCallbackToolHandler(
+    toolName: 'set_memory_freezes',
+    onHandle: (call) async {
+      final addresses = _parseAddressList(call, 'addresses');
+      if (addresses.isEmpty) {
+        throw ArgumentError('addresses 不能为空');
+      }
+      final rawValues = _getStringList(call, 'values');
+      if (rawValues.isEmpty) {
+        throw ArgumentError('values 不能为空');
+      }
+      final resolvedValues = _resolveParallelStringValues(
+        addresses: addresses,
+        rawValues: rawValues,
+        argumentName: 'values',
+      );
+      final enabled = _getRequiredBool(call, 'enabled');
+      final requests = <MemoryFreezeRequest>[];
+      for (var index = 0; index < addresses.length; index += 1) {
+        requests.add(
+          MemoryFreezeRequest(
+            address: addresses[index],
+            value: _buildWriteValue(
+              valueType: _normalizeLower(_getRequiredString(call, 'valueType')),
+              rawValue: resolvedValues[index],
+              littleEndian: _getOptionalBool(call, 'littleEndian', true),
+              bytesMode: _normalizeLower(
+                _getOptionalString(call, 'bytesMode', 'auto'),
+              ),
+            ),
+            enabled: enabled,
+          ),
+        );
+      }
+      await context.setMemoryFreezesAction(requests: requests);
+      return enabled
+          ? '已批量启用 ${requests.length} 个冻结值。'
+          : '已批量关闭 ${requests.length} 个冻结值。';
     },
   );
   yield _MemoryAiOverlayCallbackToolHandler(
@@ -295,6 +698,91 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
         buffer.writeln(_formatFrozenMemoryValue(value));
       }
       return buffer.toString().trim();
+    },
+  );
+  yield _MemoryAiOverlayCallbackToolHandler(
+    toolName: 'list_instruction_patch_history',
+    onHandle: (call) async {
+      final entries = context.listInstructionHistoryEntries().values.toList(
+        growable: false,
+      )..sort((left, right) => left.address.compareTo(right.address));
+      final page = _slicePage(
+        entries,
+        offset: _getOptionalInt(call, 'offset', 0),
+        limit: _getOptionalInt(call, 'limit', 50),
+      );
+      if (page.isEmpty) {
+        return entries.isEmpty
+            ? '当前没有指令补丁历史。'
+            : '该分页范围内没有指令补丁历史。';
+      }
+      final buffer = StringBuffer()
+        ..writeln('当前共有 ${entries.length} 条指令补丁历史，本次返回 ${page.length} 条：');
+      for (final entry in page) {
+        buffer.writeln(_formatInstructionHistoryEntry(entry));
+      }
+      return buffer.toString().trim();
+    },
+  );
+  yield _MemoryAiOverlayCallbackToolHandler(
+    toolName: 'restore_instruction_patches',
+    onHandle: (call) async {
+      final addresses = _parseAddressList(call, 'addresses');
+      if (addresses.isEmpty) {
+        throw ArgumentError('addresses 不能为空');
+      }
+      final historyByAddress = context.listInstructionHistoryEntries();
+      final savedItemsByAddress = <int, MemoryToolSavedItem>{
+        for (final item in context.listSavedItems()) item.address: item,
+      };
+      var restoredCount = 0;
+      for (final address in addresses) {
+        final entry = historyByAddress[address];
+        if (entry == null) {
+          continue;
+        }
+        final currentInstruction = await _readInstructionPreviewOrNull(
+          context,
+          address: address,
+        );
+        final result = await context.patchMemoryInstructionAction(
+          request: MemoryInstructionPatchRequest(
+            pid: context.pid,
+            address: address,
+            instruction: _formatHex(entry.previousBytes),
+          ),
+        );
+        context.recordInstructionHistory(
+          pid: context.pid,
+          address: address,
+          previousBytes: result.beforeBytes,
+          previousDisplayValue:
+              currentInstruction?.instructionText.isNotEmpty == true
+              ? currentInstruction!.instructionText
+              : _formatHex(result.beforeBytes),
+        );
+        final savedItem = savedItemsByAddress[address];
+        if (savedItem != null) {
+          context.saveSavedItem(
+            pid: context.pid,
+            result: SearchResult(
+              address: address,
+              regionStart: savedItem.regionStart,
+              regionTypeKey: savedItem.regionTypeKey,
+              type: SearchValueType.bytes,
+              rawBytes: result.afterBytes,
+              displayValue: result.instructionText,
+            ),
+            isFrozen: false,
+            isInstructionPatch: true,
+            instructionText: result.instructionText,
+          );
+        }
+        restoredCount += 1;
+      }
+      return restoredCount > 0
+          ? '已恢复 $restoredCount 个地址的指令补丁。'
+          : '没有可恢复的指令补丁历史。';
     },
   );
   yield _MemoryAiOverlayCallbackToolHandler(
@@ -777,10 +1265,21 @@ SearchValue _buildSearchValueFromToolCall(
 }
 
 SearchValue _buildWriteValueFromToolCall(AiToolCall call) {
-  final valueType = _normalizeLower(_getRequiredString(call, 'valueType'));
-  final value = _getRequiredString(call, 'value').trim();
-  final littleEndian = _getOptionalBool(call, 'littleEndian', true);
-  final bytesMode = _normalizeLower(_getOptionalString(call, 'bytesMode', 'auto'));
+  return _buildWriteValue(
+    valueType: _normalizeLower(_getRequiredString(call, 'valueType')),
+    rawValue: _getRequiredString(call, 'value').trim(),
+    littleEndian: _getOptionalBool(call, 'littleEndian', true),
+    bytesMode: _normalizeLower(_getOptionalString(call, 'bytesMode', 'auto')),
+  );
+}
+
+SearchValue _buildWriteValue({
+  required String valueType,
+  required String rawValue,
+  required bool littleEndian,
+  required String bytesMode,
+}) {
+  final value = rawValue.trim();
   if (value.isEmpty) {
     throw ArgumentError('value 不能为空');
   }
@@ -830,6 +1329,89 @@ SearchValue _buildWriteValueFromToolCall(AiToolCall call) {
   );
 }
 
+Future<MemoryValuePreview?> _readValuePreviewOrNull(
+  MemoryAiOverlayToolRuntimeContext context, {
+  required int address,
+  required SearchValueType type,
+  required int length,
+}) async {
+  final previews = await context.memoryQueryRepository.readMemoryValues(
+    requests: <MemoryReadRequest>[
+      MemoryReadRequest(
+        pid: context.pid,
+        address: address,
+        type: type,
+        length: length,
+      ),
+    ],
+  );
+  if (previews.isEmpty) {
+    return null;
+  }
+  return previews.first;
+}
+
+Future<MemoryInstructionPreview?> _readInstructionPreviewOrNull(
+  MemoryAiOverlayToolRuntimeContext context, {
+  required int address,
+}) async {
+  final previews = await context.memoryQueryRepository.disassembleMemory(
+    pid: context.pid,
+    addresses: <int>[address],
+  );
+  if (previews.isEmpty) {
+    return null;
+  }
+  return previews.first;
+}
+
+Future<Map<int, MemoryValuePreview>> _readValuePreviewsForResults(
+  MemoryAiOverlayToolRuntimeContext context,
+  List<SearchResult> results,
+) async {
+  if (results.isEmpty) {
+    return const <int, MemoryValuePreview>{};
+  }
+  final previews = await context.memoryQueryRepository.readMemoryValues(
+    requests: results
+        .map(
+          (result) => MemoryReadRequest(
+            pid: context.pid,
+            address: result.address,
+            type: result.type,
+            length: _resolveReadLength(result.type, result.rawBytes.length),
+          ),
+        )
+        .toList(growable: false),
+  );
+  return <int, MemoryValuePreview>{
+    for (final preview in previews) preview.address: preview,
+  };
+}
+
+int? _resolveWriteValueLength(SearchValue value) {
+  if (value.type != SearchValueType.bytes) {
+    return null;
+  }
+  final explicitBytes = value.bytesValue;
+  if (explicitBytes != null && explicitBytes.isNotEmpty) {
+    return explicitBytes.length;
+  }
+  final textValue = value.textValue?.trim();
+  if (textValue == null || textValue.isEmpty) {
+    return null;
+  }
+  if (textValue.startsWith('__jsx_text_utf16le__:')) {
+    return _encodeUtf16Le(
+      textValue.substring('__jsx_text_utf16le__:'.length),
+    ).length;
+  }
+  if (textValue.startsWith('__jsx_text_utf8__:')) {
+    return utf8.encode(textValue.substring('__jsx_text_utf8__:'.length)).length;
+  }
+  return null;
+}
+
 PointerScanRequest _buildPointerScanRequest(
   AiToolCall call,
   MemoryAiOverlayToolRuntimeContext context,
@@ -851,6 +1433,164 @@ PointerScanRequest _buildPointerScanRequest(
   );
 }
 
+List<T> _slicePage<T>(
+  List<T> items, {
+  required int offset,
+  required int limit,
+}) {
+  if (items.isEmpty || limit <= 0 || offset >= items.length) {
+    return <T>[];
+  }
+  final safeOffset = offset < 0 ? 0 : offset;
+  final end = safeOffset + limit > items.length
+      ? items.length
+      : safeOffset + limit;
+  return items.sublist(safeOffset, end);
+}
+
+List<String> _resolveParallelStringValues({
+  required List<int> addresses,
+  required List<String> rawValues,
+  required String argumentName,
+}) {
+  if (rawValues.length == 1) {
+    return List<String>.filled(addresses.length, rawValues.first);
+  }
+  if (rawValues.length != addresses.length) {
+    throw ArgumentError(
+      '$argumentName 长度必须为 1，或与 addresses 长度一致',
+    );
+  }
+  return rawValues;
+}
+
+Future<Map<int, _AddressMetadata>> _resolveAddressMetadataMap(
+  MemoryAiOverlayToolRuntimeContext context,
+  List<int> addresses, {
+  required Map<int, MemoryToolSavedItem> existingItemsByAddress,
+}) async {
+  if (addresses.isEmpty) {
+    return const <int, _AddressMetadata>{};
+  }
+  final metadata = <int, _AddressMetadata>{};
+  final pendingAddresses = <int>{};
+  for (final address in addresses) {
+    final existing = existingItemsByAddress[address];
+    if (existing != null) {
+      metadata[address] = _AddressMetadata(
+        regionStart: existing.regionStart,
+        regionTypeKey: existing.regionTypeKey,
+      );
+    } else {
+      pendingAddresses.add(address);
+    }
+  }
+  if (pendingAddresses.isEmpty) {
+    return metadata;
+  }
+
+  final regions = <MemoryRegion>[];
+  var offset = 0;
+  const pageSize = 200;
+  while (true) {
+    final page = await context.memoryQueryRepository.getMemoryRegions(
+      pid: context.pid,
+      offset: offset,
+      limit: pageSize,
+      readableOnly: false,
+      includeAnonymous: true,
+      includeFileBacked: true,
+    );
+    if (page.isEmpty) {
+      break;
+    }
+    regions.addAll(page);
+    offset += page.length;
+    if (page.length < pageSize) {
+      break;
+    }
+  }
+  for (final address in pendingAddresses) {
+    MemoryRegion? region;
+    for (final candidate in regions) {
+      if (address >= candidate.startAddress && address < candidate.endAddress) {
+        region = candidate;
+        break;
+      }
+    }
+    metadata[address] = _AddressMetadata(
+      regionStart: region?.startAddress ?? address,
+      regionTypeKey: region == null ? 'other' : _mapRegionTypeKey(region),
+    );
+  }
+  return metadata;
+}
+
+String _mapRegionTypeKey(MemoryRegion region) {
+  final lowerPath = (region.path ?? '').toLowerCase();
+  final executable = region.perms.length > 2 && region.perms[2] == 'x';
+  final isAppPath =
+      lowerPath.startsWith('/data/app/') ||
+      lowerPath.startsWith('/data/data/') ||
+      lowerPath.startsWith('/mnt/expand/');
+  final isSystemPath =
+      lowerPath.startsWith('/system/') ||
+      lowerPath.startsWith('/apex/') ||
+      lowerPath.startsWith('/vendor/') ||
+      lowerPath.startsWith('/product/');
+
+  if (region.perms.isEmpty || region.perms[0] != 'r') {
+    return 'bad';
+  }
+  if (lowerPath.contains('[stack')) {
+    return 'stack';
+  }
+  if (lowerPath.contains('ashmem')) {
+    return lowerPath.contains('dalvik') ? 'javaHeap' : 'ashmem';
+  }
+  if (lowerPath.contains('dalvik-main space') ||
+      lowerPath.contains('dalvik-allocspace') ||
+      lowerPath.contains('dalvik-large object space') ||
+      lowerPath.contains('dalvik-free list large object space') ||
+      lowerPath.contains('dalvik-non moving space') ||
+      lowerPath.contains('dalvik-zygote space')) {
+    return 'javaHeap';
+  }
+  if (lowerPath.contains('dalvik') ||
+      lowerPath.contains('.art') ||
+      lowerPath.contains('.oat') ||
+      lowerPath.contains('.odex')) {
+    return 'java';
+  }
+  if (lowerPath.contains('[heap]')) {
+    return 'cHeap';
+  }
+  if (lowerPath.contains('malloc') ||
+      lowerPath.contains('scudo:') ||
+      lowerPath.contains('jemalloc') ||
+      lowerPath.contains('[anon:libc_malloc]')) {
+    return 'cAlloc';
+  }
+  if (lowerPath.contains('.bss') || lowerPath.contains('[anon:.bss')) {
+    return 'cBss';
+  }
+  if (executable) {
+    if (isAppPath) {
+      return 'codeApp';
+    }
+    if (isSystemPath || !region.isAnonymous) {
+      return 'codeSys';
+    }
+  }
+  if (!region.isAnonymous) {
+    if (isAppPath || isSystemPath || lowerPath.contains('.so')) {
+      return 'cData';
+    }
+    return 'other';
+  }
+  return 'anonymous';
+}
+
 String _formatRegion(MemoryRegion region) {
   final endExclusive = region.endAddress;
   final path = region.path?.trim();
@@ -860,6 +1600,19 @@ String _formatRegion(MemoryRegion region) {
     'perms=${region.perms}',
     'anonymous=${region.isAnonymous}',
     if (path != null && path.isNotEmpty) 'path=$path',
+  ].join(' | ');
+}
+
+String _formatSavedItem(MemoryToolSavedItem item) {
+  return [
+    _formatAddress(item.address),
+    'regionStart=${_formatAddress(item.regionStart)}',
+    'regionType=${item.regionTypeKey}',
+    'type=${item.type.name}',
+    'value=${item.isInstructionPatch ? item.effectiveInstructionText : item.displayValue}',
+    'hex=${_formatHex(item.rawBytes)}',
+    'frozen=${item.isFrozen}',
+    'instructionPatch=${item.isInstructionPatch}',
   ].join(' | ');
 }
 
@@ -930,6 +1683,25 @@ String _formatFrozenMemoryValue(FrozenMemoryValue value) {
     'type=${value.type.name}',
     'value=${value.displayValue}',
     'hex=${_formatHex(value.rawBytes)}',
+  ].join(' | ');
+}
+
+String _formatValueHistoryEntry(MemoryToolValueHistoryEntryState entry) {
+  return [
+    _formatAddress(entry.address),
+    'type=${entry.type.name}',
+    'value=${entry.displayValue}',
+    'hex=${_formatHex(entry.rawBytes)}',
+  ].join(' | ');
+}
+
+String _formatInstructionHistoryEntry(
+  MemoryToolInstructionHistoryEntry entry,
+) {
+  return [
+    _formatAddress(entry.address),
+    'previous=${entry.previousDisplayValue}',
+    'hex=${_formatHex(entry.previousBytes)}',
   ].join(' | ');
 }
 
@@ -1182,6 +1954,26 @@ bool _getOptionalBool(AiToolCall call, String key, bool defaultValue) {
     }
   }
   return defaultValue;
+}
+
+bool? _getOptionalBoolOrNull(AiToolCall call, String key) {
+  final raw = call.arguments[key];
+  if (raw == null) {
+    return null;
+  }
+  if (raw is bool) {
+    return raw;
+  }
+  if (raw is String) {
+    final normalized = raw.trim().toLowerCase();
+    if (normalized == 'true') {
+      return true;
+    }
+    if (normalized == 'false') {
+      return false;
+    }
+  }
+  return null;
 }
 
 List<String> _getStringList(AiToolCall call, String key) {
@@ -1703,3 +2495,13 @@ const Set<String> _supportedFuzzyModes = <String>{
   'increased',
   'decreased',
 };
+
+class _AddressMetadata {
+  const _AddressMetadata({
+    required this.regionStart,
+    required this.regionTypeKey,
+  });
+
+  final int regionStart;
+  final String regionTypeKey;
+}

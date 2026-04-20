@@ -157,6 +157,59 @@ class MemoryAiOverlayToolDefinitions {
     parameters: ToolParametersBuilder.empty(),
   );
 
+  static final listSavedItems = AiToolDefinition(
+    name: 'list_saved_items',
+    description: '列出当前进程暂存区中的条目，可查看地址、类型、值、是否冻结以及是否为指令补丁',
+    parameters: (ToolParametersBuilder()
+          ..addInteger('offset', '分页偏移，默认 0')
+          ..addInteger('limit', '分页大小，默认 50'))
+        .build(),
+  );
+
+  static final saveSearchResultsToSaved = AiToolDefinition(
+    name: 'save_search_results_to_saved',
+    description: '将当前搜索结果中的指定分页范围保存到暂存区，常用于把候选地址批量加入后续编辑/冻结/恢复工作流',
+    parameters: (ToolParametersBuilder()
+          ..addInteger('offset', '分页偏移，默认 0')
+          ..addInteger('limit', '分页大小，默认 50')
+          ..addBoolean('markFrozen', '保存时是否同时标记为冻结条目，默认 false'))
+        .build(),
+  );
+
+  static final saveMemoryAddressesToSaved = AiToolDefinition(
+    name: 'save_memory_addresses_to_saved',
+    description: '将一个或多个任意地址读出后保存到暂存区，适合浏览区地址、手工地址和非搜索结果地址',
+    parameters: (ToolParametersBuilder()
+          ..addStringArray('addresses', '待保存地址数组', required: true)
+          ..addString(
+            'valueType',
+            '读取并保存的值类型：i8/i16/i32/i64/f32/f64/bytes',
+            required: true,
+            enumValues: _rawValueTypes,
+          )
+          ..addInteger('length', 'bytes 类型读取长度；不传时按类型默认长度')
+          ..addBoolean('markFrozen', '保存时是否标记为冻结条目，默认 false')
+          ..addBoolean(
+            'markInstructionPatch',
+            '是否标记为指令补丁条目，默认 false',
+          ))
+        .build(),
+  );
+
+  static final removeSavedItems = AiToolDefinition(
+    name: 'remove_saved_items',
+    description: '按地址从当前进程暂存区移除一个或多个条目',
+    parameters: (ToolParametersBuilder()
+          ..addStringArray('addresses', '待移除地址数组', required: true))
+        .build(),
+  );
+
+  static final clearSavedItems = AiToolDefinition(
+    name: 'clear_saved_items',
+    description: '清空当前进程的暂存区',
+    parameters: ToolParametersBuilder.empty(),
+  );
+
   static final readMemory = AiToolDefinition(
     name: 'read_memory',
     description: '读取一个或多个地址的当前内存值。读取 bytes 时如果不传 length 会使用默认长度',
@@ -209,12 +262,55 @@ class MemoryAiOverlayToolDefinitions {
         .build(),
   );
 
+  static final writeMemoryValues = AiToolDefinition(
+    name: 'write_memory_values',
+    description: '批量向多个地址写入值。values 数组长度可与 addresses 相同，或只提供一个值广播到全部地址',
+    parameters: (ToolParametersBuilder()
+          ..addStringArray('addresses', '目标地址数组', required: true)
+          ..addString(
+            'valueType',
+            '写入值类型：i8/i16/i32/i64/f32/f64/bytes/text',
+            required: true,
+            enumValues: _writeValueTypes,
+          )
+          ..addStringArray(
+            'values',
+            '待写入值数组；长度可为 1 或与 addresses 相同',
+            required: true,
+          )
+          ..addBoolean('littleEndian', '是否按小端处理，默认 true')
+          ..addString(
+            'bytesMode',
+            'bytes/text 写法的编码方式：auto/hex/utf8/utf16le',
+            enumValues: _bytesModes,
+          ))
+        .build(),
+  );
+
   static final patchMemoryInstruction = AiToolDefinition(
     name: 'patch_memory_instruction',
     description: '将指定地址的机器指令改写为新的汇编指令文本',
     parameters: (ToolParametersBuilder()
           ..addString('address', '目标指令地址', required: true)
           ..addString('instruction', '新的汇编指令文本', required: true))
+        .build(),
+  );
+
+  static final listValueHistory = AiToolDefinition(
+    name: 'list_value_history',
+    description: '列出当前进程已有的旧值历史，可用于判断哪些地址支持恢复旧值',
+    parameters: (ToolParametersBuilder()
+          ..addInteger('offset', '分页偏移，默认 0')
+          ..addInteger('limit', '分页大小，默认 50'))
+        .build(),
+  );
+
+  static final restorePreviousValues = AiToolDefinition(
+    name: 'restore_previous_values',
+    description: '把指定地址恢复到历史旧值。只有此前通过 UI 或 AI 写过并记录过旧值的地址才能恢复',
+    parameters: (ToolParametersBuilder()
+          ..addStringArray('addresses', '待恢复地址数组', required: true)
+          ..addBoolean('littleEndian', '是否按小端恢复；不传则跟随当前搜索会话'))
         .build(),
   );
 
@@ -240,10 +336,53 @@ class MemoryAiOverlayToolDefinitions {
         .build(),
   );
 
+  static final setMemoryFreezes = AiToolDefinition(
+    name: 'set_memory_freezes',
+    description: '批量对多个地址启用或关闭冻结值。values 数组长度可为 1 或与 addresses 相同',
+    parameters: (ToolParametersBuilder()
+          ..addStringArray('addresses', '目标地址数组', required: true)
+          ..addString(
+            'valueType',
+            '冻结值类型：i8/i16/i32/i64/f32/f64/bytes/text',
+            required: true,
+            enumValues: _writeValueTypes,
+          )
+          ..addStringArray(
+            'values',
+            '冻结值数组；长度可为 1 或与 addresses 相同',
+            required: true,
+          )
+          ..addBoolean('enabled', '是否启用冻结', required: true)
+          ..addBoolean('littleEndian', '是否按小端处理，默认 true')
+          ..addString(
+            'bytesMode',
+            'bytes/text 写法的编码方式：auto/hex/utf8/utf16le',
+            enumValues: _bytesModes,
+          ))
+        .build(),
+  );
+
   static final listFrozenMemoryValues = AiToolDefinition(
     name: 'list_frozen_memory_values',
     description: '列出当前进程已冻结的地址和值',
     parameters: ToolParametersBuilder.empty(),
+  );
+
+  static final listInstructionPatchHistory = AiToolDefinition(
+    name: 'list_instruction_patch_history',
+    description: '列出当前进程的指令补丁历史，可查看哪些地址可恢复到补丁前状态',
+    parameters: (ToolParametersBuilder()
+          ..addInteger('offset', '分页偏移，默认 0')
+          ..addInteger('limit', '分页大小，默认 50'))
+        .build(),
+  );
+
+  static final restoreInstructionPatches = AiToolDefinition(
+    name: 'restore_instruction_patches',
+    description: '把指定地址的指令补丁恢复到历史记录中的旧字节',
+    parameters: (ToolParametersBuilder()
+          ..addStringArray('addresses', '待恢复地址数组', required: true))
+        .build(),
   );
 
   static final setProcessPaused = AiToolDefinition(
@@ -436,12 +575,23 @@ class MemoryAiOverlayToolDefinitions {
     continueNextScan,
     cancelSearch,
     resetSearchSession,
+    listSavedItems,
+    saveSearchResultsToSaved,
+    saveMemoryAddressesToSaved,
+    removeSavedItems,
+    clearSavedItems,
     readMemory,
     disassembleMemory,
     writeMemoryValue,
+    writeMemoryValues,
     patchMemoryInstruction,
+    listValueHistory,
+    restorePreviousValues,
     setMemoryFreeze,
+    setMemoryFreezes,
     listFrozenMemoryValues,
+    listInstructionPatchHistory,
+    restoreInstructionPatches,
     setProcessPaused,
     getBreakpointOverview,
     listMemoryBreakpoints,

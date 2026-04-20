@@ -13,9 +13,13 @@ class ApiManualChatEnvironmentAdapter implements AiChatEnvironmentAdapter {
   final String systemPrompt;
 
   @override
+  String get environmentVersion => 'api_manual:${systemPrompt.hashCode}';
+
+  @override
   Future<AiChatEnvironmentSnapshot> initialize() async {
     return AiChatEnvironmentSnapshot.ready(
       scopeId: scopeId,
+      environmentVersion: environmentVersion,
       systemPrompt: systemPrompt,
     );
   }

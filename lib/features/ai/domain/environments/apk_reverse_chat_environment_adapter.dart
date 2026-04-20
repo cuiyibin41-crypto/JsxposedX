@@ -36,6 +36,10 @@ class ApkReverseChatEnvironmentAdapter implements AiChatEnvironmentAdapter {
   @override
   String get scopeId => packageName;
 
+  @override
+  String get environmentVersion =>
+      'apk_reverse:${isZh ? "zh" : "en"}:so_tools_v1';
+
   String? get sessionId => _sessionId;
 
   List<String> get dexPaths => _dexPaths;
@@ -75,6 +79,7 @@ class ApkReverseChatEnvironmentAdapter implements AiChatEnvironmentAdapter {
 
     return AiChatEnvironmentSnapshot.ready(
       scopeId: scopeId,
+      environmentVersion: environmentVersion,
       systemPrompt: systemPrompt,
       toolsSpec: ApkReverseChatToolsSpec(includeSoTools: true),
       toolExecutor: ToolExecutor(

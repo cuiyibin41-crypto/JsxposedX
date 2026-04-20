@@ -140,11 +140,14 @@ class _AiOverlayViewport extends HookConsumerWidget {
     }
 
     final hasEnvironmentSnapshot =
-        (chatState.systemPrompt?.trim().isNotEmpty ?? false) ||
-        chatState.toolsSpec != null ||
+        (chatState.systemPrompt?.trim().isNotEmpty ?? false) &&
+        chatState.toolsSpec != null &&
         chatState.toolExecutor != null;
+    final hasMatchingEnvironmentSnapshot =
+        hasEnvironmentSnapshot &&
+        chatState.environmentVersion == environment.environmentVersion;
     final shouldAutoInitializeChat =
-        !hasEnvironmentSnapshot &&
+        !hasMatchingEnvironmentSnapshot &&
         chatState.sessionInitState == AiSessionInitState.ready;
 
     final availableExpandedWidth = math.max(
@@ -590,6 +593,64 @@ class _AiOverlayViewport extends HookConsumerWidget {
                                       onCreateSession: () {
                                         isCreateSessionDialogOpen.value = true;
                                       },
+                                      onDeleteCurrentSession: currentSession == null
+                                          ? null
+                                          : () async {
+                                              final shouldDelete =
+                                                  await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (dialogContext) =>
+                                                        AlertDialog(
+                                                          title: Text(
+                                                            context
+                                                                .l10n
+                                                                .aiDeleteConfirmTitle,
+                                                          ),
+                                                          content: Text(
+                                                            currentSession.name,
+                                                          ),
+                                                          actions: [
+                                                            TextButton(
+                                                              onPressed: () =>
+                                                                  Navigator.pop(
+                                                                    dialogContext,
+                                                                    false,
+                                                                  ),
+                                                              child: Text(
+                                                                context
+                                                                    .l10n
+                                                                    .cancel,
+                                                              ),
+                                                            ),
+                                                            TextButton(
+                                                              onPressed: () =>
+                                                                  Navigator.pop(
+                                                                    dialogContext,
+                                                                    true,
+                                                                  ),
+                                                              child: Text(
+                                                                context
+                                                                    .l10n
+                                                                    .delete,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                  ) ??
+                                                  false;
+                                              if (!shouldDelete) {
+                                                return;
+                                              }
+                                              await ref
+                                                  .read(
+                                                    aiChatRuntimeProvider(
+                                                      packageName: chatScopeId,
+                                                    ).notifier,
+                                                  )
+                                                  .deleteSession(
+                                                    currentSession.id,
+                                                  );
+                                            },
                                     ),
                                   ],
                                 ),
@@ -765,6 +826,7 @@ class _AiOverlaySessionActions extends HookConsumerWidget {
     required this.isCompact,
     required this.contentScale,
     required this.onCreateSession,
+    required this.onDeleteCurrentSession,
   });
 
   final String chatScopeId;
@@ -773,6 +835,7 @@ class _AiOverlaySessionActions extends HookConsumerWidget {
   final bool isCompact;
   final double contentScale;
   final VoidCallback onCreateSession;
+  final Future<void> Function()? onDeleteCurrentSession;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -801,6 +864,28 @@ class _AiOverlaySessionActions extends HookConsumerWidget {
                   Icons.add_comment_rounded,
                   size: iconSize,
                   color: foregroundColor.withValues(alpha: 0.86),
+                ),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(width: (isCompact ? 6.0 : 8.0) * contentScale),
+        Tooltip(
+          message: context.l10n.delete,
+          child: Material(
+            color: surfaceColor,
+            borderRadius: borderRadius,
+            child: InkWell(
+              borderRadius: borderRadius,
+              onTap: onDeleteCurrentSession,
+              child: Padding(
+                padding: EdgeInsets.all((isCompact ? 6.0 : 7.0) * contentScale),
+                child: Icon(
+                  Icons.delete_outline_rounded,
+                  size: iconSize,
+                  color: foregroundColor.withValues(
+                    alpha: onDeleteCurrentSession == null ? 0.32 : 0.78,
+                  ),
                 ),
               ),
             ),

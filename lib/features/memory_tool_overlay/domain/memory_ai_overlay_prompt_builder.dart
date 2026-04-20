@@ -1,6 +1,8 @@
 import 'package:JsxposedX/generated/memory_tool.g.dart';
 
 class MemoryAiOverlayPromptBuilder {
+  static const String promptVersion = 'memory_overlay_prompt_v2';
+
   MemoryAiOverlayPromptBuilder({bool isZh = true})
     : _isZh = isZh,
       _withTools = false;
@@ -101,13 +103,17 @@ Rules:
 - `get_process_summary` 先看当前进程、搜索会话、断点与指针状态总览
 - `list_memory_regions` 查看可读内存区
 - `get_search_overview` / `get_search_results` 查看当前搜索会话
+- `list_saved_items` / `list_value_history` / `list_instruction_patch_history` 查看暂存区与恢复历史
 - `read_memory` / `disassemble_memory` 读取地址内容或反汇编指令
 - `get_breakpoint_overview` / `list_memory_breakpoints` / `get_memory_breakpoint_hits` 查看断点调试信息
 - `get_pointer_scan_overview` / `get_pointer_scan_results` / `get_pointer_auto_chase_overview` 查看指针链状态
 
 操作类：
 - `start_first_scan` / `continue_next_scan` / `cancel_search` / `reset_search_session`
-- `write_memory_value` / `set_memory_freeze` / `patch_memory_instruction`
+- `save_search_results_to_saved` / `save_memory_addresses_to_saved` / `remove_saved_items` / `clear_saved_items`
+- `write_memory_value` / `write_memory_values` / `restore_previous_values`
+- `set_memory_freeze` / `set_memory_freezes`
+- `patch_memory_instruction` / `restore_instruction_patches`
 - `set_process_paused`
 - `add_memory_breakpoint` / `remove_memory_breakpoint` / `set_memory_breakpoint_enabled`
 - `clear_memory_breakpoint_hits` / `resume_after_breakpoint`
@@ -120,7 +126,8 @@ Rules:
 - 模糊搜索只适用于数值类型；首次模糊搜索应使用 `unknown`，继续筛选通常使用 `changed/unchanged/increased/decreased`。
 - `read_memory` 读取 `bytes` 时如果没有显式长度，会使用默认长度。
 - 对当前状态不确定时，先调用查询工具，再决定是否执行破坏性或状态变更操作。
-- 当 `get_search_overview`、`get_pointer_scan_overview`、`get_pointer_auto_chase_overview` 显示任务仍在运行、进度未满、或 message 明确提示仍在处理中时，优先继续查询状态，必要时再补查 results，不要直接把中间态说成最终结果。''';
+- 当 `get_search_overview`、`get_pointer_scan_overview`、`get_pointer_auto_chase_overview` 显示任务仍在运行、进度未满、或 message 明确提示仍在处理中时，优先继续查询状态，必要时再补查 results，不要直接把中间态说成最终结果。
+- “保存到暂存区 / 加到暂存区 / 收藏地址”是显式动作，必须调用 `save_search_results_to_saved` 或 `save_memory_addresses_to_saved`；单纯 `write_memory_value` / `set_memory_freeze` / `patch_memory_instruction` 不等于已保存。''';
 
   static const String _toolGuideEn = '''
 
@@ -130,13 +137,17 @@ Query tools:
 - `get_process_summary` for a quick overview of the bound process, search session, breakpoints, and pointer state
 - `list_memory_regions` for readable region browsing
 - `get_search_overview` / `get_search_results` for current search-session state
+- `list_saved_items` / `list_value_history` / `list_instruction_patch_history` for saved entries and restore history
 - `read_memory` / `disassemble_memory` for value reads and instruction inspection
 - `get_breakpoint_overview` / `list_memory_breakpoints` / `get_memory_breakpoint_hits` for breakpoint debugging
 - `get_pointer_scan_overview` / `get_pointer_scan_results` / `get_pointer_auto_chase_overview` for pointer-chain status
 
 Mutation tools:
 - `start_first_scan` / `continue_next_scan` / `cancel_search` / `reset_search_session`
-- `write_memory_value` / `set_memory_freeze` / `patch_memory_instruction`
+- `save_search_results_to_saved` / `save_memory_addresses_to_saved` / `remove_saved_items` / `clear_saved_items`
+- `write_memory_value` / `write_memory_values` / `restore_previous_values`
+- `set_memory_freeze` / `set_memory_freezes`
+- `patch_memory_instruction` / `restore_instruction_patches`
 - `set_process_paused`
 - `add_memory_breakpoint` / `remove_memory_breakpoint` / `set_memory_breakpoint_enabled`
 - `clear_memory_breakpoint_hits` / `resume_after_breakpoint`
@@ -149,7 +160,8 @@ Key constraints:
 - Fuzzy search is only for numeric value modes. The first fuzzy scan should use `unknown`; follow-up scans usually use `changed/unchanged/increased/decreased`.
 - `read_memory` uses a default byte length if the type is `bytes` and no explicit length is provided.
 - If state is uncertain, query first, then decide whether a state-changing operation is necessary.
-- When `get_search_overview`, `get_pointer_scan_overview`, or `get_pointer_auto_chase_overview` shows that a task is still running, progress is incomplete, or the message indicates ongoing work, keep querying status and then results as needed instead of treating the intermediate state as final.''';
+- When `get_search_overview`, `get_pointer_scan_overview`, or `get_pointer_auto_chase_overview` shows that a task is still running, progress is incomplete, or the message indicates ongoing work, keep querying status and then results as needed instead of treating the intermediate state as final.
+- “Save to saved list / stash / collection” is an explicit action. You must call `save_search_results_to_saved` or `save_memory_addresses_to_saved`; a successful write/freeze/patch alone does not mean it has been saved.''';
 
   static const String _outputGuideZh = '''
 
@@ -158,6 +170,7 @@ Key constraints:
 - 禁止输出“建议接着调用 get_search_overview / get_search_results”之类的操作提示句；该继续查就直接继续查。
 - 涉及地址时尽量保留十六进制形式。
 - 如果执行了写值、冻结、补丁、断点或暂停/恢复，明确说明已经执行了什么以及影响对象。
+- 如果用户要求“保存到暂存区”，只有在实际调用了保存工具并成功后，才能说“已保存到暂存区”。
 - 如果工具失败，说明失败点，并给出最合理的补救动作。''';
 
   static const String _outputGuideEn = '''
@@ -167,5 +180,6 @@ Key constraints:
 - Do not output instructions like “next, call get_search_overview/get_search_results”. If more querying is needed, just do it.
 - Prefer hexadecimal notation when referring to addresses.
 - If you wrote memory, froze values, patched instructions, managed breakpoints, or paused/resumed the process, explicitly say what was changed.
+- If the user asked to save something to the saved list, only say it was saved after a save tool actually succeeded.
 - If a tool fails, explain the failure point and propose the most reasonable recovery step.''';
 }
