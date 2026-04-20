@@ -14,7 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-class MemoryAiToolResultView extends StatelessWidget {
+class MemoryAiToolResultView extends ConsumerWidget {
   const MemoryAiToolResultView({
     super.key,
     required this.data,
@@ -25,7 +25,18 @@ class MemoryAiToolResultView extends StatelessWidget {
   final String? packageName;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (packageName != null &&
+        data.isPending &&
+        data.toolName != null &&
+        ref.watch(memoryAiPendingInteractionProvider(packageName!))?.toolName ==
+            data.toolName) {
+      return _MemoryAiPendingInteractionCard(
+        scopeId: packageName!,
+        toolName: data.toolName!,
+      );
+    }
+
     final scale = AiChatCompactScope.scaleOf(context);
     final children = <Widget>[_MemoryAiToolBanner(data: data)];
     final liveTaskCard = _buildPendingTaskCard();
@@ -62,7 +73,7 @@ class MemoryAiToolResultView extends StatelessWidget {
       'continue_next_scan' => const _MemoryAiLiveSearchTaskCard(),
       'start_pointer_scan' => const _MemoryAiLivePointerScanTaskCard(),
       'start_pointer_auto_chase' => const _MemoryAiLivePointerAutoChaseCard(),
-      'add_memory_breakpoint' when packageName != null =>
+      _ when packageName != null && data.toolName != null =>
         _MemoryAiPendingInteractionCard(
           scopeId: packageName!,
           toolName: data.toolName!,

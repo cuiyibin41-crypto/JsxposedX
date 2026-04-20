@@ -734,6 +734,14 @@ class AiChatAction extends _$AiChatAction {
         config: config,
         recoveryMode: AiChatRecoveryMode.resumeToolPhase,
       );
+      if (_isUserCancelledToolResult(result.content)) {
+        _refreshCheckpoint(
+          protocolMessages: state.protocolMessages,
+          recoveryMode: AiChatRecoveryMode.none,
+        );
+        await _finishStoppedToolPhase(config: config);
+        return;
+      }
       _refreshCheckpoint(
         protocolMessages: state.protocolMessages,
         recoveryMode: AiChatRecoveryMode.resumeToolPhase,
@@ -2088,6 +2096,18 @@ class AiChatAction extends _$AiChatAction {
       return detailText;
     }
     return '$message\n$detailText';
+  }
+
+  bool _isUserCancelledToolResult(String content) {
+    final normalized = content.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return normalized == '用户取消了当前操作。' ||
+        normalized.startsWith('已取消') ||
+        normalized == 'user cancelled the current action.' ||
+        normalized.contains('cancelled.') ||
+        normalized.contains('cancelled by user');
   }
 
   bool _isVisionUnsupportedErrorText(String text) {

@@ -249,7 +249,25 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'reset_search_session',
-    onHandle: (call) async {
+    onHandleWithProgress: (call, {onProgress}) async {
+      final session = await context.memoryQueryRepository.getSearchSessionState();
+      if (!session.hasActiveSession) {
+        return '当前没有活动搜索会话。';
+      }
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'reset_search_session',
+        title: context.isZh ? '确认重置搜索会话' : 'Confirm search reset',
+        description: context.isZh
+            ? '当前搜索会话有 ${session.resultCount} 条结果，重置后会直接清空当前搜索现场。'
+            : 'The current search session contains ${session.resultCount} results. Resetting it will clear the active search state.',
+        confirmLabel: context.isZh ? '重置搜索会话' : 'Reset search session',
+        cancelLabel: context.isZh ? '保留当前搜索会话' : 'Keep current search session',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消重置搜索会话。' : 'Search session reset cancelled.';
+      }
       await context.memoryActionRepository.resetSearchSession();
       return '搜索会话已重置。';
     },
@@ -412,10 +430,53 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'remove_saved_items',
-    onHandle: (call) async {
-      final addresses = _parseAddressList(call, 'addresses');
-      if (addresses.isEmpty) {
-        throw ArgumentError('addresses 不能为空');
+    onHandleWithProgress: (call, {onProgress}) async {
+      final savedItems = context.listSavedItems();
+      final explicitAddresses = _parseOptionalAddressList(call, 'addresses');
+      if (explicitAddresses == null && savedItems.isEmpty) {
+        return '当前进程暂存区为空。';
+      }
+      final addresses =
+          explicitAddresses ??
+          await _resolveAddressesFromChoices(
+            context,
+            toolName: 'remove_saved_items',
+            title: context.isZh ? '选择要移除的暂存条目' : 'Choose saved items to remove',
+            description: context.isZh
+                ? '当前没有明确指定 addresses，需要你决定移除哪个暂存地址，或一次移除全部。'
+                : 'No explicit addresses were provided. Choose which saved address to remove, or remove them all.',
+            availableAddresses: savedItems
+                .map((item) => item.address)
+                .toList(growable: false),
+            labelBuilder: (address) => _formatAddress(address),
+            descriptionBuilder: (address) {
+              MemoryToolSavedItem? item;
+              for (final saved in savedItems) {
+                if (saved.address == address) {
+                  item = saved;
+                  break;
+                }
+              }
+              if (item == null) {
+                return null;
+              }
+              return 'type=${item.type.name} | frozen=${item.isFrozen}';
+            },
+            onProgress: onProgress,
+          );
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'remove_saved_items',
+        title: context.isZh ? '确认移除暂存条目' : 'Confirm saved item removal',
+        description: context.isZh
+            ? '即将从暂存区移除 ${addresses.length} 个地址：${_formatAddressPreview(addresses)}'
+            : 'About to remove ${addresses.length} saved addresses: ${_formatAddressPreview(addresses)}',
+        confirmLabel: context.isZh ? '移除这些条目' : 'Remove selected items',
+        cancelLabel: context.isZh ? '保留暂存条目' : 'Keep saved items',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消移除暂存条目。' : 'Saved item removal cancelled.';
       }
       context.removeSavedItems(pid: context.pid, addresses: addresses);
       return '已从暂存区移除 ${addresses.length} 个地址。';
@@ -423,7 +484,25 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'clear_saved_items',
-    onHandle: (call) async {
+    onHandleWithProgress: (call, {onProgress}) async {
+      final savedItems = context.listSavedItems();
+      if (savedItems.isEmpty) {
+        return '当前进程暂存区为空。';
+      }
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'clear_saved_items',
+        title: context.isZh ? '确认清空暂存区' : 'Confirm clearing saved items',
+        description: context.isZh
+            ? '当前进程暂存区共有 ${savedItems.length} 条条目，清空后会删除当前暂存现场。'
+            : 'The current process has ${savedItems.length} saved items. Clearing them will remove the saved working set.',
+        confirmLabel: context.isZh ? '清空暂存区' : 'Clear saved items',
+        cancelLabel: context.isZh ? '保留暂存区' : 'Keep saved items',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消清空暂存区。' : 'Clearing saved items cancelled.';
+      }
       context.clearSavedItems(context.pid);
       return '当前进程暂存区已清空。';
     },
@@ -487,8 +566,9 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'write_memory_value',
-    onHandle: (call) async {
+    onHandleWithProgress: (call, {onProgress}) async {
       final address = _parseRequiredAddress(call, 'address');
+      final rawValue = _getRequiredString(call, 'value');
       final value = _buildWriteValueFromToolCall(call);
       final preview = await _readValuePreviewOrNull(
         context,
@@ -496,6 +576,20 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
         type: value.type,
         length: _resolveReadLength(value.type, _resolveWriteValueLength(value)),
       );
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'write_memory_value',
+        title: context.isZh ? '确认写入' : 'Confirm write',
+        description: context.isZh
+            ? '地址: ${_formatAddress(address)}\n当前: ${preview?.displayValue ?? "未知"}\n写入: ${_formatPendingValuePreview(rawValue)} (${value.type.name})'
+            : 'Address: ${_formatAddress(address)}\nCurrent: ${preview?.displayValue ?? "unknown"}\nWrite: ${_formatPendingValuePreview(rawValue)} (${value.type.name})',
+        confirmLabel: context.isZh ? '写入' : 'Write',
+        cancelLabel: context.isZh ? '取消' : 'Cancel',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消内存写入。' : 'Memory write cancelled.';
+      }
       await context.writeMemoryValueAction(
         request: MemoryWriteRequest(address: address, value: value),
         previousPreview: preview,
@@ -505,7 +599,7 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'write_memory_values',
-    onHandle: (call) async {
+    onHandleWithProgress: (call, {onProgress}) async {
       final addresses = _parseAddressList(call, 'addresses');
       if (addresses.isEmpty) {
         throw ArgumentError('addresses 不能为空');
@@ -547,6 +641,23 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
       }
       final previousPreviews = await context.memoryQueryRepository
           .readMemoryValues(requests: previewRequests);
+      final batchValuePreview = rawValues.length == 1
+          ? _formatPendingValuePreview(rawValues.first)
+          : (context.isZh ? '多组值' : 'multiple values');
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'write_memory_values',
+        title: context.isZh ? '确认批量写入' : 'Confirm batch write',
+        description: context.isZh
+            ? '数量: ${requests.length}\n写入: $batchValuePreview (${requests.first.value.type.name})\n地址: ${_formatAddressPreview(addresses)}'
+            : 'Count: ${requests.length}\nWrite: $batchValuePreview (${requests.first.value.type.name})\nAddresses: ${_formatAddressPreview(addresses)}',
+        confirmLabel: context.isZh ? '写入' : 'Write',
+        cancelLabel: context.isZh ? '取消' : 'Cancel',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消批量内存写入。' : 'Batch memory write cancelled.';
+      }
       await context.writeMemoryValuesAction(
         requests: requests,
         previousPreviews: previousPreviews,
@@ -556,13 +667,27 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'patch_memory_instruction',
-    onHandle: (call) async {
+    onHandleWithProgress: (call, {onProgress}) async {
       final address = _parseRequiredAddress(call, 'address');
       final instruction = _getRequiredString(call, 'instruction');
       final previousInstruction = await _readInstructionPreviewOrNull(
         context,
         address: address,
       );
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'patch_memory_instruction',
+        title: context.isZh ? '确认修改指令' : 'Confirm instruction patch',
+        description: context.isZh
+            ? '即将修改地址 ${_formatAddress(address)} 的机器指令。\n当前指令: ${previousInstruction?.instructionText ?? "未知"}\n新指令: $instruction'
+            : 'About to patch the instruction at ${_formatAddress(address)}.\nCurrent instruction: ${previousInstruction?.instructionText ?? "unknown"}\nNew instruction: $instruction',
+        confirmLabel: context.isZh ? '执行补丁' : 'Patch instruction',
+        cancelLabel: context.isZh ? '取消补丁' : 'Cancel patch',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消指令补丁。' : 'Instruction patch cancelled.';
+      }
       final result = await context.patchMemoryInstructionAction(
         request: MemoryInstructionPatchRequest(
           pid: context.pid,
@@ -614,15 +739,48 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'restore_previous_values',
-    onHandle: (call) async {
-      final addresses = _parseAddressList(call, 'addresses');
-      if (addresses.isEmpty) {
-        throw ArgumentError('addresses 不能为空');
+    onHandleWithProgress: (call, {onProgress}) async {
+      final historyByAddress = context.listValueHistoryEntries();
+      final explicitAddresses = _parseOptionalAddressList(call, 'addresses');
+      if (explicitAddresses == null && historyByAddress.isEmpty) {
+        return '当前没有旧值历史。';
       }
+      final addresses =
+          explicitAddresses ??
+          await _resolveAddressesFromChoices(
+            context,
+            toolName: 'restore_previous_values',
+            title: context.isZh ? '选择要恢复旧值的地址' : 'Choose addresses to restore',
+            description: context.isZh
+                ? '当前没有明确指定 addresses，需要你决定恢复哪个地址的旧值，或一次恢复全部。'
+                : 'No explicit addresses were provided. Choose which address to restore, or restore them all.',
+            availableAddresses: historyByAddress.keys.toList(growable: false)
+              ..sort(),
+            labelBuilder: _formatAddress,
+            descriptionBuilder: (address) {
+              final entry = historyByAddress[address];
+              return entry == null ? null : 'type=${entry.type.name} | value=${entry.displayValue}';
+            },
+            onProgress: onProgress,
+          );
       final littleEndian =
           _getOptionalBoolOrNull(call, 'littleEndian') ??
           (await context.memoryQueryRepository.getSearchSessionState())
               .littleEndian;
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'restore_previous_values',
+        title: context.isZh ? '确认恢复旧值' : 'Confirm value restore',
+        description: context.isZh
+            ? '即将恢复 ${addresses.length} 个地址的旧值：${_formatAddressPreview(addresses)}'
+            : 'About to restore previous values for ${addresses.length} addresses: ${_formatAddressPreview(addresses)}',
+        confirmLabel: context.isZh ? '恢复这些旧值' : 'Restore previous values',
+        cancelLabel: context.isZh ? '取消恢复' : 'Cancel restore',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消旧值恢复。' : 'Previous value restore cancelled.';
+      }
       final restoredCount = await context.restorePreviousValuesAction(
         addresses: addresses,
         littleEndian: littleEndian,
@@ -632,10 +790,28 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'set_memory_freeze',
-    onHandle: (call) async {
+    onHandleWithProgress: (call, {onProgress}) async {
       final address = _parseRequiredAddress(call, 'address');
       final value = _buildWriteValueFromToolCall(call);
       final enabled = _getRequiredBool(call, 'enabled');
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'set_memory_freeze',
+        title: enabled
+            ? (context.isZh ? '确认启用冻结' : 'Confirm enabling freeze')
+            : (context.isZh ? '确认关闭冻结' : 'Confirm disabling freeze'),
+        description: context.isZh
+            ? '即将对地址 ${_formatAddress(address)}${enabled ? "启用" : "关闭"}冻结。'
+            : 'About to ${enabled ? "enable" : "disable"} freeze at ${_formatAddress(address)}.',
+        confirmLabel: enabled
+            ? (context.isZh ? '启用冻结' : 'Enable freeze')
+            : (context.isZh ? '关闭冻结' : 'Disable freeze'),
+        cancelLabel: context.isZh ? '取消本次操作' : 'Cancel action',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消冻结操作。' : 'Freeze operation cancelled.';
+      }
       await context.setMemoryFreezeAction(
         request: MemoryFreezeRequest(
           address: address,
@@ -650,7 +826,7 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'set_memory_freezes',
-    onHandle: (call) async {
+    onHandleWithProgress: (call, {onProgress}) async {
       final addresses = _parseAddressList(call, 'addresses');
       if (addresses.isEmpty) {
         throw ArgumentError('addresses 不能为空');
@@ -681,6 +857,24 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
             enabled: enabled,
           ),
         );
+      }
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'set_memory_freezes',
+        title: enabled
+            ? (context.isZh ? '确认批量启用冻结' : 'Confirm batch freeze enable')
+            : (context.isZh ? '确认批量关闭冻结' : 'Confirm batch freeze disable'),
+        description: context.isZh
+            ? '即将对 ${requests.length} 个地址${enabled ? "启用" : "关闭"}冻结：${_formatAddressPreview(addresses)}'
+            : 'About to ${enabled ? "enable" : "disable"} freeze for ${requests.length} addresses: ${_formatAddressPreview(addresses)}',
+        confirmLabel: enabled
+            ? (context.isZh ? '批量启用冻结' : 'Enable freezes')
+            : (context.isZh ? '批量关闭冻结' : 'Disable freezes'),
+        cancelLabel: context.isZh ? '取消本次操作' : 'Cancel action',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消批量冻结操作。' : 'Batch freeze operation cancelled.';
       }
       await context.setMemoryFreezesAction(requests: requests);
       return enabled
@@ -730,15 +924,47 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'restore_instruction_patches',
-    onHandle: (call) async {
-      final addresses = _parseAddressList(call, 'addresses');
-      if (addresses.isEmpty) {
-        throw ArgumentError('addresses 不能为空');
-      }
+    onHandleWithProgress: (call, {onProgress}) async {
       final historyByAddress = context.listInstructionHistoryEntries();
+      final explicitAddresses = _parseOptionalAddressList(call, 'addresses');
+      if (explicitAddresses == null && historyByAddress.isEmpty) {
+        return '当前没有指令补丁历史。';
+      }
+      final addresses =
+          explicitAddresses ??
+          await _resolveAddressesFromChoices(
+            context,
+            toolName: 'restore_instruction_patches',
+            title: context.isZh ? '选择要恢复补丁的地址' : 'Choose patches to restore',
+            description: context.isZh
+                ? '当前没有明确指定 addresses，需要你决定恢复哪个地址的指令补丁，或一次恢复全部。'
+                : 'No explicit addresses were provided. Choose which patched address to restore, or restore them all.',
+            availableAddresses: historyByAddress.keys.toList(growable: false)
+              ..sort(),
+            labelBuilder: _formatAddress,
+            descriptionBuilder: (address) {
+              final entry = historyByAddress[address];
+              return entry == null ? null : 'previous=${entry.previousDisplayValue}';
+            },
+            onProgress: onProgress,
+          );
       final savedItemsByAddress = <int, MemoryToolSavedItem>{
         for (final item in context.listSavedItems()) item.address: item,
       };
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'restore_instruction_patches',
+        title: context.isZh ? '确认恢复指令补丁' : 'Confirm patch restore',
+        description: context.isZh
+            ? '即将恢复 ${addresses.length} 个地址的指令补丁：${_formatAddressPreview(addresses)}'
+            : 'About to restore instruction patches for ${addresses.length} addresses: ${_formatAddressPreview(addresses)}',
+        confirmLabel: context.isZh ? '恢复这些补丁' : 'Restore patches',
+        cancelLabel: context.isZh ? '取消恢复' : 'Cancel restore',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消指令补丁恢复。' : 'Instruction patch restore cancelled.';
+      }
       var restoredCount = 0;
       for (final address in addresses) {
         final entry = historyByAddress[address];
@@ -791,8 +1017,35 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'set_process_paused',
-    onHandle: (call) async {
-      final paused = _getRequiredBool(call, 'paused');
+    onHandleWithProgress: (call, {onProgress}) async {
+      final paused = await _resolvePausedTargetChoice(
+        context,
+        call,
+        onProgress: onProgress,
+      );
+      final isCurrentlyPaused = await context.memoryActionRepository
+          .isProcessPaused(pid: context.pid);
+      if (paused == isCurrentlyPaused) {
+        return paused ? '当前进程已处于暂停状态。' : '当前进程已经在运行。';
+      }
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'set_process_paused',
+        title: paused
+            ? (context.isZh ? '确认暂停进程' : 'Confirm pausing process')
+            : (context.isZh ? '确认恢复进程' : 'Confirm resuming process'),
+        description: context.isZh
+            ? '当前进程${isCurrentlyPaused ? "已暂停" : "正在运行"}，即将切换为${paused ? "暂停" : "运行"}状态。'
+            : 'The process is currently ${isCurrentlyPaused ? "paused" : "running"} and will be switched to ${paused ? "paused" : "running"}.',
+        confirmLabel: paused
+            ? (context.isZh ? '暂停进程' : 'Pause process')
+            : (context.isZh ? '恢复进程' : 'Resume process'),
+        cancelLabel: context.isZh ? '取消本次操作' : 'Cancel action',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消进程状态切换。' : 'Process state change cancelled.';
+      }
       await context.memoryActionRepository.setProcessPaused(
         pid: context.pid,
         paused: paused,
@@ -854,6 +1107,17 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
       );
       final pauseProcessOnHit = await _resolveBreakpointPauseProcessOnHit(
         context,
+        call,
+        onProgress: onProgress,
+      );
+      final accessType = await _resolveBreakpointAccessType(
+        context,
+        call,
+        onProgress: onProgress,
+      );
+      final enabled = await _resolveBreakpointEnabled(
+        context,
+        call,
         onProgress: onProgress,
       );
       final breakpoint = await context.memoryActionRepository
@@ -863,10 +1127,8 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
               address: _parseRequiredAddress(call, 'address'),
               type: valueType,
               length: length,
-              accessType: _parseBreakpointAccessType(
-                _getRequiredString(call, 'accessType'),
-              ),
-              enabled: _getOptionalBool(call, 'enabled', true),
+              accessType: accessType,
+              enabled: enabled,
               pauseProcessOnHit: pauseProcessOnHit,
             ),
           );
@@ -875,8 +1137,32 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'remove_memory_breakpoint',
-    onHandle: (call) async {
-      final breakpointId = _getRequiredString(call, 'breakpointId');
+    onHandleWithProgress: (call, {onProgress}) async {
+      final breakpointId = await _resolveBreakpointId(
+        context,
+        toolName: 'remove_memory_breakpoint',
+        argumentName: 'breakpointId',
+        title: context.isZh ? '选择要删除的断点' : 'Choose breakpoint to remove',
+        description: context.isZh
+            ? '当前没有明确指定 breakpointId，需要你决定删除哪个断点。'
+            : 'No explicit breakpointId was provided. Choose which breakpoint to remove.',
+        call: call,
+        onProgress: onProgress,
+      );
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'remove_memory_breakpoint',
+        title: context.isZh ? '确认删除断点' : 'Confirm breakpoint removal',
+        description: context.isZh
+            ? '即将删除断点 $breakpointId。'
+            : 'About to remove breakpoint $breakpointId.',
+        confirmLabel: context.isZh ? '删除断点' : 'Remove breakpoint',
+        cancelLabel: context.isZh ? '保留断点' : 'Keep breakpoint',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消删除断点。' : 'Breakpoint removal cancelled.';
+      }
       await context.memoryActionRepository.removeMemoryBreakpoint(
         breakpointId: breakpointId,
       );
@@ -885,9 +1171,41 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'set_memory_breakpoint_enabled',
-    onHandle: (call) async {
-      final breakpointId = _getRequiredString(call, 'breakpointId');
-      final enabled = _getRequiredBool(call, 'enabled');
+    onHandleWithProgress: (call, {onProgress}) async {
+      final breakpointId = await _resolveBreakpointId(
+        context,
+        toolName: 'set_memory_breakpoint_enabled',
+        argumentName: 'breakpointId',
+        title: context.isZh ? '选择要修改的断点' : 'Choose breakpoint to update',
+        description: context.isZh
+            ? '当前没有明确指定 breakpointId，需要你决定修改哪个断点。'
+            : 'No explicit breakpointId was provided. Choose which breakpoint to update.',
+        call: call,
+        onProgress: onProgress,
+      );
+      final enabled =
+          _getOptionalBoolOrNull(call, 'enabled') ??
+          await _requestUserChoiceForTool(
+                context,
+                toolName: 'set_memory_breakpoint_enabled',
+                title: context.isZh ? '选择断点状态' : 'Choose breakpoint state',
+                description: context.isZh
+                    ? '当前没有明确指定 enabled，需要决定该断点是启用还是禁用。'
+                    : 'No explicit enabled flag was provided. Choose whether the breakpoint should be enabled or disabled.',
+                options: <MemoryAiPendingInteractionOption>[
+                  MemoryAiPendingInteractionOption(
+                    id: _breakpointEnabledOptionId,
+                    label: context.isZh ? '启用断点' : 'Enable breakpoint',
+                  ),
+                  MemoryAiPendingInteractionOption(
+                    id: _breakpointDisabledOptionId,
+                    label: context.isZh ? '禁用断点' : 'Disable breakpoint',
+                  ),
+                ],
+                cancelLabel: context.isZh ? '取消本次操作' : 'Cancel this action',
+                onProgress: onProgress,
+              ) ==
+              _breakpointEnabledOptionId;
       await context.memoryActionRepository.setMemoryBreakpointEnabled(
         breakpointId: breakpointId,
         enabled: enabled,
@@ -897,7 +1215,26 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'clear_memory_breakpoint_hits',
-    onHandle: (call) async {
+    onHandleWithProgress: (call, {onProgress}) async {
+      final breakpointState = await context.memoryQueryRepository
+          .getMemoryBreakpointState(pid: context.pid);
+      if (breakpointState.pendingHitCount <= 0) {
+        return '当前没有断点命中记录。';
+      }
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'clear_memory_breakpoint_hits',
+        title: context.isZh ? '确认清空断点命中' : 'Confirm clearing breakpoint hits',
+        description: context.isZh
+            ? '当前有 ${breakpointState.pendingHitCount} 条待处理断点命中记录，清空后无法直接回看。'
+            : 'There are ${breakpointState.pendingHitCount} pending breakpoint hits. Clearing them removes the current hit history.',
+        confirmLabel: context.isZh ? '清空命中记录' : 'Clear hit records',
+        cancelLabel: context.isZh ? '保留命中记录' : 'Keep hit records',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消清空断点命中记录。' : 'Clearing breakpoint hits cancelled.';
+      }
       await context.memoryActionRepository.clearMemoryBreakpointHits(
         pid: context.pid,
       );
@@ -906,7 +1243,28 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'resume_after_breakpoint',
-    onHandle: (call) async {
+    onHandleWithProgress: (call, {onProgress}) async {
+      final breakpointState = await context.memoryQueryRepository
+          .getMemoryBreakpointState(pid: context.pid);
+      if (!breakpointState.isProcessPaused) {
+        return context.isZh
+            ? '当前进程没有处于断点暂停状态。'
+            : 'The process is not currently paused by a breakpoint.';
+      }
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'resume_after_breakpoint',
+        title: context.isZh ? '确认恢复进程执行' : 'Confirm resume after breakpoint',
+        description: context.isZh
+            ? '当前进程正处于断点暂停状态，继续执行后会恢复目标进程运行。'
+            : 'The process is currently paused at a breakpoint. Resuming will let the target process continue.',
+        confirmLabel: context.isZh ? '恢复执行' : 'Resume execution',
+        cancelLabel: context.isZh ? '保持暂停' : 'Keep paused',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消恢复进程执行。' : 'Resume after breakpoint cancelled.';
+      }
       await context.memoryActionRepository.resumeAfterBreakpoint(
         pid: context.pid,
       );
@@ -988,7 +1346,26 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'reset_pointer_scan_session',
-    onHandle: (call) async {
+    onHandleWithProgress: (call, {onProgress}) async {
+      final session = await context.memoryPointerQueryRepository
+          .getPointerScanSessionState();
+      if (!session.hasActiveSession) {
+        return '当前没有活动指针扫描会话。';
+      }
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'reset_pointer_scan_session',
+        title: context.isZh ? '确认重置指针扫描会话' : 'Confirm pointer scan reset',
+        description: context.isZh
+            ? '当前指针扫描已有 ${session.resultCount} 条结果，重置后会清空当前指针扫描现场。'
+            : 'The current pointer scan contains ${session.resultCount} results. Resetting it will clear the current pointer scan state.',
+        confirmLabel: context.isZh ? '重置指针扫描' : 'Reset pointer scan',
+        cancelLabel: context.isZh ? '保留当前会话' : 'Keep current session',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消重置指针扫描会话。' : 'Pointer scan reset cancelled.';
+      }
       await context.memoryPointerActionRepository.resetPointerScanSession();
       return '指针扫描会话已重置。';
     },
@@ -1066,7 +1443,26 @@ Iterable<AiChatToolHandler> buildMemoryAiOverlayToolHandlers({
   );
   yield _MemoryAiOverlayCallbackToolHandler(
     toolName: 'reset_pointer_auto_chase',
-    onHandle: (call) async {
+    onHandleWithProgress: (call, {onProgress}) async {
+      final state = await context.memoryPointerAutoChaseQueryRepository
+          .getPointerAutoChaseState();
+      if (!state.isRunning && state.layers.isEmpty) {
+        return '当前没有自动指针追链状态可重置。';
+      }
+      final confirmed = await _confirmDangerousAction(
+        context,
+        toolName: 'reset_pointer_auto_chase',
+        title: context.isZh ? '确认重置自动追链' : 'Confirm auto chase reset',
+        description: context.isZh
+            ? '当前自动追链共有 ${state.layers.length} 层结果，重置后会清空追链状态与结果。'
+            : 'The current auto chase has ${state.layers.length} result layers. Resetting it will clear the chase state and results.',
+        confirmLabel: context.isZh ? '重置自动追链' : 'Reset auto chase',
+        cancelLabel: context.isZh ? '保留当前状态' : 'Keep current state',
+        onProgress: onProgress,
+      );
+      if (!confirmed) {
+        return context.isZh ? '已取消重置自动追链。' : 'Auto chase reset cancelled.';
+      }
       await context.memoryPointerAutoChaseActionRepository
           .resetPointerAutoChase();
       return '自动指针追链状态已重置。';
@@ -1126,11 +1522,27 @@ class _MemoryAiOverlayToolException implements Exception {
 
 const String _breakpointPauseOnHitOptionId = 'pause_process_on_hit';
 const String _breakpointContinueOnHitOptionId = 'keep_process_running';
+const String _confirmExecuteOptionId = 'confirm_execute';
+const String _confirmCancelOptionId = 'cancel_execute';
+const String _selectAllOptionId = 'select_all';
+const String _breakpointAccessReadOptionId = 'breakpoint_access_read';
+const String _breakpointAccessWriteOptionId = 'breakpoint_access_write';
+const String _breakpointAccessReadWriteOptionId =
+    'breakpoint_access_read_write';
+const String _breakpointEnabledOptionId = 'breakpoint_enabled';
+const String _breakpointDisabledOptionId = 'breakpoint_disabled';
+const String _processPauseOptionId = 'process_pause';
+const String _processResumeOptionId = 'process_resume';
 
 Future<bool> _resolveBreakpointPauseProcessOnHit(
-  MemoryAiOverlayToolRuntimeContext context, {
+  MemoryAiOverlayToolRuntimeContext context,
+  AiToolCall call, {
   AiToolProgressCallback? onProgress,
 }) async {
+  final explicitChoice = _getOptionalBoolOrNull(call, 'pauseProcessOnHit');
+  if (explicitChoice != null) {
+    return explicitChoice;
+  }
   final title = context.isZh ? '等待用户确认' : 'Awaiting user confirmation';
   final description = context.isZh
       ? '断点命中后，是否立即暂停目标应用进程？'
@@ -1152,44 +1564,83 @@ Future<bool> _resolveBreakpointPauseProcessOnHit(
     ),
   ];
 
-  onProgress?.call(
-    _buildPendingInteractionProgress(
-      context,
-      title: title,
-      description: description,
-      options: options,
-    ),
-  );
-
-  final selectedOptionId = await context.requestUserChoice(
+  final selectedOptionId = await _requestUserChoiceForTool(
+    context,
     toolName: 'add_memory_breakpoint',
     title: title,
     description: description,
     options: options,
     cancelLabel: context.isZh ? '取消本次创建' : 'Cancel breakpoint creation',
+    onProgress: onProgress,
   );
 
   return selectedOptionId == _breakpointPauseOnHitOptionId;
+}
+
+Future<String> _requestUserChoiceForTool(
+  MemoryAiOverlayToolRuntimeContext context, {
+  required String toolName,
+  required String title,
+  required String description,
+  required List<MemoryAiPendingInteractionOption> options,
+  String? cancelLabel,
+  AiToolProgressCallback? onProgress,
+}) {
+  onProgress?.call(
+    _buildPendingInteractionProgress(
+      context,
+      title: title,
+      description: description,
+    ),
+  );
+  return context.requestUserChoice(
+    toolName: toolName,
+    title: title,
+    description: description,
+    options: options,
+    cancelLabel: cancelLabel,
+  );
+}
+
+Future<bool> _confirmDangerousAction(
+  MemoryAiOverlayToolRuntimeContext context, {
+  required String toolName,
+  required String description,
+  String? title,
+  String? confirmLabel,
+  String? cancelLabel,
+  AiToolProgressCallback? onProgress,
+}) async {
+  final selected = await _requestUserChoiceForTool(
+    context,
+    toolName: toolName,
+    title: title ?? (context.isZh ? '请确认是否执行' : 'Confirm action'),
+    description: description,
+    options: <MemoryAiPendingInteractionOption>[
+      MemoryAiPendingInteractionOption(
+        id: _confirmExecuteOptionId,
+        label: confirmLabel ?? (context.isZh ? '确认执行' : 'Proceed'),
+      ),
+      MemoryAiPendingInteractionOption(
+        id: _confirmCancelOptionId,
+        label: cancelLabel ?? (context.isZh ? '取消本次操作' : 'Cancel action'),
+      ),
+    ],
+    onProgress: onProgress,
+  );
+  return selected == _confirmExecuteOptionId;
 }
 
 String _buildPendingInteractionProgress(
   MemoryAiOverlayToolRuntimeContext context, {
   required String title,
   required String description,
-  required List<MemoryAiPendingInteractionOption> options,
 }) {
-  final buffer = StringBuffer()
-    ..writeln('$title：')
-    ..writeln('- ${context.isZh ? "工具" : "Tool"}: add_memory_breakpoint')
-    ..writeln('- ${context.isZh ? "说明" : "Description"}: $description')
-    ..writeln()
-    ..writeln(context.isZh ? '可选项：' : 'Options:');
-  for (final option in options) {
-    buffer.writeln(
-      '- ${option.label}${option.description == null || option.description!.trim().isEmpty ? '' : ': ${option.description}'}',
-    );
+  final normalizedDescription = description.trim();
+  if (normalizedDescription.isEmpty) {
+    return title;
   }
-  return buffer.toString().trim();
+  return '$title\n$normalizedDescription';
 }
 
 Future<String> _buildProcessSummary(
@@ -1834,6 +2285,264 @@ String _formatBreakpointHit(MemoryBreakpointHit hit) {
   ].join(' | ');
 }
 
+Future<MemoryBreakpointAccessType> _resolveBreakpointAccessType(
+  MemoryAiOverlayToolRuntimeContext context,
+  AiToolCall call, {
+  AiToolProgressCallback? onProgress,
+}) async {
+  final explicitValue = _getOptionalStringOrNull(call, 'accessType');
+  if (explicitValue != null) {
+    return _parseBreakpointAccessType(explicitValue);
+  }
+
+  final selected = await _requestUserChoiceForTool(
+    context,
+    toolName: 'add_memory_breakpoint',
+    title: context.isZh ? '选择断点触发方式' : 'Choose breakpoint access type',
+    description: context.isZh
+        ? '当前没有明确指定 accessType，需要你决定断点监听读、写，还是读写都监听。'
+        : 'No explicit accessType was provided. Choose whether the breakpoint should watch reads, writes, or both.',
+    options: <MemoryAiPendingInteractionOption>[
+      MemoryAiPendingInteractionOption(
+        id: _breakpointAccessReadOptionId,
+        label: 'read',
+        description: context.isZh
+            ? '仅在读取该地址时触发。'
+            : 'Trigger only when this address is read.',
+      ),
+      MemoryAiPendingInteractionOption(
+        id: _breakpointAccessWriteOptionId,
+        label: 'write',
+        description: context.isZh
+            ? '仅在写入该地址时触发。'
+            : 'Trigger only when this address is written.',
+      ),
+      MemoryAiPendingInteractionOption(
+        id: _breakpointAccessReadWriteOptionId,
+        label: 'readWrite',
+        description: context.isZh
+            ? '读写该地址时都触发。'
+            : 'Trigger on both reads and writes.',
+      ),
+    ],
+    cancelLabel: context.isZh ? '取消本次创建' : 'Cancel breakpoint creation',
+    onProgress: onProgress,
+  );
+
+  return switch (selected) {
+    _breakpointAccessReadOptionId => MemoryBreakpointAccessType.read,
+    _breakpointAccessWriteOptionId => MemoryBreakpointAccessType.write,
+    _breakpointAccessReadWriteOptionId => MemoryBreakpointAccessType.readWrite,
+    _ => throw const _MemoryAiOverlayToolException('未选择有效的断点访问方式。'),
+  };
+}
+
+Future<bool> _resolveBreakpointEnabled(
+  MemoryAiOverlayToolRuntimeContext context,
+  AiToolCall call, {
+  AiToolProgressCallback? onProgress,
+}) async {
+  final explicitValue = _getOptionalBoolOrNull(call, 'enabled');
+  if (explicitValue != null) {
+    return explicitValue;
+  }
+
+  final selected = await _requestUserChoiceForTool(
+    context,
+    toolName: 'add_memory_breakpoint',
+    title: context.isZh ? '选择断点初始状态' : 'Choose initial breakpoint state',
+    description: context.isZh
+        ? '当前没有明确指定 enabled，需要决定断点创建后是立即启用，还是先保留为禁用状态。'
+        : 'No explicit enabled flag was provided. Choose whether the breakpoint should start enabled or disabled.',
+    options: <MemoryAiPendingInteractionOption>[
+      MemoryAiPendingInteractionOption(
+        id: _breakpointEnabledOptionId,
+        label: context.isZh ? '创建后立即启用' : 'Enable immediately',
+        description: context.isZh
+            ? '断点创建成功后立刻开始生效。'
+            : 'The breakpoint becomes active immediately after creation.',
+      ),
+      MemoryAiPendingInteractionOption(
+        id: _breakpointDisabledOptionId,
+        label: context.isZh ? '先创建为禁用' : 'Create disabled',
+        description: context.isZh
+            ? '先保存断点配置，但暂时不生效。'
+            : 'Create the breakpoint but keep it inactive for now.',
+      ),
+    ],
+    cancelLabel: context.isZh ? '取消本次创建' : 'Cancel breakpoint creation',
+    onProgress: onProgress,
+  );
+
+  return selected == _breakpointEnabledOptionId;
+}
+
+Future<String> _resolveBreakpointId(
+  MemoryAiOverlayToolRuntimeContext context, {
+  required String toolName,
+  required String argumentName,
+  required String title,
+  required String description,
+  AiToolCall? call,
+  AiToolProgressCallback? onProgress,
+}) async {
+  final explicitValue = call == null
+      ? null
+      : _getOptionalStringOrNull(call, argumentName);
+  if (explicitValue != null) {
+    return explicitValue;
+  }
+
+  final breakpoints = await context.memoryQueryRepository.listMemoryBreakpoints(
+    pid: context.pid,
+  );
+  if (breakpoints.isEmpty) {
+    throw const _MemoryAiOverlayToolException('当前进程没有可操作的断点。');
+  }
+  if (breakpoints.length == 1) {
+    return breakpoints.single.id;
+  }
+
+  final selected = await _requestUserChoiceForTool(
+    context,
+    toolName: toolName,
+    title: title,
+    description: description,
+    options: breakpoints
+        .map(
+          (breakpoint) => MemoryAiPendingInteractionOption(
+            id: breakpoint.id,
+            label:
+                '${breakpoint.id} · ${_formatAddress(breakpoint.address)} · ${_formatBreakpointAccessType(breakpoint.accessType)}',
+            description:
+                'enabled=${breakpoint.enabled} | pauseOnHit=${breakpoint.pauseProcessOnHit} | hitCount=${breakpoint.hitCount}',
+          ),
+        )
+        .toList(growable: false),
+    cancelLabel: context.isZh ? '取消本次操作' : 'Cancel this action',
+    onProgress: onProgress,
+  );
+  return selected;
+}
+
+Future<List<int>> _resolveAddressesFromChoices(
+  MemoryAiOverlayToolRuntimeContext context, {
+  required String toolName,
+  required String title,
+  required String description,
+  required List<int> availableAddresses,
+  required String Function(int address) labelBuilder,
+  String? Function(int address)? descriptionBuilder,
+  bool allowSelectAll = true,
+  AiToolProgressCallback? onProgress,
+}) async {
+  if (availableAddresses.isEmpty) {
+    throw const _MemoryAiOverlayToolException('当前没有可供选择的地址。');
+  }
+  if (availableAddresses.length == 1) {
+    return <int>[availableAddresses.single];
+  }
+
+  final options = <MemoryAiPendingInteractionOption>[
+    if (allowSelectAll)
+      MemoryAiPendingInteractionOption(
+        id: _selectAllOptionId,
+        label: context.isZh ? '对全部地址执行' : 'Apply to all addresses',
+        description: context.isZh
+            ? '一次性对当前可用的全部地址执行此操作。'
+            : 'Apply this action to all currently available addresses.',
+      ),
+    ...availableAddresses.map(
+      (address) => MemoryAiPendingInteractionOption(
+        id: address.toString(),
+        label: labelBuilder(address),
+        description: descriptionBuilder?.call(address),
+      ),
+    ),
+  ];
+
+  final selected = await _requestUserChoiceForTool(
+    context,
+    toolName: toolName,
+    title: title,
+    description: description,
+    options: options,
+    cancelLabel: context.isZh ? '取消本次操作' : 'Cancel this action',
+    onProgress: onProgress,
+  );
+
+  if (selected == _selectAllOptionId) {
+    return List<int>.from(availableAddresses);
+  }
+  final parsed = int.tryParse(selected);
+  if (parsed == null) {
+    throw const _MemoryAiOverlayToolException('未选择有效地址。');
+  }
+  return <int>[parsed];
+}
+
+Future<bool> _resolvePausedTargetChoice(
+  MemoryAiOverlayToolRuntimeContext context,
+  AiToolCall call, {
+  AiToolProgressCallback? onProgress,
+}) async {
+  final explicitValue = _getOptionalBoolOrNull(call, 'paused');
+  if (explicitValue != null) {
+    return explicitValue;
+  }
+
+  final selected = await _requestUserChoiceForTool(
+    context,
+    toolName: 'set_process_paused',
+    title: context.isZh ? '选择进程状态' : 'Choose process state',
+    description: context.isZh
+        ? '当前没有明确指定 paused，需要决定是暂停进程，还是恢复进程运行。'
+        : 'No explicit paused flag was provided. Choose whether to pause the process or resume it.',
+    options: <MemoryAiPendingInteractionOption>[
+      MemoryAiPendingInteractionOption(
+        id: _processPauseOptionId,
+        label: context.isZh ? '暂停进程' : 'Pause process',
+        description: context.isZh
+            ? '立即挂起当前目标进程。'
+            : 'Suspend the current target process immediately.',
+      ),
+      MemoryAiPendingInteractionOption(
+        id: _processResumeOptionId,
+        label: context.isZh ? '恢复运行' : 'Resume process',
+        description: context.isZh
+            ? '让当前目标进程继续执行。'
+            : 'Allow the current target process to continue running.',
+      ),
+    ],
+    cancelLabel: context.isZh ? '取消本次操作' : 'Cancel this action',
+    onProgress: onProgress,
+  );
+  return selected == _processPauseOptionId;
+}
+
+String _formatAddressPreview(List<int> addresses, {int maxItems = 3}) {
+  if (addresses.isEmpty) {
+    return '-';
+  }
+  final preview = addresses
+      .take(maxItems)
+      .map(_formatAddress)
+      .toList(growable: false)
+      .join(', ');
+  if (addresses.length <= maxItems) {
+    return preview;
+  }
+  return '$preview ... (${addresses.length} total)';
+}
+
+String _formatPendingValuePreview(String value, {int maxLength = 32}) {
+  final normalized = value.trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return '${normalized.substring(0, maxLength)}...';
+}
+
 String _formatPointerScanSession(
   PointerScanSessionState state, {
   required int currentPid,
@@ -1967,6 +2676,16 @@ List<int> _parseAddressList(AiToolCall call, String key) {
       .toList(growable: false);
 }
 
+List<int>? _parseOptionalAddressList(AiToolCall call, String key) {
+  final rawValues = _getStringList(call, key);
+  if (rawValues.isEmpty) {
+    return null;
+  }
+  return rawValues
+      .map((value) => _parseFlexibleInt(value, argumentName: key))
+      .toList(growable: false);
+}
+
 String _getRequiredString(AiToolCall call, String key) {
   final raw = call.arguments[key];
   final value = raw?.toString().trim() ?? '';
@@ -1981,6 +2700,15 @@ String _getOptionalString(AiToolCall call, String key, String defaultValue) {
   final value = raw?.toString().trim();
   if (value == null || value.isEmpty) {
     return defaultValue;
+  }
+  return value;
+}
+
+String? _getOptionalStringOrNull(AiToolCall call, String key) {
+  final raw = call.arguments[key];
+  final value = raw?.toString().trim();
+  if (value == null || value.isEmpty) {
+    return null;
   }
   return value;
 }
