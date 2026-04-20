@@ -1,4 +1,4 @@
-﻿import 'package:JsxposedX/common/pages/toast.dart';
+import 'package:JsxposedX/common/pages/toast.dart';
 import 'package:JsxposedX/common/widgets/app_bottom_sheet.dart';
 import 'dart:developer' as developer;
 import 'package:JsxposedX/core/extensions/context_extensions.dart';
@@ -34,6 +34,9 @@ class AiChatInput extends HookConsumerWidget {
   final bool builtinOptionsCompact;
   final Future<void> Function()? onRetryInitialization;
   final VoidCallback? onOpenAnalysis;
+  final String Function(String rawText)? composeOutgoingText;
+  final bool hasComposedContent;
+  final VoidCallback? onSendCommitted;
 
   const AiChatInput({
     super.key,
@@ -47,6 +50,9 @@ class AiChatInput extends HookConsumerWidget {
     this.builtinOptionsCompact = false,
     this.onRetryInitialization,
     this.onOpenAnalysis,
+    this.composeOutgoingText,
+    this.hasComposedContent = false,
+    this.onSendCommitted,
   });
 
   @override
@@ -61,14 +67,18 @@ class AiChatInput extends HookConsumerWidget {
     final pendingAttachmentsNotifier = ref.read(
       aiChatPendingAttachmentsProvider(packageName).notifier,
     );
-    final chatState = ref.watch(aiChatRuntimeProvider(packageName: packageName));
+    final chatState = ref.watch(
+      aiChatRuntimeProvider(packageName: packageName),
+    );
     final aiConfigAsync = ref.watch(aiConfigProvider);
 
     final textValue = useValueListenable(textController);
     final hasContent = textValue.text.trim().isNotEmpty;
     final hasAttachments = pendingAttachments.isNotEmpty;
     final isStreaming = chatState.isStreaming;
-    final canSend = (hasContent || hasAttachments) && chatState.canSend;
+    final canSend =
+        (hasContent || hasAttachments || hasComposedContent) &&
+        chatState.canSend;
     final hasContextDetails =
         chatState.hasUserMessages ||
         chatState.sessionContext.hasStructuredMemory;
@@ -122,10 +132,9 @@ class AiChatInput extends HookConsumerWidget {
     final actionIconSize = (effectiveCompact ? 18 : 22) * scopeScale;
     final sendButtonMargin = (effectiveCompact ? 6 : 8) * scopeScale;
     final maxInputLines = effectiveCompact ? 3 : 5;
-    final popupMenuColor =
-        (useOverlayFilePicker || isEmbedded)
-            ? context.colorScheme.surface
-            : context.theme.cardColor;
+    final popupMenuColor = (useOverlayFilePicker || isEmbedded)
+        ? context.colorScheme.surface
+        : context.theme.cardColor;
 
     Future<void> handleSend() async {
       final notifier = ref.read(
@@ -137,13 +146,17 @@ class AiChatInput extends HookConsumerWidget {
       }
       if (canSend) {
         try {
+          final outgoingText =
+              composeOutgoingText?.call(textController.text.trim()) ??
+              textController.text.trim();
           final message = AiMultimodalMessageCodec.encodeFromPickedFiles(
-            text: textController.text.trim(),
+            text: outgoingText,
             attachments: pendingAttachments,
           );
 
           textController.clear();
           pendingAttachmentsNotifier.state = const [];
+          onSendCommitted?.call();
 
           notifier.send(message); // Fire and forget
         } catch (error, stackTrace) {
@@ -187,10 +200,7 @@ class AiChatInput extends HookConsumerWidget {
               useOverlayProxy: useOverlayFilePicker,
             );
             if (picked == null) {
-              developer.log(
-                'Image picker returned null.',
-                name: 'AiChatInput',
-              );
+              developer.log('Image picker returned null.', name: 'AiChatInput');
               return;
             }
             AiMultimodalMessageCodec.encodeFromPickedFiles(
@@ -221,10 +231,7 @@ class AiChatInput extends HookConsumerWidget {
               useOverlayProxy: useOverlayFilePicker,
             );
             if (picked == null) {
-              developer.log(
-                'File picker returned null.',
-                name: 'AiChatInput',
-              );
+              developer.log('File picker returned null.', name: 'AiChatInput');
               return;
             }
             AiMultimodalMessageCodec.encodeFromPickedFiles(
@@ -318,9 +325,7 @@ class AiChatInput extends HookConsumerWidget {
                         isEmbedded ? 0 : 8 * scopeScale,
                         isEmbedded ? 0 : 8 * scopeScale,
                         isEmbedded ? 0 : 8 * scopeScale,
-                        isEmbedded
-                            ? 8 * scopeScale
-                            : 2 * scopeScale,
+                        isEmbedded ? 8 * scopeScale : 2 * scopeScale,
                       ),
                       child: Align(
                         alignment: Alignment.centerLeft,
@@ -340,7 +345,9 @@ class AiChatInput extends HookConsumerWidget {
                                     pendingAttachments,
                                   )..removeAt(index);
                                   pendingAttachmentsNotifier.state =
-                                      List<PickedFileData>.unmodifiable(updated);
+                                      List<PickedFileData>.unmodifiable(
+                                        updated,
+                                      );
                                 },
                               ),
                           ],
@@ -352,9 +359,7 @@ class AiChatInput extends HookConsumerWidget {
                         ? EdgeInsets.fromLTRB(0, 0, 0, 2 * scopeScale)
                         : EdgeInsets.zero,
                     decoration: BoxDecoration(
-                      color: isEmbedded
-                          ? Colors.transparent
-                          : null,
+                      color: isEmbedded ? Colors.transparent : null,
                       borderRadius: BorderRadius.circular(12 * scopeScale),
                     ),
                     child: Row(
@@ -379,7 +384,9 @@ class AiChatInput extends HookConsumerWidget {
                               enabled: hasContextDetails,
                               child: _AiInputMenuItem(
                                 icon: Icons.data_object_rounded,
-                                title: context.isZh ? '查看上下文' : 'Preview context',
+                                title: context.isZh
+                                    ? '查看上下文'
+                                    : 'Preview context',
                                 subtitle: context.isZh
                                     ? '预览自动压缩后的对话上下文'
                                     : 'Preview the current compressed context',
@@ -812,10 +819,7 @@ class _ContextInfoCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       item,
-                      style: TextStyle(
-                        fontSize: 13 * scopeScale,
-                        height: 1.45,
-                      ),
+                      style: TextStyle(fontSize: 13 * scopeScale, height: 1.45),
                     ),
                   ),
                 ],

@@ -16,9 +16,13 @@ import 'package:JsxposedX/features/ai/presentation/widgets/ai_chat_list.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/ai_overlay_ui_state_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_ai_overlay_environment_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_ai_overlay_selection_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_browse_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_items_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_search_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/ai_overlay_collapsed_ball.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_ai_message_bubble.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_ai_selection_tag_bar.dart';
 import 'package:JsxposedX/features/overlay_window/presentation/providers/overlay_window_host_runtime_provider.dart';
 import 'package:JsxposedX/generated/memory_tool.g.dart';
 import 'package:flutter/material.dart';
@@ -88,6 +92,7 @@ class _AiOverlayViewport extends HookConsumerWidget {
     );
     final isExpanded = overlayState.isExpanded;
     final hasSelectedValue = ref.watch(memoryAiOverlayHasSelectedValueProvider);
+    final selectionTags = ref.watch(memoryAiOverlaySelectionTagsProvider);
     final offset = overlayState.offset;
     final persistedPanelSize = overlayState.panelSize;
     final dragStartGlobal = useRef<Offset?>(null);
@@ -372,6 +377,39 @@ class _AiOverlayViewport extends HookConsumerWidget {
     final contentTopPadding = (isCompactPanel ? 42.0 : 56.0) * contentScale;
     final contentRightPadding = (isCompactPanel ? 8.0 : 12.0) * contentScale;
     final contentBottomPadding = (isCompactPanel ? 8.0 : 12.0) * contentScale;
+
+    void clearSelectionTags() {
+      ref.read(memoryToolResultSelectionProvider.notifier).clear();
+      ref.read(memoryToolBrowseControllerProvider.notifier).clearSelection();
+      ref.read(memoryToolSavedItemSelectionProvider.notifier).clearSelection();
+    }
+
+    String composeSelectionTagMessage(String rawText) {
+      if (selectionTags.isEmpty) {
+        return rawText.trim();
+      }
+
+      final lines = <String>[
+        context.isZh
+            ? '以下是当前内存工具里我选中的值，请结合它们理解本次提问：'
+            : 'These are the values currently selected in the memory tool. Use them as context for this request:',
+        for (final tag in selectionTags)
+          '- ${switch (tag.source) {
+            MemoryAiOverlaySelectionSource.search => context.isZh ? '搜索' : 'Search',
+            MemoryAiOverlaySelectionSource.browse => context.isZh ? '浏览' : 'Browse',
+            MemoryAiOverlaySelectionSource.saved => context.isZh ? '暂存' : 'Saved',
+          }} | ${tag.addressLabel} | ${tag.typeLabel} | ${tag.valueLabel}',
+      ];
+
+      final trimmed = rawText.trim();
+      if (trimmed.isNotEmpty) {
+        lines
+          ..add('')
+          ..add(trimmed);
+      }
+
+      return lines.join('\n').trim();
+    }
 
     void startDragging(Offset globalPosition) {
       if (isResizing.value) {
@@ -734,6 +772,21 @@ class _AiOverlayViewport extends HookConsumerWidget {
                                                 ),
                                           ),
                                         ),
+                                        if (selectionTags.isNotEmpty) ...[
+                                          SizedBox(
+                                            height:
+                                                (isCompactPanel ? 4.0 : 6.0) *
+                                                contentScale,
+                                          ),
+                                          MemoryAiSelectionTagBar(
+                                            tags: selectionTags,
+                                          ),
+                                          SizedBox(
+                                            height:
+                                                (isCompactPanel ? 4.0 : 6.0) *
+                                                contentScale,
+                                          ),
+                                        ],
                                         AiChatInput(
                                           packageName: chatScopeId,
                                           useOverlayFilePicker: true,
@@ -744,6 +797,11 @@ class _AiOverlayViewport extends HookConsumerWidget {
                                           builtinOptionsCompact: true,
                                           onRetryInitialization:
                                               initializeOverlayChat,
+                                          hasComposedContent:
+                                              selectionTags.isNotEmpty,
+                                          composeOutgoingText:
+                                              composeSelectionTagMessage,
+                                          onSendCommitted: clearSelectionTags,
                                         ),
                                       ],
                                     ),
