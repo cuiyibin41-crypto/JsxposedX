@@ -21,6 +21,7 @@ import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/me
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_query_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_saved_items_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_search_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/ai_overlay_assistant_glyph.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/ai_overlay_collapsed_ball.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_ai_message_bubble.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_ai_selection_tag_bar.dart';
@@ -906,39 +907,13 @@ class _AiOverlayHeaderIdentity extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final iconExtent = (isCompact ? 28.0 : 32.0) * contentScale;
-    final iconInnerExtent =
-        iconExtent - (isCompact ? 3.0 : 4.0) * contentScale;
-    final iconRadius = BorderRadius.circular(
-      (isCompact ? 10.0 : 12.0) * contentScale,
-    );
-    final surfaceTint = context.colorScheme.surface.withValues(alpha: 0.44);
 
     return Row(
       children: [
-        Container(
+        SizedBox(
           width: iconExtent,
           height: iconExtent,
-          padding: EdgeInsets.all((isCompact ? 1.2 : 1.4) * contentScale),
-          decoration: BoxDecoration(
-            gradient: aiActivationGradient,
-            borderRadius: iconRadius,
-            boxShadow: buildAiActivationGlowShadows(compact: true),
-          ),
-          child: Container(
-            width: iconInnerExtent,
-            height: iconInnerExtent,
-            decoration: BoxDecoration(
-              color: surfaceTint,
-              borderRadius: BorderRadius.circular(
-                (isCompact ? 9.0 : 11.0) * contentScale,
-              ),
-            ),
-            child: Icon(
-              Icons.auto_awesome_rounded,
-              size: (isCompact ? 14.0 : 16.0) * contentScale,
-              color: context.colorScheme.onSurface,
-            ),
-          ),
+          child: AiOverlayAssistantGlyph(size: iconExtent),
         ),
         SizedBox(width: (isCompact ? 8.0 : 10.0) * contentScale),
         Expanded(
