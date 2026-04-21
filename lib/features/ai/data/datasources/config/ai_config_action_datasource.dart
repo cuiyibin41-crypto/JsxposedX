@@ -8,6 +8,7 @@ import 'package:JsxposedX/features/ai/domain/constants/builtin_ai_config.dart';
 class AiConfigActionDatasource {
   static const _currentConfigStorageKey = "ai_config";
   static const _configListStorageKey = "ai_config_list";
+  static const _builtinConfigOverrideKeyPrefix = "ai_builtin_config_";
 
   final PiniaStorage _storage;
 
@@ -20,6 +21,10 @@ class AiConfigActionDatasource {
       await _storage.setString(
         builtinApiKeyStorageKeyForId(config.id),
         config.apiKey,
+      );
+      await _storage.setString(
+        _builtinConfigOverrideKey(config.id),
+        jsonEncode(config.toJson()),
       );
     }
     await _storage.setString(
@@ -88,10 +93,15 @@ class AiConfigActionDatasource {
   Future<void> switchConfig(String id) async {
     final builtinSpec = getBuiltinAiConfigSpecById(id);
     if (builtinSpec != null) {
+      final builtinConfig = await _readBuiltinConfigOverride(id);
       final builtinApiKey = await _storage.getString(
         builtinSpec.apiKeyStorageKey,
       );
-      await saveConfig(_builtinConfigDto(builtinSpec, apiKey: builtinApiKey));
+      await saveConfig(
+        (builtinConfig ?? _builtinConfigDto(builtinSpec)).copyWith(
+          apiKey: builtinApiKey,
+        ),
+      );
       return;
     }
     final list = await getConfigList();
@@ -115,4 +125,27 @@ class AiConfigActionDatasource {
       apiType: spec.apiType.name,
     );
   }
+
+  Future<AiConfigDto?> _readBuiltinConfigOverride(String id) async {
+    final raw = await _storage.getString(_builtinConfigOverrideKey(id));
+    if (raw.isEmpty) {
+      return null;
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return null;
+      }
+      final dto = AiConfigDto.fromJson(decoded);
+      if (dto.id != id) {
+        return null;
+      }
+      return dto;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _builtinConfigOverrideKey(String id) =>
+      '$_builtinConfigOverrideKeyPrefix$id';
 }

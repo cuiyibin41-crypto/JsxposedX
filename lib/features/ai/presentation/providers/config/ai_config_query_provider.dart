@@ -27,8 +27,21 @@ AiConfigQueryRepository aiConfigQueryRepository(Ref ref) {
 /// 获取 AI 配置
 @riverpod
 Future<List<AiModel>> aiModels(Ref ref) async {
-  return await ref.watch(aiConfigQueryRepositoryProvider).getModels();
+  final config = await ref.watch(aiConfigProvider.future);
+  return await ref
+      .watch(aiConfigQueryRepositoryProvider)
+      .getModels(config: config);
 }
+
+final aiModelsRefreshActionProvider = Provider<Future<void> Function()>((ref) {
+  return () async {
+    final config = await ref.read(aiConfigProvider.future);
+    await ref
+        .read(aiConfigQueryRepositoryProvider)
+        .getModels(config: config, forceRefresh: true);
+    ref.invalidate(aiModelsProvider);
+  };
+});
 
 /// 获取 AI 配置
 @riverpod

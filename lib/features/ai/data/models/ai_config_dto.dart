@@ -24,6 +24,20 @@ abstract class AiConfigDto with _$AiConfigDto {
   factory AiConfigDto.fromJson(Map<String, dynamic> json) =>
       _$AiConfigDtoFromJson(json);
 
+  factory AiConfigDto.fromEntity(AiConfig config) {
+    return AiConfigDto(
+      id: config.id,
+      name: config.name,
+      apiKey: config.apiKey,
+      apiUrl: config.apiUrl,
+      moduleName: config.moduleName,
+      maxToken: config.maxToken,
+      temperature: config.temperature,
+      memoryRounds: config.memoryRounds,
+      apiType: config.apiType.name,
+    );
+  }
+
   AiConfig toEntity() {
     return AiConfig(
       id: id,
@@ -38,5 +52,3 @@ abstract class AiConfigDto with _$AiConfigDto {
     );
   }
 }
-
-

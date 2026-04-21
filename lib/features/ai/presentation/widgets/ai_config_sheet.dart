@@ -158,6 +158,33 @@ class AIConfigSheet extends HookConsumerWidget {
     return getBuiltinAiConfigSpecById(config.id);
   }
 
+  static Future<AiConfig> _resolveConfigWithAvailableModel(
+    WidgetRef ref,
+    AiConfig config, {
+    bool syncFormModelName = false,
+  }) async {
+    final models = await ref
+        .read(aiConfigQueryRepositoryProvider)
+        .getModels(config: config, forceRefresh: true);
+    if (models.isEmpty) {
+      throw Exception('No available models returned by the API');
+    }
+
+    final currentModel = config.moduleName.trim();
+    final resolvedModel = models.any((model) => model.id == currentModel)
+        ? currentModel
+        : models.first.id;
+
+    if (syncFormModelName && resolvedModel != currentModel) {
+      final formState = ref.read(_sheetFormKeyProvider).currentState;
+      if (formState != null && formState.fields.containsKey('module_name')) {
+        formState.patchValue({'module_name': resolvedModel});
+      }
+    }
+
+    return config.copyWith(moduleName: resolvedModel);
+  }
+
   /// 处理测试连接逻辑
   static Future<void> _handleTest(
     BuildContext context,
@@ -171,9 +198,14 @@ class AIConfigSheet extends HookConsumerWidget {
 
       _showSheetFeedback(ref, scopeKey, context.l10n.aiTestConnecting);
       try {
+        final resolvedConfig = await _resolveConfigWithAvailableModel(
+          ref,
+          config,
+          syncFormModelName: true,
+        );
         final result = await ref
             .read(aiChatRuntimeProvider(packageName: 'temp').notifier)
-            .testConnection(config);
+            .testConnection(resolvedConfig);
         if (context.mounted) {
           _showSheetFeedback(ref, scopeKey, context.l10n.aiTestSuccess(result));
         }
@@ -213,9 +245,13 @@ class AIConfigSheet extends HookConsumerWidget {
         formConfig.copyWith(apiKey: apiKey);
     _showSheetFeedback(ref, scopeKey, context.l10n.aiTestConnecting);
     try {
+      final resolvedConfig = await _resolveConfigWithAvailableModel(
+        ref,
+        builtinConfig,
+      );
       final result = await ref
           .read(aiChatRuntimeProvider(packageName: 'temp').notifier)
-          .testConnection(builtinConfig);
+          .testConnection(resolvedConfig);
       if (context.mounted) {
         _showSheetFeedback(ref, scopeKey, context.l10n.aiTestSuccess(result));
       }
@@ -867,16 +903,21 @@ class AIConfigSheet extends HookConsumerWidget {
                                   context.l10n.aiBuiltinSwitching,
                                 );
                                 try {
+                                  final resolvedConfig =
+                                      await _resolveConfigWithAvailableModel(
+                                        ref,
+                                        builtinConfig,
+                                      );
                                   await ref
                                       .read(
                                         aiChatRuntimeProvider(
                                           packageName: 'temp',
                                         ).notifier,
                                       )
-                                      .testConnection(builtinConfig);
+                                      .testConnection(resolvedConfig);
                                   await ref
                                       .read(aiConfigActionProvider.notifier)
-                                      .save(builtinConfig);
+                                      .save(resolvedConfig);
                                   ref.invalidate(aiChatRuntimeStatusProvider);
                                   isNewMode.value = false;
                                   editingConfig.value = null;
@@ -916,30 +957,36 @@ class AIConfigSheet extends HookConsumerWidget {
                                   context.l10n.aiSavingAndTesting,
                                 );
                                 try {
+                                  final resolvedConfig =
+                                      await _resolveConfigWithAvailableModel(
+                                        ref,
+                                        config,
+                                        syncFormModelName: true,
+                                      );
                                   await ref
                                       .read(
                                         aiChatRuntimeProvider(
                                           packageName: 'temp',
                                         ).notifier,
                                       )
-                                      .testConnection(config);
+                                      .testConnection(resolvedConfig);
 
                                   final existsInList = configList.any(
-                                    (item) => item.id == config.id,
+                                    (item) => item.id == resolvedConfig.id,
                                   );
                                   if (isNewMode.value || !existsInList) {
                                     await ref
                                         .read(aiConfigActionProvider.notifier)
-                                        .addConfig(config);
+                                        .addConfig(resolvedConfig);
                                   } else {
                                     await ref
                                         .read(aiConfigActionProvider.notifier)
-                                        .updateConfig(config);
+                                        .updateConfig(resolvedConfig);
                                   }
 
                                   await ref
                                       .read(aiConfigActionProvider.notifier)
-                                      .save(config);
+                                      .save(resolvedConfig);
 
                                   ref.invalidate(aiChatRuntimeStatusProvider);
                                   isNewMode.value = false;

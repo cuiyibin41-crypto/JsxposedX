@@ -5,5 +5,8 @@ import 'package:JsxposedX/features/ai/domain/models/ai_model.dart';
 abstract class AiConfigQueryRepository {
   /// 获取当前配置
   Future<AiConfig> getConfig();
-  Future<List<AiModel>> getModels();
+  Future<List<AiModel>> getModels({
+    required AiConfig config,
+    bool forceRefresh = false,
+  });
 }

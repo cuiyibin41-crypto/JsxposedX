@@ -28,6 +28,7 @@ class AiChatRuntimeState {
     this.currentPadiChatOptions = const PadiChatOptions(
       model: PadiChatOptions.defaultModel,
       reasoningEffort: PadiChatOptions.defaultReasoningEffort,
+      supportsReasoning: true,
     ),
   });
 
@@ -53,6 +54,9 @@ class AiChatRuntimeState {
 
   String get currentPadiReasoningEffort =>
       currentPadiChatOptions.reasoningEffort;
+
+  bool get currentPadiSupportsReasoning =>
+      currentPadiChatOptions.supportsReasoning;
 
   List<AiMessage> get visibleMessages {
     if (messages.length <= visibleMessageCount) {

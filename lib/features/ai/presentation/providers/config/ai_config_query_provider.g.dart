@@ -99,7 +99,7 @@ final class AiModelsProvider
   }
 }
 
-String _$aiModelsHash() => r'e4a684582bf6484b914fd03915a6da5138d6c16f';
+String _$aiModelsHash() => r'519384ba039dfd659a6816bae7a50b070c25e03e';
 
 /// 获取 AI 配置
 

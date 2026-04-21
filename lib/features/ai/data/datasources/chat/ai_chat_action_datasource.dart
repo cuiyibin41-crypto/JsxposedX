@@ -112,7 +112,9 @@ class AiChatActionDatasource {
     String sessionId,
     List<AiMessageDto> messagesDtos,
   ) async {
-    final json = jsonEncode(messagesDtos.map((e) => e.toStorageJson()).toList());
+    final json = jsonEncode(
+      messagesDtos.map((e) => e.toStorageJson()).toList(),
+    );
     await _storage.setString(
       _chatContentKey,
       json,
@@ -183,7 +185,8 @@ class AiChatActionDatasource {
           responseType: ResponseType.stream,
           receiveTimeout: _streamReceiveTimeout,
           headers: {
-            if (config.apiKey.isNotEmpty) 'Authorization': 'Bearer ${config.apiKey}',
+            if (config.apiKey.isNotEmpty)
+              'Authorization': 'Bearer ${config.apiKey}',
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream',
           },
@@ -192,8 +195,9 @@ class AiChatActionDatasource {
 
       await _ensureSuccessfulResponse(response);
 
-      final stream =
-          (response.data.stream as Stream).cast<List<int>>().transform(utf8.decoder);
+      final stream = (response.data.stream as Stream)
+          .cast<List<int>>()
+          .transform(utf8.decoder);
       var buffered = '';
       var isDone = false;
       final toolCallsAccum = <int, Map<String, dynamic>>{};
@@ -298,10 +302,7 @@ class AiChatActionDatasource {
     } on PlatformException {
       rethrow;
     } catch (error) {
-      throw PlatformException(
-        code: 'unknown_error',
-        message: error.toString(),
-      );
+      throw PlatformException(code: 'unknown_error', message: error.toString());
     }
   }
 
@@ -322,12 +323,13 @@ class AiChatActionDatasource {
       'stream': true,
       'store': false,
       'include': const ['reasoning.encrypted_content'],
-      'reasoning': {
-        'effort': effectiveReasoningEffort,
-      },
+      if (padiChatOptions?.supportsReasoning ?? true)
+        'reasoning': {'effort': effectiveReasoningEffort},
       'max_output_tokens': config.maxToken,
       if (tools != null && tools.isNotEmpty)
-        'tools': tools.map(_normalizeOpenAiResponsesTool).toList(growable: false),
+        'tools': tools
+            .map(_normalizeOpenAiResponsesTool)
+            .toList(growable: false),
     };
 
     try {
@@ -339,7 +341,8 @@ class AiChatActionDatasource {
           responseType: ResponseType.stream,
           receiveTimeout: _streamReceiveTimeout,
           headers: {
-            if (config.apiKey.isNotEmpty) 'Authorization': 'Bearer ${config.apiKey}',
+            if (config.apiKey.isNotEmpty)
+              'Authorization': 'Bearer ${config.apiKey}',
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream',
           },
@@ -348,8 +351,9 @@ class AiChatActionDatasource {
 
       await _ensureSuccessfulResponse(response);
 
-      final stream =
-          (response.data.stream as Stream).cast<List<int>>().transform(utf8.decoder);
+      final stream = (response.data.stream as Stream)
+          .cast<List<int>>()
+          .transform(utf8.decoder);
       var buffered = '';
       final toolCallsAccum = <String, Map<String, dynamic>>{};
 
@@ -442,7 +446,8 @@ class AiChatActionDatasource {
               if (callId != null && callId.isNotEmpty) {
                 current['id'] = callId;
               }
-              final rawArguments = decoded['arguments']?.toString().trim() ?? '';
+              final rawArguments =
+                  decoded['arguments']?.toString().trim() ?? '';
               if (rawArguments.isNotEmpty) {
                 final parsedArgs = _tryDecodeJson(rawArguments);
                 function['arguments'] = parsedArgs is Map<String, dynamic>
@@ -511,10 +516,7 @@ class AiChatActionDatasource {
     } on PlatformException {
       rethrow;
     } catch (error) {
-      throw PlatformException(
-        code: 'unknown_error',
-        message: error.toString(),
-      );
+      throw PlatformException(code: 'unknown_error', message: error.toString());
     }
   }
 
@@ -566,8 +568,9 @@ class AiChatActionDatasource {
 
       await _ensureSuccessfulResponse(response);
 
-      final stream =
-          (response.data.stream as Stream).cast<List<int>>().transform(utf8.decoder);
+      final stream = (response.data.stream as Stream)
+          .cast<List<int>>()
+          .transform(utf8.decoder);
       var buffered = '';
       final toolCalls = <Map<String, dynamic>>[];
       final toolArgumentBuffers = <int, StringBuffer>{};
@@ -599,10 +602,7 @@ class AiChatActionDatasource {
             final contentBlock = decoded['content_block'];
             if (contentBlock is Map<String, dynamic> &&
                 contentBlock['type'] == 'thinking') {
-              yield AiMessageDto(
-                role: 'assistant',
-                isThinking: true,
-              );
+              yield AiMessageDto(role: 'assistant', isThinking: true);
               continue;
             }
             if (contentBlock is Map<String, dynamic> &&
@@ -668,7 +668,8 @@ class AiChatActionDatasource {
 
           if (type == 'message_stop') {
             for (var index = 0; index < toolCalls.length; index++) {
-              final rawArgs = toolArgumentBuffers[index]?.toString().trim() ?? '';
+              final rawArgs =
+                  toolArgumentBuffers[index]?.toString().trim() ?? '';
               if (rawArgs.isEmpty) {
                 toolCalls[index]['function']['arguments'] = '{}';
                 continue;
@@ -676,7 +677,9 @@ class AiChatActionDatasource {
 
               final decodedArgs = _tryDecodeJson(rawArgs);
               if (decodedArgs is Map<String, dynamic>) {
-                toolCalls[index]['function']['arguments'] = jsonEncode(decodedArgs);
+                toolCalls[index]['function']['arguments'] = jsonEncode(
+                  decodedArgs,
+                );
               } else {
                 throw PlatformException(
                   code: 'parse_error',
@@ -715,11 +718,17 @@ class AiChatActionDatasource {
               decoded['type']?.toString() == 'message_stop' &&
               toolCalls.isNotEmpty) {
             for (var index = 0; index < toolCalls.length; index++) {
-              final rawArgs = toolArgumentBuffers[index]?.toString().trim() ?? '';
-              toolCalls[index]['function']['arguments'] =
-                  rawArgs.isEmpty ? '{}' : rawArgs;
+              final rawArgs =
+                  toolArgumentBuffers[index]?.toString().trim() ?? '';
+              toolCalls[index]['function']['arguments'] = rawArgs.isEmpty
+                  ? '{}'
+                  : rawArgs;
             }
-            yield AiMessageDto(role: 'assistant', content: '', toolCalls: toolCalls);
+            yield AiMessageDto(
+              role: 'assistant',
+              content: '',
+              toolCalls: toolCalls,
+            );
             return;
           }
         }
@@ -741,10 +750,7 @@ class AiChatActionDatasource {
     } on PlatformException {
       rethrow;
     } catch (error) {
-      throw PlatformException(
-        code: 'unknown_error',
-        message: error.toString(),
-      );
+      throw PlatformException(code: 'unknown_error', message: error.toString());
     }
   }
 
@@ -752,7 +758,8 @@ class AiChatActionDatasource {
     return _testRequestConnection(
       url: config.fullApiUrl,
       headers: {
-        if (config.apiKey.isNotEmpty) 'Authorization': 'Bearer ${config.apiKey}',
+        if (config.apiKey.isNotEmpty)
+          'Authorization': 'Bearer ${config.apiKey}',
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -772,7 +779,8 @@ class AiChatActionDatasource {
     return _testRequestConnection(
       url: config.fullApiUrl,
       headers: {
-        if (config.apiKey.isNotEmpty) 'Authorization': 'Bearer ${config.apiKey}',
+        if (config.apiKey.isNotEmpty)
+          'Authorization': 'Bearer ${config.apiKey}',
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -781,9 +789,7 @@ class AiChatActionDatasource {
         'input': 'Hi',
         'stream': false,
         'store': false,
-        'reasoning': const {
-          'effort': _defaultResponsesReasoningEffort,
-        },
+        'reasoning': const {'effort': _defaultResponsesReasoningEffort},
         'max_output_tokens': 1,
       },
     );
@@ -858,10 +864,7 @@ class AiChatActionDatasource {
       rethrow;
     } catch (error) {
       stopwatch.stop();
-      throw PlatformException(
-        code: 'unknown_error',
-        message: error.toString(),
-      );
+      throw PlatformException(code: 'unknown_error', message: error.toString());
     }
   }
 
@@ -900,10 +903,7 @@ class AiChatActionDatasource {
       rethrow;
     } catch (error) {
       stopwatch.stop();
-      throw PlatformException(
-        code: 'unknown_error',
-        message: error.toString(),
-      );
+      throw PlatformException(code: 'unknown_error', message: error.toString());
     }
   }
 
@@ -917,7 +917,8 @@ class AiChatActionDatasource {
 
     throw PlatformException(
       code: 'http_error',
-      message: 'HTTP ${response.statusCode}: ${response.statusMessage ?? 'Unknown error'}',
+      message:
+          'HTTP ${response.statusCode}: ${response.statusMessage ?? 'Unknown error'}',
       details: details,
     );
   }
@@ -1026,7 +1027,10 @@ class AiChatActionDatasource {
             final args = function['arguments'] as Map<String, dynamic>;
             args.addAll(parsedArgs);
           } else {
-            final argBuffer = current.putIfAbsent('_argBuffer', () => StringBuffer());
+            final argBuffer = current.putIfAbsent(
+              '_argBuffer',
+              () => StringBuffer(),
+            );
             (argBuffer as StringBuffer).write(argumentsChunk);
           }
         }
@@ -1089,10 +1093,7 @@ class AiChatActionDatasource {
     if (message.toolCalls != null && message.toolCalls!.isNotEmpty) {
       final content = <Map<String, dynamic>>[];
       if (message.content.trim().isNotEmpty) {
-        content.add({
-          'type': 'text',
-          'text': message.content,
-        });
+        content.add({'type': 'text', 'text': message.content});
       }
       content.addAll(
         message.toolCalls!.map((toolCall) {
@@ -1108,10 +1109,7 @@ class AiChatActionDatasource {
           };
         }),
       );
-      return {
-        'role': 'assistant',
-        'content': content,
-      };
+      return {'role': 'assistant', 'content': content};
     }
 
     if (message.role == 'user' &&
@@ -1125,10 +1123,7 @@ class AiChatActionDatasource {
       };
     }
 
-    return {
-      'role': message.role,
-      'content': message.content,
-    };
+    return {'role': message.role, 'content': message.content};
   }
 
   Map<String, dynamic> _mapOpenAiMessage(AiMessageDto message) {
@@ -1154,7 +1149,9 @@ class AiChatActionDatasource {
     return OpenAiResponsesPayloadComposer.buildInstructions(messages);
   }
 
-  Map<String, dynamic> _normalizeOpenAiResponsesTool(Map<String, dynamic> tool) {
+  Map<String, dynamic> _normalizeOpenAiResponsesTool(
+    Map<String, dynamic> tool,
+  ) {
     if (tool['type']?.toString() == 'function' && tool.containsKey('name')) {
       return Map<String, dynamic>.from(tool);
     }
@@ -1238,8 +1235,9 @@ final class OpenAiResponsesPayloadComposer {
     final input = <Map<String, dynamic>>[];
 
     for (final message in messages) {
-      final reasoningItem =
-          OpenAiResponsesReasoningItemCodec.tryDecode(message.content);
+      final reasoningItem = OpenAiResponsesReasoningItemCodec.tryDecode(
+        message.content,
+      );
       if (reasoningItem != null) {
         input.add(reasoningItem);
         continue;
@@ -1250,10 +1248,7 @@ final class OpenAiResponsesPayloadComposer {
           'type': 'message',
           'role': 'developer',
           'content': <Map<String, dynamic>>[
-            {
-              'type': 'input_text',
-              'text': message.content,
-            },
+            {'type': 'input_text', 'text': message.content},
           ],
         });
         continue;
@@ -1305,7 +1300,9 @@ final class OpenAiResponsesPayloadComposer {
 
   static Map<String, dynamic> mapMessage(AiMessageDto message) {
     final normalizedRole = message.role == 'assistant' ? 'assistant' : 'user';
-    final contentType = normalizedRole == 'assistant' ? 'output_text' : 'input_text';
+    final contentType = normalizedRole == 'assistant'
+        ? 'output_text'
+        : 'input_text';
     if (normalizedRole == 'user' &&
         AiMultimodalMessageCodec.isEncoded(message.content)) {
       return {
@@ -1319,10 +1316,7 @@ final class OpenAiResponsesPayloadComposer {
       'type': 'message',
       'role': normalizedRole,
       'content': <Map<String, dynamic>>[
-        {
-          'type': contentType,
-          'text': message.content,
-        },
+        {'type': contentType, 'text': message.content},
       ],
     };
   }
@@ -1332,25 +1326,27 @@ final class OpenAiResponsesPayloadComposer {
       content,
       isZh: true,
     );
-    return openAiContent.map((part) {
-      final type = part['type']?.toString() ?? 'text';
-      switch (type) {
-        case 'image_url':
-          final imagePayload = part['image_url'];
-          return {
-            'type': 'input_image',
-            'image_url': imagePayload is Map<String, dynamic>
-                ? imagePayload['url']?.toString() ?? ''
-                : '',
-          };
-        case 'text':
-        default:
-          return {
-            'type': 'input_text',
-            'text': part['text']?.toString() ?? '',
-          };
-      }
-    }).toList(growable: false);
+    return openAiContent
+        .map((part) {
+          final type = part['type']?.toString() ?? 'text';
+          switch (type) {
+            case 'image_url':
+              final imagePayload = part['image_url'];
+              return {
+                'type': 'input_image',
+                'image_url': imagePayload is Map<String, dynamic>
+                    ? imagePayload['url']?.toString() ?? ''
+                    : '',
+              };
+            case 'text':
+            default:
+              return {
+                'type': 'input_text',
+                'text': part['text']?.toString() ?? '',
+              };
+          }
+        })
+        .toList(growable: false);
   }
 
   static bool _isInternalInstruction(String content) {
@@ -1372,7 +1368,9 @@ final class OpenAiResponsesReasoningItemCodec {
       return null;
     }
     try {
-      final raw = content.substring(openAiResponsesReasoningProtocolPrefix.length);
+      final raw = content.substring(
+        openAiResponsesReasoningProtocolPrefix.length,
+      );
       final decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) {
         return decoded;

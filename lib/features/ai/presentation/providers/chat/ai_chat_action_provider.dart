@@ -65,9 +65,7 @@ class AiChatAction extends _$AiChatAction {
   static const int _contextTargetBudgetChars = 9000;
   static const int _recentUserRoundsToKeep = 3;
   static const int _defaultTransientRetryCount = 5;
-  static const Duration _transientRetryBaseDelay = Duration(
-    milliseconds: 800,
-  );
+  static const Duration _transientRetryBaseDelay = Duration(milliseconds: 800);
   static const Duration _transientRetryMaxDelay = Duration(seconds: 3);
 
   bool _isDisposed = false;
@@ -277,7 +275,7 @@ class AiChatAction extends _$AiChatAction {
 
   Future<void> createSession(String name) async {
     final sessionId = const Uuid().v4();
-    final defaultPadiChatOptions = PadiChatOptions.defaults();
+    final initialPadiChatOptions = state.currentPadiChatOptions;
     final sessionRules = state.systemPrompt ?? '';
     final session = AiSession(
       id: sessionId,
@@ -297,12 +295,10 @@ class AiChatAction extends _$AiChatAction {
       error: null,
       isStreaming: false,
       lastResponseIssue: null,
-      sessionContext: AiChatSessionContext(
-        sessionRules: sessionRules,
-      ),
+      sessionContext: AiChatSessionContext(sessionRules: sessionRules),
       contextStats: const AiChatContextStats(),
       contextVersion: AiChatSessionContext.currentVersion,
-      currentPadiChatOptions: defaultPadiChatOptions,
+      currentPadiChatOptions: initialPadiChatOptions,
     );
 
     await ref
@@ -310,7 +306,7 @@ class AiChatAction extends _$AiChatAction {
         .saveSessions(packageName, updatedSessions);
     await ref
         .read(aiChatActionRepositoryProvider)
-        .savePadiChatOptions(packageName, sessionId, defaultPadiChatOptions);
+        .savePadiChatOptions(packageName, sessionId, initialPadiChatOptions);
     await ref
         .read(aiChatActionRepositoryProvider)
         .saveLastActiveSessionId(packageName, sessionId);
@@ -902,33 +898,33 @@ class AiChatAction extends _$AiChatAction {
               return;
             }
             completer.complete(
-                _CollectedAssistantResponse(
-                  content: bufferedContent,
-                  thinkingContent: thinkingBuffer.toString(),
-                  responsesReasoningItems: List<String>.unmodifiable(
-                    responsesReasoningItems,
-                  ),
-                  issue: _classifyPlatformIssue(error),
-                  errorMessage: _describePlatformException(error),
-                  retryableIssue: _isRetryablePlatformException(error),
+              _CollectedAssistantResponse(
+                content: bufferedContent,
+                thinkingContent: thinkingBuffer.toString(),
+                responsesReasoningItems: List<String>.unmodifiable(
+                  responsesReasoningItems,
                 ),
-              );
+                issue: _classifyPlatformIssue(error),
+                errorMessage: _describePlatformException(error),
+                retryableIssue: _isRetryablePlatformException(error),
+              ),
+            );
             return;
           }
 
           if (bufferedContent.isNotEmpty) {
             completer.complete(
-                _CollectedAssistantResponse(
-                  content: bufferedContent,
-                  thinkingContent: thinkingBuffer.toString(),
-                  responsesReasoningItems: List<String>.unmodifiable(
-                    responsesReasoningItems,
-                  ),
-                  issue: AiResponseIssue.partialResponse,
-                  errorMessage: error.toString(),
-                  retryableIssue: true,
+              _CollectedAssistantResponse(
+                content: bufferedContent,
+                thinkingContent: thinkingBuffer.toString(),
+                responsesReasoningItems: List<String>.unmodifiable(
+                  responsesReasoningItems,
                 ),
-              );
+                issue: AiResponseIssue.partialResponse,
+                errorMessage: error.toString(),
+                retryableIssue: true,
+              ),
+            );
             return;
           }
 
@@ -1332,17 +1328,18 @@ class AiChatAction extends _$AiChatAction {
   Future<void> updatePadiChatOptions({
     String? model,
     String? reasoningEffort,
+    bool? supportsReasoning,
   }) async {
+    final nextOptions = state.currentPadiChatOptions.copyWith(
+      model: model,
+      reasoningEffort: reasoningEffort,
+      supportsReasoning: supportsReasoning,
+    );
+    state = state.copyWith(currentPadiChatOptions: nextOptions);
     final sessionId = state.currentSessionId;
     if (sessionId == null) {
       return;
     }
-
-    final nextOptions = state.currentPadiChatOptions.copyWith(
-      model: model,
-      reasoningEffort: reasoningEffort,
-    );
-    state = state.copyWith(currentPadiChatOptions: nextOptions);
     await ref
         .read(aiChatActionRepositoryProvider)
         .savePadiChatOptions(packageName, sessionId, nextOptions);
@@ -1452,13 +1449,16 @@ class AiChatAction extends _$AiChatAction {
 
       if (message.role == 'assistant' && message.hasToolCalls) {
         flushPendingToolCalls();
-        final toolCalls = message.toolCalls
-            ?.map(AiToolCall.fromJson)
-            .where((call) => call.id.isNotEmpty)
-            .toList(growable: false) ??
+        final toolCalls =
+            message.toolCalls
+                ?.map(AiToolCall.fromJson)
+                .where((call) => call.id.isNotEmpty)
+                .toList(growable: false) ??
             const <AiToolCall>[];
         if (!shouldHidePreToolDisplay) {
-          final assistantDisplayMessage = _buildAssistantDisplayMessage(message);
+          final assistantDisplayMessage = _buildAssistantDisplayMessage(
+            message,
+          );
           if (assistantDisplayMessage.content.trim().isNotEmpty) {
             displayMessages.add(assistantDisplayMessage);
           }
@@ -1472,7 +1472,9 @@ class AiChatAction extends _$AiChatAction {
 
       if (message.role == 'tool') {
         final toolCallId = message.toolCallId;
-        final call = toolCallId == null ? null : pendingToolCalls.remove(toolCallId);
+        final call = toolCallId == null
+            ? null
+            : pendingToolCalls.remove(toolCallId);
         if (call != null) {
           pendingToolOrder.remove(toolCallId);
           displayMessages.add(
@@ -1963,10 +1965,8 @@ class AiChatAction extends _$AiChatAction {
       return true;
     }
 
-    updatedMessages[placeholderIndex] = updatedMessages[placeholderIndex].copyWith(
-      content: partialDisplayContent,
-      isError: false,
-    );
+    updatedMessages[placeholderIndex] = updatedMessages[placeholderIndex]
+        .copyWith(content: partialDisplayContent, isError: false);
     final continuationPlaceholder = AiMessage(
       id: const Uuid().v4(),
       role: 'assistant',
@@ -2005,11 +2005,8 @@ class AiChatAction extends _$AiChatAction {
   }
 
   Future<void> _delayBeforeTransientRetry(int retriesRemaining) {
-    final retryIndex =
-        (_defaultTransientRetryCount - retriesRemaining + 1).clamp(
-              1,
-              _defaultTransientRetryCount + 1,
-            );
+    final retryIndex = (_defaultTransientRetryCount - retriesRemaining + 1)
+        .clamp(1, _defaultTransientRetryCount + 1);
     final delayCandidate = _transientRetryBaseDelay * retryIndex;
     final delay = delayCandidate.compareTo(_transientRetryMaxDelay) > 0
         ? _transientRetryMaxDelay
@@ -2699,7 +2696,6 @@ class AiChatAction extends _$AiChatAction {
     if (!shouldCompactStoredProtocol) {
       return assembly;
     }
-
 
     final compactedMessages = _compactProtocolMessages(sanitizedMessages);
     if (_sameMessages(sanitizedMessages, compactedMessages)) {

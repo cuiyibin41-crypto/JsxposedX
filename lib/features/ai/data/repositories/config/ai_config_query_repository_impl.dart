@@ -1,5 +1,6 @@
 import 'package:JsxposedX/core/models/ai_config.dart';
 import 'package:JsxposedX/features/ai/data/datasources/config/ai_config_query_datasource.dart';
+import 'package:JsxposedX/features/ai/data/models/ai_config_dto.dart';
 import 'package:JsxposedX/features/ai/domain/models/ai_model.dart';
 import 'package:JsxposedX/features/ai/domain/repositories/config/ai_config_query_repository.dart';
 
@@ -16,8 +17,14 @@ class AiConfigQueryRepositoryImpl implements AiConfigQueryRepository {
   }
 
   @override
-  Future<List<AiModel>> getModels()async {
-    final dtos = await dataSource.getModels();
+  Future<List<AiModel>> getModels({
+    required AiConfig config,
+    bool forceRefresh = false,
+  }) async {
+    final dtos = await dataSource.getModels(
+      config: AiConfigDto.fromEntity(config),
+      forceRefresh: forceRefresh,
+    );
     return dtos.map((e) => e.toEntity()).toList();
   }
 }
