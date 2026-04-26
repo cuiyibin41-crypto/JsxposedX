@@ -17,6 +17,7 @@ import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memo
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_selection_bar.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_selection_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_stats_bar.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_group_search_chain_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_list.dart';
 import 'package:JsxposedX/generated/memory_tool.g.dart'
     show
@@ -80,6 +81,7 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
     final isSettingsVisible = useState(false);
     final isBatchEditVisible = useState(false);
     final isCalculatorVisible = useState(false);
+    final isGroupSearchChainVisible = useState(false);
 
     final resultsAsync = hasMatchingSession
         ? ref.watch(currentSearchResultsProvider)
@@ -247,163 +249,226 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
           child: Column(
             children: <Widget>[
               MemoryToolResultSelectionBar(
-                actions: <MemoryToolResultSelectionActionData>[
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.search_rounded,
-                    onTap: onOpenSearch,
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.travel_explore_rounded,
-                    onTap: selectedPid == null ? null : onOpenJumpAddress,
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.data_object_rounded,
-                    onTap: selectedPid == null ? null : onOpenLocateExpression,
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: processPausedAsync.asData?.value ?? false
-                        ? Icons.play_arrow_rounded
-                        : Icons.pause_rounded,
-                    onTap:
-                        selectedPid == null ||
-                            processControlState.isLoading ||
-                            processPausedAsync.isLoading
-                        ? null
-                        : () async {
-                            try {
-                              final isPaused =
-                                  processPausedAsync.asData?.value ?? false;
-                              await ref
-                                  .read(
-                                    memoryProcessControlActionProvider.notifier,
-                                  )
-                                  .setProcessPaused(
-                                    pid: selectedPid,
-                                    paused: !isPaused,
+                groups: <MemoryToolResultSelectionActionGroupData>[
+                  MemoryToolResultSelectionActionGroupData(
+                    icon: Icons.manage_search_rounded,
+                    label: context.isZh ? '搜索与定位' : 'Search & Locate',
+                    actions: <MemoryToolResultSelectionActionData>[
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.search_rounded,
+                        label: context.isZh ? '搜索' : 'Search',
+                        onTap: onOpenSearch,
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.travel_explore_rounded,
+                        label: context.isZh ? '跳转地址' : 'Jump Address',
+                        onTap: selectedPid == null ? null : onOpenJumpAddress,
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.data_object_rounded,
+                        label: context.isZh ? '表达式定位' : 'Locate Expression',
+                        onTap: selectedPid == null
+                            ? null
+                            : onOpenLocateExpression,
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: processPausedAsync.asData?.value ?? false
+                            ? Icons.play_arrow_rounded
+                            : Icons.pause_rounded,
+                        label: processPausedAsync.asData?.value ?? false
+                            ? (context.isZh ? '继续进程' : 'Resume Process')
+                            : (context.isZh ? '暂停进程' : 'Pause Process'),
+                        onTap:
+                            selectedPid == null ||
+                                processControlState.isLoading ||
+                                processPausedAsync.isLoading
+                            ? null
+                            : () async {
+                                try {
+                                  final isPaused =
+                                      processPausedAsync.asData?.value ?? false;
+                                  await ref
+                                      .read(
+                                        memoryProcessControlActionProvider
+                                            .notifier,
+                                      )
+                                      .setProcessPaused(
+                                        pid: selectedPid,
+                                        paused: !isPaused,
+                                      );
+                                } catch (error) {
+                                  if (!context.mounted) {
+                                    return;
+                                  }
+                                  await ToastOverlayMessage.show(
+                                    error.toString().replaceFirst(
+                                      'Exception: ',
+                                      '',
+                                    ),
+                                    duration: const Duration(
+                                      milliseconds: 1400,
+                                    ),
                                   );
-                            } catch (error) {
-                              if (!context.mounted) {
-                                return;
-                              }
-                              await ToastOverlayMessage.show(
-                                error.toString().replaceFirst(
-                                  'Exception: ',
-                                  '',
-                                ),
-                                duration: const Duration(milliseconds: 1400),
-                              );
-                            }
-                          },
+                                }
+                              },
+                      ),
+                    ],
                   ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.done_all_rounded,
-                    onTap: visibleResults.isEmpty
-                        ? null
-                        : () {
-                            selectionNotifier.selectVisible(visibleResults);
-                          },
+                  MemoryToolResultSelectionActionGroupData(
+                    icon: Icons.check_box_rounded,
+                    label: context.isZh ? '选择' : 'Selection',
+                    actions: <MemoryToolResultSelectionActionData>[
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.done_all_rounded,
+                        label: context.isZh ? '选择可见' : 'Select Visible',
+                        onTap: visibleResults.isEmpty
+                            ? null
+                            : () {
+                                selectionNotifier.selectVisible(visibleResults);
+                              },
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.flip_rounded,
+                        label: context.isZh ? '反选可见' : 'Invert Visible',
+                        onTap: visibleResults.isEmpty
+                            ? null
+                            : () {
+                                selectionNotifier.invertVisible(visibleResults);
+                              },
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.layers_clear_rounded,
+                        label: context.isZh ? '清空选择' : 'Clear Selection',
+                        onTap: visibleResults.isEmpty
+                            ? null
+                            : selectionNotifier.clear,
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.delete_sweep_rounded,
+                        label: context.isZh ? '移除选中' : 'Remove Selected',
+                        onTap: selectedResults.isEmpty
+                            ? null
+                            : () {
+                                removedResultNotifier.removeMany(
+                                  selectionState.selectedAddresses,
+                                );
+                                selectionNotifier.clear();
+                              },
+                      ),
+                    ],
                   ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.flip_rounded,
-                    onTap: visibleResults.isEmpty
-                        ? null
-                        : () {
-                            selectionNotifier.invertVisible(visibleResults);
-                          },
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.layers_clear_rounded,
-                    onTap: visibleResults.isEmpty
-                        ? null
-                        : selectionNotifier.clear,
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.delete_sweep_rounded,
-                    onTap: selectedResults.isEmpty
-                        ? null
-                        : () {
-                            removedResultNotifier.removeMany(
-                              selectionState.selectedAddresses,
-                            );
-                            selectionNotifier.clear();
-                          },
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.save_alt_rounded,
-                    onTap: selectedResults.isEmpty
-                        ? null
-                        : () async {
-                            await saveResultsToSaved(
-                              selectedResults,
-                              previewsByAddress:
+                  MemoryToolResultSelectionActionGroupData(
+                    icon: Icons.folder_special_rounded,
+                    label: context.isZh ? '保存与导出' : 'Save & Export',
+                    actions: <MemoryToolResultSelectionActionData>[
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.bookmark_add_rounded,
+                        label: context.isZh ? '保存到暂存' : 'Save',
+                        onTap: selectedResults.isEmpty
+                            ? null
+                            : () async {
+                                await saveResultsToSaved(
+                                  selectedResults,
+                                  previewsByAddress:
+                                      livePreviewsAsync.asData?.value ??
+                                      const <int, MemoryValuePreview>{},
+                                  frozenResultAddresses: frozenAddresses,
+                                );
+                              },
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.ios_share_rounded,
+                        label: context.isZh ? '导出' : 'Export',
+                        onTap: selectedResults.isEmpty
+                            ? null
+                            : () async {
+                                await exportSelectedResults(
+                                  selectedResults,
                                   livePreviewsAsync.asData?.value ??
-                                  const <int, MemoryValuePreview>{},
-                              frozenResultAddresses: frozenAddresses,
-                            );
-                          },
+                                      const <int, MemoryValuePreview>{},
+                                );
+                              },
+                      ),
+                    ],
                   ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.file_download_outlined,
-                    onTap: selectedResults.isEmpty
-                        ? null
-                        : () async {
-                            await exportSelectedResults(
-                              selectedResults,
-                              livePreviewsAsync.asData?.value ??
-                                  const <int, MemoryValuePreview>{},
-                            );
-                          },
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.calculate_outlined,
-                    onTap: selectedResults.length >= 2
-                        ? () {
-                            isCalculatorVisible.value = true;
-                          }
-                        : null,
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.edit_rounded,
-                    onTap: selectedResults.isEmpty
-                        ? null
-                        : () {
-                            isBatchEditVisible.value = true;
-                          },
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.undo_rounded,
-                    onTap: canRestorePrevious
-                        ? () async {
-                            try {
-                              final sessionState = await ref.read(
-                                getSearchSessionStateProvider.future,
-                              );
-                              await ref
-                                  .read(memoryValueActionProvider.notifier)
-                                  .restorePreviousValues(
-                                    addresses: selectionState.selectedAddresses,
-                                    littleEndian: sessionState.littleEndian,
-                                  );
-                            } catch (error) {
-                              if (!context.mounted) {
-                                return;
+                  MemoryToolResultSelectionActionGroupData(
+                    icon: Icons.construction_rounded,
+                    label: context.isZh ? '工具' : 'Tools',
+                    actions: <MemoryToolResultSelectionActionData>[
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.calculate_outlined,
+                        label: context.isZh ? '计算器' : 'Calculator',
+                        onTap: selectedResults.length >= 2
+                            ? () {
+                                isCalculatorVisible.value = true;
                               }
-                              await ToastOverlayMessage.show(
-                                error.toString().replaceFirst(
-                                  'Exception: ',
-                                  '',
-                                ),
-                                duration: const Duration(milliseconds: 1400),
-                              );
-                            }
-                          }
-                        : null,
+                            : null,
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.link_rounded,
+                        label: context.isZh ? '复制联合特征链' : 'Copy Chain',
+                        onTap: selectedResults.length >= 2
+                            ? () {
+                                isGroupSearchChainVisible.value = true;
+                              }
+                            : null,
+                      ),
+                    ],
                   ),
-                  MemoryToolResultSelectionActionData(
+                  MemoryToolResultSelectionActionGroupData(
                     icon: Icons.tune_rounded,
-                    onTap: () {
-                      isSettingsVisible.value = true;
-                    },
+                    label: context.isZh ? '修改与设置' : 'Edit & Settings',
+                    actions: <MemoryToolResultSelectionActionData>[
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.edit_rounded,
+                        label: context.isZh ? '批量修改' : 'Batch Edit',
+                        onTap: selectedResults.isEmpty
+                            ? null
+                            : () {
+                                isBatchEditVisible.value = true;
+                              },
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.undo_rounded,
+                        label: context.isZh ? '恢复上次值' : 'Restore Previous',
+                        onTap: canRestorePrevious
+                            ? () async {
+                                try {
+                                  final sessionState = await ref.read(
+                                    getSearchSessionStateProvider.future,
+                                  );
+                                  await ref
+                                      .read(memoryValueActionProvider.notifier)
+                                      .restorePreviousValues(
+                                        addresses:
+                                            selectionState.selectedAddresses,
+                                        littleEndian: sessionState.littleEndian,
+                                      );
+                                } catch (error) {
+                                  if (!context.mounted) {
+                                    return;
+                                  }
+                                  await ToastOverlayMessage.show(
+                                    error.toString().replaceFirst(
+                                      'Exception: ',
+                                      '',
+                                    ),
+                                    duration: const Duration(
+                                      milliseconds: 1400,
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.view_week_rounded,
+                        label: context.isZh ? '显示数量' : 'Display Limit',
+                        onTap: () {
+                          isSettingsVisible.value = true;
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -638,6 +703,16 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
               livePreviewsAsync: livePreviewsAsync,
               onClose: () {
                 isCalculatorVisible.value = false;
+              },
+            ),
+          ),
+        if (isGroupSearchChainVisible.value)
+          Positioned.fill(
+            child: MemoryToolGroupSearchChainDialog(
+              results: selectedResults,
+              livePreviewsAsync: livePreviewsAsync,
+              onClose: () {
+                isGroupSearchChainVisible.value = false;
               },
             ),
           ),

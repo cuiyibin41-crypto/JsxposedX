@@ -17,6 +17,7 @@ import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_batch_edit_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_breakpoint_config_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_debug_instruction_editor_dialog.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_group_search_chain_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_copy_value_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_offset_preview_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_pointer_scan_dialog.dart';
@@ -87,6 +88,7 @@ class MemoryToolSavedTab extends HookConsumerWidget {
     final valueActionState = ref.watch(memoryValueActionProvider);
     final isBatchEditVisible = useState(false);
     final isCalculatorVisible = useState(false);
+    final isGroupSearchChainVisible = useState(false);
     final activeInstructionBatchEditor = useState<String?>(null);
     final activeDialog =
         useState<({MemoryToolSavedItem item, String displayValue})?>(null);
@@ -567,95 +569,144 @@ class MemoryToolSavedTab extends HookConsumerWidget {
           child: Column(
             children: <Widget>[
               MemoryToolResultSelectionBar(
-                actions: <MemoryToolResultSelectionActionData>[
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.done_all_rounded,
-                    onTap: totalSavedEntryCount == 0 ? null : selectAllVisible,
+                groups: <MemoryToolResultSelectionActionGroupData>[
+                  MemoryToolResultSelectionActionGroupData(
+                    icon: Icons.check_box_rounded,
+                    label: context.isZh ? '选择' : 'Selection',
+                    actions: <MemoryToolResultSelectionActionData>[
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.done_all_rounded,
+                        label: context.isZh ? '全选可见' : 'Select All',
+                        onTap: totalSavedEntryCount == 0
+                            ? null
+                            : selectAllVisible,
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.flip_rounded,
+                        label: context.isZh ? '反选' : 'Invert',
+                        onTap: totalSavedEntryCount == 0
+                            ? null
+                            : invertAllVisible,
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.layers_clear_rounded,
+                        label: context.isZh ? '清空选择' : 'Clear Selection',
+                        onTap: totalSelectedCount == 0
+                            ? null
+                            : clearAllSelection,
+                      ),
+                    ],
                   ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.flip_rounded,
-                    onTap: totalSavedEntryCount == 0 ? null : invertAllVisible,
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.layers_clear_rounded,
-                    onTap: totalSelectedCount == 0 ? null : clearAllSelection,
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.edit_rounded,
-                    onTap: canEditSelectedValues
-                        ? () {
-                            isBatchEditVisible.value = true;
-                          }
-                        : canEditSelectedInstructions
-                        ? () {
-                            activeInstructionBatchEditor.value =
-                                selectedInstructionItems.length == 1
-                                ? resolveSavedItemDisplayValue(
-                                    selectedInstructionItems.single,
-                                  )
-                                : resolveBatchInstructionInitialValue();
-                          }
-                        : null,
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.calculate_outlined,
-                    onTap: canCalculateSelectedResults
-                        ? () {
-                            isCalculatorVisible.value = true;
-                          }
-                        : null,
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.undo_rounded,
-                    onTap: canRestorePrevious && !valueActionState.isLoading
-                        ? () async {
-                            if (selectedValueItems.isNotEmpty) {
-                              await restoreAddresses(
-                                selectedValueItems
-                                    .map((item) => item.address)
-                                    .toList(growable: false),
-                              );
-                            }
-                            if (selectedInstructionItems.isNotEmpty) {
-                              await restoreInstructionPatches(
-                                selectedInstructionItems,
-                              );
-                            }
-                          }
-                        : null,
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.file_download_outlined,
-                    onTap: selectedItems.isEmpty
-                        ? null
-                        : () async {
-                            await exportSelectedItemsToLocal();
-                          },
-                  ),
-                  MemoryToolResultSelectionActionData(
-                    icon: Icons.delete_sweep_rounded,
-                    onTap: selectedItems.isEmpty
-                        ? null
-                        : () {
-                            if (selectionState.selectedAddresses.isNotEmpty) {
-                              savedItemsNotifier.removeSelected(
-                                pid: selectedPid,
-                                addresses: selectionState.selectedAddresses,
-                              );
-                            }
-                            for (final item in selectedInstructionItems) {
-                              ref
-                                  .read(
-                                    memoryToolInstructionHistoryProvider
-                                        .notifier,
-                                  )
-                                  .remove(
-                                    pid: selectedPid,
-                                    address: item.address,
+                  MemoryToolResultSelectionActionGroupData(
+                    icon: Icons.tune_rounded,
+                    label: context.isZh ? '修改' : 'Edit',
+                    actions: <MemoryToolResultSelectionActionData>[
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.edit_rounded,
+                        label: context.isZh ? '批量修改' : 'Batch Edit',
+                        onTap: canEditSelectedValues
+                            ? () {
+                                isBatchEditVisible.value = true;
+                              }
+                            : canEditSelectedInstructions
+                            ? () {
+                                activeInstructionBatchEditor.value =
+                                    selectedInstructionItems.length == 1
+                                    ? resolveSavedItemDisplayValue(
+                                        selectedInstructionItems.single,
+                                      )
+                                    : resolveBatchInstructionInitialValue();
+                              }
+                            : null,
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.undo_rounded,
+                        label: context.isZh ? '恢复上次值' : 'Restore Previous',
+                        onTap: canRestorePrevious && !valueActionState.isLoading
+                            ? () async {
+                                if (selectedValueItems.isNotEmpty) {
+                                  await restoreAddresses(
+                                    selectedValueItems
+                                        .map((item) => item.address)
+                                        .toList(growable: false),
                                   );
-                            }
-                            clearAllSelection();
-                          },
+                                }
+                                if (selectedInstructionItems.isNotEmpty) {
+                                  await restoreInstructionPatches(
+                                    selectedInstructionItems,
+                                  );
+                                }
+                              }
+                            : null,
+                      ),
+                    ],
+                  ),
+                  MemoryToolResultSelectionActionGroupData(
+                    icon: Icons.construction_rounded,
+                    label: context.isZh ? '工具' : 'Tools',
+                    actions: <MemoryToolResultSelectionActionData>[
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.calculate_outlined,
+                        label: context.isZh ? '计算器' : 'Calculator',
+                        onTap: canCalculateSelectedResults
+                            ? () {
+                                isCalculatorVisible.value = true;
+                              }
+                            : null,
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.link_rounded,
+                        label: context.isZh ? '复制联合特征链' : 'Copy Chain',
+                        onTap: selectedValueItems.length >= 2
+                            ? () {
+                                isGroupSearchChainVisible.value = true;
+                              }
+                            : null,
+                      ),
+                    ],
+                  ),
+                  MemoryToolResultSelectionActionGroupData(
+                    icon: Icons.ios_share_rounded,
+                    label: context.isZh ? '导出与删除' : 'Export & Delete',
+                    actions: <MemoryToolResultSelectionActionData>[
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.outbox_rounded,
+                        label: context.isZh ? '导出' : 'Export',
+                        onTap: selectedItems.isEmpty
+                            ? null
+                            : () async {
+                                await exportSelectedItemsToLocal();
+                              },
+                      ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.delete_sweep_rounded,
+                        label: context.isZh ? '删除选中' : 'Delete Selected',
+                        onTap: selectedItems.isEmpty
+                            ? null
+                            : () {
+                                if (selectionState
+                                    .selectedAddresses
+                                    .isNotEmpty) {
+                                  savedItemsNotifier.removeSelected(
+                                    pid: selectedPid,
+                                    addresses: selectionState.selectedAddresses,
+                                  );
+                                }
+                                for (final item in selectedInstructionItems) {
+                                  ref
+                                      .read(
+                                        memoryToolInstructionHistoryProvider
+                                            .notifier,
+                                      )
+                                      .remove(
+                                        pid: selectedPid,
+                                        address: item.address,
+                                      );
+                                }
+                                clearAllSelection();
+                              },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1051,6 +1102,18 @@ class MemoryToolSavedTab extends HookConsumerWidget {
               livePreviewsAsync: livePreviewsAsync,
               onClose: () {
                 isCalculatorVisible.value = false;
+              },
+            ),
+          ),
+        if (isGroupSearchChainVisible.value)
+          Positioned.fill(
+            child: MemoryToolGroupSearchChainDialog(
+              results: selectedValueItems
+                  .map((item) => resolveSavedItem(item).toSearchResult())
+                  .toList(growable: false),
+              livePreviewsAsync: livePreviewsAsync,
+              onClose: () {
+                isGroupSearchChainVisible.value = false;
               },
             ),
           ),
