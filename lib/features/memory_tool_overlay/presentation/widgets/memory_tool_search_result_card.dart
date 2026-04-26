@@ -18,6 +18,7 @@ import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memo
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_selection_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_result_stats_bar.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_group_search_chain_dialog.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_settings_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_list.dart';
 import 'package:JsxposedX/generated/memory_tool.g.dart'
     show
@@ -79,6 +80,7 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
         : ref.watch(processPausedProvider(pid: selectedPid));
     final processControlState = ref.watch(memoryProcessControlActionProvider);
     final isSettingsVisible = useState(false);
+    final isToolConfigVisible = useState(false);
     final isBatchEditVisible = useState(false);
     final isCalculatorVisible = useState(false);
     final isGroupSearchChainVisible = useState(false);
@@ -474,6 +476,13 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
                           isSettingsVisible.value = true;
                         },
                       ),
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.settings_rounded,
+                        label: context.isZh ? '配置' : 'Config',
+                        onTap: () {
+                          isToolConfigVisible.value = true;
+                        },
+                      ),
                     ],
                   ),
                 ],
@@ -688,6 +697,14 @@ class MemoryToolSearchResultCard extends HookConsumerWidget {
               onConfirm: (value) {
                 selectionNotifier.updateSelectionLimit(value);
                 isSettingsVisible.value = false;
+              },
+            ),
+          ),
+        if (isToolConfigVisible.value)
+          Positioned.fill(
+            child: MemoryToolSettingsDialog(
+              onClose: () {
+                isToolConfigVisible.value = false;
               },
             ),
           ),

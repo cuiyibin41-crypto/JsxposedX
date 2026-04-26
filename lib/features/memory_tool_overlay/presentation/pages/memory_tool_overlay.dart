@@ -10,6 +10,7 @@ import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/tabs/m
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/pages/tabs/memory_tool_pointer_tab.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_browse_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_pointer_provider.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_tool_settings_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_pointer_action_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_pointer_auto_chase_action_provider.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/providers/memory_pointer_auto_chase_query_provider.dart';
@@ -51,7 +52,10 @@ class MemoryToolOverlay extends HookConsumerWidget {
     final isProcessTerminatedDialogVisible = useState(false);
     final hasPendingProcessTerminatedDialog = useState(false);
     final isHandlingProcessTerminated = useRef(false);
+    final previousPanelVisible = useRef(false);
+    final pendingAutoPausePanelOpen = useRef(false);
     final selectedProcess = ref.watch(memoryToolSelectedProcessProvider);
+    final memoryToolSettingsAsync = ref.watch(memoryToolSettingsProvider);
     final isPanelVisible = ref.watch(
       overlayWindowHostRuntimeProvider.select(
         (state) => state.payload.isPanel && !state.isTransitioningToPanel,
@@ -206,6 +210,55 @@ class MemoryToolOverlay extends HookConsumerWidget {
         },
       );
     });
+
+    useEffect(() {
+      final wasPanelVisible = previousPanelVisible.value;
+      previousPanelVisible.value = isPanelVisible;
+      final didOpenPanel = isPanelVisible && !wasPanelVisible;
+      if (!isPanelVisible) {
+        pendingAutoPausePanelOpen.value = false;
+        return null;
+      }
+      if (didOpenPanel) {
+        pendingAutoPausePanelOpen.value = true;
+      }
+      if (selectedProcess == null) {
+        pendingAutoPausePanelOpen.value = false;
+        return null;
+      }
+      if (!pendingAutoPausePanelOpen.value) {
+        return null;
+      }
+      final settings = memoryToolSettingsAsync.asData?.value;
+      if (settings == null) {
+        return null;
+      }
+      pendingAutoPausePanelOpen.value = false;
+      if (!settings.autoPauseOnOverlayOpen) {
+        return null;
+      }
+
+      var isDisposed = false;
+      Future.microtask(() async {
+        try {
+          await ref
+              .read(memoryProcessControlActionProvider.notifier)
+              .setProcessPaused(pid: selectedProcess.pid, paused: true);
+        } catch (error) {
+          if (isDisposed || !context.mounted) {
+            return;
+          }
+          await ToastOverlayMessage.show(
+            error.toString().replaceFirst('Exception: ', ''),
+            duration: const Duration(milliseconds: 1400),
+          );
+        }
+      });
+
+      return () {
+        isDisposed = true;
+      };
+    }, [isPanelVisible, memoryToolSettingsAsync, selectedProcess?.pid]);
 
     useEffect(() {
       if (!isPanelVisible || !hasPendingProcessTerminatedDialog.value) {

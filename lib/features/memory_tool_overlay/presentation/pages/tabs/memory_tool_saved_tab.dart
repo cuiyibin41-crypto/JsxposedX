@@ -27,6 +27,7 @@ import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memo
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_action_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_search_result_tile.dart';
+import 'package:JsxposedX/features/memory_tool_overlay/presentation/widgets/memory_tool_settings_dialog.dart';
 import 'package:JsxposedX/features/memory_tool_overlay/presentation/utils/memory_tool_search_result_presenter.dart';
 import 'package:JsxposedX/features/overlay_window/presentation/providers/overlay_window_host_runtime_provider.dart';
 import 'package:JsxposedX/generated/memory_tool.g.dart'
@@ -89,6 +90,7 @@ class MemoryToolSavedTab extends HookConsumerWidget {
     final isBatchEditVisible = useState(false);
     final isCalculatorVisible = useState(false);
     final isGroupSearchChainVisible = useState(false);
+    final isToolConfigVisible = useState(false);
     final activeInstructionBatchEditor = useState<String?>(null);
     final activeDialog =
         useState<({MemoryToolSavedItem item, String displayValue})?>(null);
@@ -708,6 +710,19 @@ class MemoryToolSavedTab extends HookConsumerWidget {
                       ),
                     ],
                   ),
+                  MemoryToolResultSelectionActionGroupData(
+                    icon: Icons.tune_rounded,
+                    label: context.isZh ? '设置' : 'Settings',
+                    actions: <MemoryToolResultSelectionActionData>[
+                      MemoryToolResultSelectionActionData(
+                        icon: Icons.settings_rounded,
+                        label: context.isZh ? '配置' : 'Config',
+                        onTap: () {
+                          isToolConfigVisible.value = true;
+                        },
+                      ),
+                    ],
+                  ),
                 ],
               ),
               SizedBox(height: 8.r),
@@ -1077,6 +1092,14 @@ class MemoryToolSavedTab extends HookConsumerWidget {
               livePreviewsAsync: livePreviewsAsync,
               onClose: () {
                 activeCopyValueDialog.value = null;
+              },
+            ),
+          ),
+        if (isToolConfigVisible.value)
+          Positioned.fill(
+            child: MemoryToolSettingsDialog(
+              onClose: () {
+                isToolConfigVisible.value = false;
               },
             ),
           ),
