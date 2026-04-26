@@ -12,6 +12,7 @@ import 'package:JsxposedX/features/ai/presentation/providers/config/ai_config_ac
 import 'package:JsxposedX/features/ai/presentation/providers/config/ai_config_query_provider.dart';
 import 'package:JsxposedX/features/ai/presentation/providers/runtime/ai_chat_runtime_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -672,6 +673,17 @@ class AIConfigSheet extends HookConsumerWidget {
                             labelText: 'API Key',
                             hintText: context.l10n.aiApiKeyHint,
                             keyboardType: TextInputType.visiblePassword,
+                            contextMenuBuilder:
+                                _buildPasteAwareTextInputContextMenu,
+                            suffixIcon: IconButton(
+                              tooltip: context.isZh ? '粘贴' : 'Paste',
+                              icon: const Icon(Icons.content_paste_rounded),
+                              onPressed: () async {
+                                await _pasteClipboardTextIntoController(
+                                  builtinApiKeyController,
+                                );
+                              },
+                            ),
                           ),
                           if (builtinSpec?.purchaseUrl
                               case final purchaseUrl?) ...[
@@ -1033,6 +1045,149 @@ class AIConfigSheet extends HookConsumerWidget {
       },
     );
   }
+}
+
+Widget _buildPasteAwareTextInputContextMenu(
+  BuildContext context,
+  EditableTextState editableTextState,
+) {
+  return AdaptiveTextSelectionToolbar.buttonItems(
+    anchors: editableTextState.contextMenuAnchors,
+    buttonItems: _buildPasteAwareContextMenuItems(editableTextState),
+  );
+}
+
+List<ContextMenuButtonItem> _buildPasteAwareContextMenuItems(
+  EditableTextState editableTextState,
+) {
+  final buttonItems = editableTextState.contextMenuButtonItems
+      .map(
+        (item) => item.type == ContextMenuButtonType.paste
+            ? item.copyWith(
+                onPressed: () => _pasteClipboardTextIntoEditableText(
+                  editableTextState,
+                ),
+              )
+            : item,
+      )
+      .toList(growable: true);
+
+  final canPaste = !editableTextState.widget.readOnly;
+  final hasPaste = buttonItems.any(
+    (item) => item.type == ContextMenuButtonType.paste,
+  );
+  if (canPaste && !hasPaste) {
+    buttonItems.insert(
+      _resolvePasteInsertIndex(buttonItems),
+      ContextMenuButtonItem(
+        type: ContextMenuButtonType.paste,
+        onPressed: () => _pasteClipboardTextIntoEditableText(
+          editableTextState,
+        ),
+      ),
+    );
+  }
+
+  return buttonItems;
+}
+
+int _resolvePasteInsertIndex(List<ContextMenuButtonItem> buttonItems) {
+  final copyIndex = buttonItems.lastIndexWhere(
+    (item) => item.type == ContextMenuButtonType.copy,
+  );
+  if (copyIndex >= 0) {
+    return copyIndex + 1;
+  }
+
+  final cutIndex = buttonItems.lastIndexWhere(
+    (item) => item.type == ContextMenuButtonType.cut,
+  );
+  if (cutIndex >= 0) {
+    return cutIndex + 1;
+  }
+
+  return 0;
+}
+
+Future<void> _pasteClipboardTextIntoEditableText(
+  EditableTextState editableTextState,
+) async {
+  if (editableTextState.widget.readOnly) {
+    editableTextState.hideToolbar();
+    return;
+  }
+
+  final clipboardText = await _readClipboardText();
+  if (!editableTextState.mounted ||
+      clipboardText == null ||
+      clipboardText.isEmpty) {
+    editableTextState.hideToolbar();
+    return;
+  }
+
+  final value = editableTextState.textEditingValue;
+  final selection = value.selection.isValid
+      ? value.selection
+      : TextSelection.collapsed(offset: value.text.length);
+  final nextValue = _replaceSelectionWithText(
+    value: value,
+    selection: selection,
+    text: clipboardText,
+  );
+  editableTextState.userUpdateTextEditingValue(
+    nextValue,
+    SelectionChangedCause.toolbar,
+  );
+
+  SchedulerBinding.instance.addPostFrameCallback((_) {
+    if (!editableTextState.mounted) {
+      return;
+    }
+    editableTextState.bringIntoView(
+      editableTextState.textEditingValue.selection.extent,
+    );
+    editableTextState.hideToolbar();
+  });
+}
+
+Future<void> _pasteClipboardTextIntoController(
+  TextEditingController controller,
+) async {
+  final clipboardText = await _readClipboardText();
+  if (clipboardText == null || clipboardText.isEmpty) {
+    return;
+  }
+
+  final value = controller.value;
+  final selection = value.selection.isValid
+      ? value.selection
+      : TextSelection.collapsed(offset: value.text.length);
+  controller.value = _replaceSelectionWithText(
+    value: value,
+    selection: selection,
+    text: clipboardText,
+  );
+}
+
+Future<String?> _readClipboardText() async {
+  final data = await Clipboard.getData(Clipboard.kTextPlain);
+  final text = data?.text;
+  if (text == null || text.isEmpty) {
+    return null;
+  }
+  return text;
+}
+
+TextEditingValue _replaceSelectionWithText({
+  required TextEditingValue value,
+  required TextSelection selection,
+  required String text,
+}) {
+  final nextOffset = selection.start + text.length;
+  return value.replaced(selection, text).copyWith(
+    selection: TextSelection.collapsed(offset: nextOffset),
+    composing: TextRange.empty,
+  );
 }
 
 /// 配置列表项组件
