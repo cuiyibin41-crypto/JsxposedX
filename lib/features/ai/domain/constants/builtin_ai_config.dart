@@ -83,6 +83,20 @@ const List<BuiltinAiConfigSpec> builtinAiConfigSpecs = [
     badgeLabels: ['Evil'],
     purchaseUrl: 'https://shop.zmfaka.cn/shop/5W176EN1',
   ),
+  // 👇 新增智谱
+  BuiltinAiConfigSpec(
+    id: 'builtin_zhipu_glm',
+    name: '智谱清言',
+    apiUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    moduleName: 'glm-4-flash',
+    maxToken: 4096,
+    temperature: 1.0,
+    memoryRounds: 6,
+    apiType: AiApiType.openai,
+    apiKeyStorageKey: 'ai_builtin_api_key_zhipu',
+    statusLabel: 'GLM',
+    badgeLabels: ['智谱', '国产'],
+  ),
 ];
 
 BuiltinAiConfigSpec get defaultBuiltinAiConfigSpec =>
