@@ -16,6 +16,16 @@ class PadiChatOptions {
   static const String effortMedium = 'medium';
   static const String effortHigh = 'high';
   static const String effortXHigh = 'xhigh';
+  static const List<String> models = [
+  'gpt-5.5',
+  'gpt-5.4',
+  'gpt-5.3-codex',
+  // 智谱主流模型，加在这里
+  'glm-4-flash',
+  'glm-4',
+  'glm-3-turbo',
+  'chatglm3-6b',
+];
 
   static const List<String> models = [
     'gpt-5.5',
