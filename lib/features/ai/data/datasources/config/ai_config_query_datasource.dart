@@ -46,9 +46,9 @@ class AiConfigQueryDatasource {
       _ => responseData,
     };
     if (rawModels is! List) {
-      throw const FormatException('Invalid models response payload');
+  // 不抛异常，返回空列表，允许配置保存
+  return <AiModelDto>[];
     }
-
     final models = <AiModelDto>[
       for (final model in rawModels)
         if (model is Map<String, dynamic>) AiModelDto.fromJson(model),
