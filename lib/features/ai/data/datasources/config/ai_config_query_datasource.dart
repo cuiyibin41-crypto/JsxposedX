@@ -28,11 +28,15 @@ class AiConfigQueryDatasource {
   required AiConfigDto config,
   bool forceRefresh = false,
 }) async {
-  // 最终解决方案：直接返回一个有效模型，跳过所有网络请求和校验。
-  // 这可以让任何配置，特别是智谱这类内置配置，
-  // 在保存和测试时都能顺利通过，不再被URL拼接和模型列表为空的问题所困扰。
-  return [AiModelDto(id: config.moduleName.isEmpty ? 'default-model' : config.moduleName)];
-  }
+  try {
+    final cacheKey = _modelsCacheKeyOf(config);
+    if (!forceRefresh) {
+      final cachedModels = await _readCachedModels(cacheKey);
+      if (cachedModels.isNotEmpty) {
+        return cachedModels;
+      }
+    }
+
     final response = await _httpService!.get(
       _resolveModelsUrl(config),
       options: _buildModelsRequestOptions(config),
@@ -61,9 +65,8 @@ class AiConfigQueryDatasource {
   }
 
   // 兜底：用你配置的模型名生成一个临时模型，保证保存必然成功
-  return [AiModelDto(id: config.moduleName)];
-  }
-
+  return [AiModelDto(id: config.moduleName.isEmpty ? 'default-model' : config.moduleName)];
+}
   Future<AiConfigDto> getBuiltinConfig([String id = builtinAiConfigId]) async {
     final spec = getBuiltinAiConfigSpecById(id) ?? defaultBuiltinAiConfigSpec;
     final builtinApiKey = await _storage.getString(spec.apiKeyStorageKey);
