@@ -185,32 +185,38 @@ class AiConfigQueryDatasource {
   }
 
   String _resolveModelsUrl(AiConfigDto config) {
-    final rawBaseUrl = config.apiUrl.trim();
-    final normalizedBaseUrl = rawBaseUrl.endsWith('/')
-        ? rawBaseUrl.substring(0, rawBaseUrl.length - 1)
-        : rawBaseUrl;
+  final rawBaseUrl = config.apiUrl.trim();
+  final normalizedBaseUrl = rawBaseUrl.endsWith('/')
+      ? rawBaseUrl.substring(0, rawBaseUrl.length - 1)
+      : rawBaseUrl;
 
-    if (normalizedBaseUrl.endsWith('/v1/models')) {
-      return normalizedBaseUrl;
-    }
-    if (normalizedBaseUrl.endsWith('/chat/completions')) {
-      return normalizedBaseUrl.replaceFirst(
-        RegExp(r'/chat/completions$'),
-        '/models',
-      );
-    }
-    if (normalizedBaseUrl.endsWith('/responses')) {
-      return normalizedBaseUrl.replaceFirst(RegExp(r'/responses$'), '/models');
-    }
-    if (normalizedBaseUrl.endsWith('/messages')) {
-      return normalizedBaseUrl.replaceFirst(RegExp(r'/messages$'), '/models');
-    }
-    if (normalizedBaseUrl.endsWith('/v1')) {
-      return '$normalizedBaseUrl/models';
-    }
-    return '$normalizedBaseUrl/v1/models';
+  // 新增：为智谱API提供特判逻辑，避免拼接错误
+  if (config.id == 'builtin_zhipu_glm') {
+    // 智谱的模型查询和聊天都推荐使用 /api/paas/v4 作为基础地址
+    return 'https://open.bigmodel.cn/api/paas/v4/models';
   }
 
+  // 以下是原有的判断逻辑
+  if (normalizedBaseUrl.endsWith('/v1/models')) {
+    return normalizedBaseUrl;
+  }
+  if (normalizedBaseUrl.endsWith('/chat/completions')) {
+    return normalizedBaseUrl.replaceFirst(
+      RegExp(r'/chat/completions$'),
+      '/models',
+    );
+  }
+  if (normalizedBaseUrl.endsWith('/responses')) {
+    return normalizedBaseUrl.replaceFirst(RegExp(r'/responses$'), '/models');
+  }
+  if (normalizedBaseUrl.endsWith('/messages')) {
+    return normalizedBaseUrl.replaceFirst(RegExp(r'/messages$'), '/models');
+  }
+  if (normalizedBaseUrl.endsWith('/v1')) {
+    return '$normalizedBaseUrl/models';
+  }
+  return '$normalizedBaseUrl/v1/models';
+  }
   String _modelsCacheKeyOf(AiConfigDto config) {
     final source = <String>[
       config.id,
