@@ -85,20 +85,19 @@ const List<BuiltinAiConfigSpec> builtinAiConfigSpecs = [
   ),
   // 👇 新增智谱
   BuiltinAiConfigSpec(
-    id: 'builtin_zhipu_glm',
-    name: '智谱清言',
-    apiUrl: 'https://open.bigmodel.cn/api/paas/v4',
-    moduleName: 'glm-4-flash',
-    maxToken: 4096,
-    temperature: 1.0,
-    memoryRounds: 6,
-    apiType: AiApiType.openai,
-    apiKeyStorageKey: 'ai_builtin_api_key_zhipu',
-    statusLabel: 'GLM',
-    badgeLabels: ['智谱', '国产'],
-  ),
-];
-
+  id: 'builtin_zhipu_glm',
+  name: '智谱清言',
+  apiUrl: 'https://open.bigmodel.cn/api/paas/v4',
+  moduleName: 'glm-4-flash', // 或“glm-4”等智谱模型名都可以
+  maxToken: 4096,
+  temperature: 1.0,
+  memoryRounds: 6,
+  apiType: AiApiType.openai, // 这里用 openai 兼容模式，别随意写 zhipu
+  apiKeyStorageKey: 'ai_builtin_api_key_zhipu',
+  statusLabel: 'GLM',
+  badgeLabels: ['智谱', '国产'],
+  supportsPadiOptions: true, // 需要支持下拉模型参数时建议设为 true
+),
 BuiltinAiConfigSpec get defaultBuiltinAiConfigSpec =>
     builtinAiConfigSpecs.first;
 
