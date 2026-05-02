@@ -87,7 +87,7 @@ const List<BuiltinAiConfigSpec> builtinAiConfigSpecs = [
   BuiltinAiConfigSpec(
     id: 'builtin_zhipu_glm',
     name: '智谱清言',
-    apiUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    apiUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
     moduleName: 'glm-4-flash',
     maxToken: 4096,
     temperature: 1.0,
